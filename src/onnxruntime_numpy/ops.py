@@ -6,7 +6,8 @@ from .ops_utils import (unary_operator, binary_operator, nary_operator,
                         concatenate_shapes, types_match_exactly,
                         initializer_operator, initializer_operator_from_shape,
                         reduction_axis, output_shape_from_einsum,
-                        output_type, allow_broadcasting)
+                        output_type, allow_broadcasting, array_is_square_matrix,
+                        determinant_output_shape)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
                     unsigned_integer_types)
@@ -298,6 +299,10 @@ def det(x: "array.Array"):
     # TODO: add output shape inference
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
+    @array_is_square_matrix
+    @output_checks_and_inference(
+        determinant_output_shape
+    )
     def det_helper(x):
         return unary_operator(x, "Det")
     return det_helper(x)

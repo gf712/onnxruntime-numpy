@@ -174,6 +174,19 @@ def check_input_shape_matmul(func):
     return wrapper_check_input_shape_matmul
 
 
+def array_is_square_matrix(func):
+    def wrapper_array_is_square_matrix(*array_objs_and_inputs, **kwargs):
+        input_shape = array_objs_and_inputs[0].shape
+        if len(input_shape) < 2:
+            raise ValueError("1-dimensional array given. Array must be at least two-dimensional")
+        else:
+            m, n = input_shape[-2:]
+            if m != n and m < 2:
+                raise ValueError("Last 2 dimensions of the array must be square")
+        return func(*array_objs_and_inputs, **kwargs)
+    return wrapper_array_is_square_matrix
+
+
 def output_type_is_argn_position(arg_position):
     def wrapper_output_type_is_arg_position(return_array, *input_arrays_and_args, **kwargs):
         return_array._dtype = input_arrays_and_args[arg_position]
@@ -330,7 +343,6 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
         max_array_shape = max(map(lambda a: len(a), array_shapes))
         prepend_ones_to_shape = lambda s, n: (*(1,)*n, *s) 
         array_shapes = [prepend_ones_to_shape(a, max_array_shape - len(a)) if len(a) < max_array_shape else a for a in array_shapes]
-        print(array_shapes)
         shape = ()
         for idx, dims_at_idx in enumerate(zip(*array_shapes)):
             s0 = dims_at_idx[0]
@@ -343,6 +355,15 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
             shape = (*shape, max(s_set))
 
     return_array._dims = shape
+
+
+def determinant_output_shape(return_array, *input_arrays_and_args, **kwargs):
+    input_shape = input_arrays_and_args[0].shape
+    if len(input_shape) == 2:
+        return_array._dims = ()
+    else:
+        # we know at this point that the array is valid
+        return_array._dims = input_shape[:-2]
 
 
 def output_checks_and_inference(*output_checks):
