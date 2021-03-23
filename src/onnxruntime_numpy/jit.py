@@ -1,7 +1,9 @@
 from . import array
 from .evaluator import LazyEvaluator
 from .types import onnx_to_numpy
+from .onnx_utils import make_onnx_tensor_value_info
 
+import onnxoptimizer
 import onnx
 import numpy as np
 
@@ -29,16 +31,23 @@ class OpTracker:
     def __init__(self, *t_args, **t_kwargs):
         self._original_evaluators = [a._evaluator for a in t_args]
         self._original_evaluators += [a._evaluator for a in t_kwargs.values()]
+        self._lazy_tensors = set()
         # this is a "tracker array"
         # we just want to know what ops were added from here on
+        # this means that the array has the same shape/dtype/name as the original array
+        # but it has its own evaluator (that will start empty)
         self._op_t_args = []
         for tensor in t_args:
+            if tensor._ort_value is None:
+                self._lazy_tensors.add(tensor._internal_name)
             mock_tensor = array.Array(
                 dims=tensor.shape, dtype=tensor.dtype, internal_name=tensor._internal_name)
             self._op_t_args.append(mock_tensor)
 
         self._op_t_kwargs = {}
         for kw, tensor in t_kwargs.items():
+            if tensor._ort_value is None:
+                self._lazy_tensors.add(tensor._internal_name)
             mock_tensor = array.Array(
                 dims=tensor.shape, dtype=tensor.dtype, internal_name=tensor._internal_name)
             self._op_t_kwargs[kw] = mock_tensor
@@ -49,11 +58,29 @@ class OpTracker:
         if self._graph is not None:
             raise ValueError("Can only track a function call once")
         mock_array = func(*self._op_t_args, **self._op_t_kwargs)
+        if not isinstance(mock_array, array.Array):
+            raise NotImplementedError(
+                "Tracing only possible with functions with a single output of type array.Array")
         self._graph = onnx.GraphProto()
         self._graph.CopyFrom(mock_array._evaluator._graph)
+        self._graph.output.append(
+            make_onnx_tensor_value_info(mock_array)
+        )
+        inputs_ = list(self._graph.input)
+        outputs_ = list(self._graph.output)
+        nodes_ = list(self._graph.node)
         # the mock_array becomes the actual array
         # after merging all the input evaluators
         merge_array_evaluators(mock_array._evaluator, *self._original_evaluators)
+
+        for idx, input in enumerate(mock_array._evaluator._graph.input):
+            # not an actual input
+            if input.name in self._lazy_tensors:
+                mock_array._evaluator._graph.input.pop(idx)
+
+        inputs = list(mock_array._evaluator._graph.input)
+        outputs = list(mock_array._evaluator._graph.output)
+        nodes = list(mock_array._evaluator._graph.node)
 
         return mock_array
 
@@ -85,53 +112,143 @@ class TypeShapeID:
         seed = hash_combine(seed, self._shape)
         return seed
 
+    def __eq__(self, other: "TypeShapeID") -> bool:
+        if self._dtype != other._dtype:
+            return False
+        if self._shape != other._shape:
+            return False
+        return True
+
+
+class GraphSignature:
+    def __init__(self, inputs_type_shape_id):  # , outputs):
+        self._inputs = inputs_type_shape_id
+        # self._outputs = outputs
+        # this type should be treated as immutable, so can compute the hash once
+        self._hash = self._hash_function()
+
+    def _hash_function(self):
+        seed = 0
+        for input in self._inputs:
+            seed = hash_combine(seed, input)
+
+        # for output in self._outputs:
+        #     seed = hash_combine(seed, output)
+
+        return seed
+
+    def __repr__(self) -> str:
+        return f"{[(t._shape, t._dtype) for t in self._inputs]}"
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: "GraphSignature") -> bool:
+        return hash(self) == hash(other)
+
+
+class JitFunctionSignature:
+    def __init__(self, function: Callable, graph_signature: GraphSignature):
+        self._function = function
+        self._graph_signature = graph_signature
+        # this type should be treated as immutable, so can compute the hash once
+        self._hash = self._hash_function()
+
+    def _hash_function(self):
+        seed = 0
+        seed = hash_combine(seed, self._function)
+        seed = hash_combine(seed, self._graph_signature)
+
+        return seed
+
+    def __repr__(self):
+        return f"JitFunctionSignature({self._function}, {self._graph_signature}, {self._hash})"
+
+    def __hash__(self) -> int:
+        return self._hash
+
+    def __eq__(self, other: "JitFunctionSignature") -> bool:
+        return hash(self) == hash(other)
+
 
 class OptimizedGraph:
-    def __init__(self, graph: onnx.GraphProto):
-        self._graph = graph
-        self._inputs = {}
-        for input in self._graph.input:
-            tensor_type_proto = input.type.tensor_type
-            tensor_shape_proto = tensor_type_proto.shape
-            dtype = onnx_to_numpy(tensor_type_proto.elem_type)
-            shape = tuple(s.dim_value for s in tensor_type_proto.shape.dim)
-            self._inputs[input.name] = TypeShapeID(dtype, shape)
+    def __init__(self, graph: onnx.GraphProto, *normalized_tensors):
+        m = onnx.helper.make_model(graph)
+        optimized_graph = onnxoptimizer.optimize(
+            m, passes=["fuse_matmul_add_bias_into_gemm"]).graph
 
-        self._nodes_connect_to_input = defaultdict(list)
-        
-        for node in self._graph.node:
-            inputs = [n.name for n in node.input]
-            for input_name in self._input.keys():
-                input_indices = [input_idx for input_idx, n in enumerate(inputs) if n == input_name]
-                for idx in input_indices:
-                    self._nodes_connect_to_input[inputs].append((node, idx))
-
-    def input_names(self):
-        return self._inputs.keys()
-
-    def input_to_nodes_map(self):
-        return self._nodes_connect_to_input
-
-    def build_graph_for_tensors(self, tensors_map: Dict[str, "array.Array"]):
-        if len(tensors_map) != len(self._inputs):
+        self._graph = optimized_graph
+        if len(self._graph.input) != len(normalized_tensors):
             raise ValueError(
-                f"This graph has {len(self._inputs)} inputs, but {len(tensors_map)} were provided")
-        new_input_names = {}
-        for key_binding, t in tensors_map.items():
-            if key_binding in self._inputs:
-                type_shape_id = TypeShapeID(t.dtype, t.shape)
-                if type_shape_id == self._inputs[key_binding]:
-                    # build the map to update the graph
-                    new_input_names[self._inputs[type_shape_id]] = t._internal_name
-            else:
-                # if one of the input types/shape does not match
-                # we can't reuse this graph
-                return None
-            
-        graph = onnx.GraphProto()
+                f"OptimizedGraph expected {len(self._graph.input)} inputs, but got {len(normalized_tensors)}")
+        self._tensor_input_mapping = [None] * len(normalized_tensors)
+        self._tensor_node_mapping = [[] for _ in range(len(normalized_tensors))]
+
+        self._outputs = set()
+        self._call_count = 0
+
+        # map normalized_tensors to graph inputs
+        for idx, t in enumerate(normalized_tensors):
+            for input_node_idx, input_node in enumerate(self._graph.input):
+                if t._internal_name == input_node.name:
+                    self._tensor_input_mapping[idx] = input_node_idx
+
+        for node_idx, node in enumerate(self._graph.node):
+            node_input_names = [n for n in node.input]
+            for t_idx, t in enumerate(normalized_tensors):
+                input_indices = [input_idx for input_idx,
+                                 n in enumerate(node_input_names) if n == t._internal_name]
+                for idx in input_indices:
+                    node_input_idx_pair = (node_idx, idx)
+                    self._tensor_node_mapping[t_idx].append(node_input_idx_pair)
+
+        self._output_type_shape_info = []
+        for output in self._graph.output:
+            self._outputs.add(output.name)
+            tensor_type = output.type.tensor_type
+            dtype = onnx_to_numpy(tensor_type.elem_type)
+            shape = [s.dim_value for s in tensor_type.shape.dim]
+            self._output_type_shape_info.append(TypeShapeID(dtype, shape))
+
+    def get_output_type_shape_info(self):
+        return self._output_type_shape_info
+
+    def build_graph_for_tensors(self, *tensors: array.Array):
+        if len(tensors) != len(self._tensor_input_mapping):
+            raise ValueError(
+                f"This graph has {len(self._inputs)} inputs, but {len(tensors)} were provided")
+
+        graph = onnx.GraphProto(
+            name=f"Generated_graph_from_{self._graph.name}_{self._call_count}")
         graph.CopyFrom(self._graph)
-        for input in graph.input:
-            input.name = new_input_names[input.name]
+
+        for t_idx, t in enumerate(tensors):
+            input_idx = self._tensor_input_mapping[t_idx]
+            graph.input[input_idx].name = t._internal_name
+
+            input_node_indices = self._tensor_node_mapping[t_idx]
+            for node_idx, node_input_idx in input_node_indices:
+                graph.node[node_idx].input[node_input_idx] = t._internal_name
+
+        old_outputs = {}
+        for node in graph.node:
+            for output in node.output:
+                if output not in old_outputs:
+                    old_outputs[output] = str(uuid.uuid4())
+
+        for node in graph.node:
+            for idx, input in enumerate(node.input):
+                if input in old_outputs:
+                    node.input[idx] = old_outputs[input]
+            for idx, output in enumerate(node.output):
+                if output in old_outputs:
+                    node.output[idx] = old_outputs[output]
+
+        for idx, o in enumerate(graph.output):
+            if o.name in old_outputs:
+                graph.output[idx].name = old_outputs[output]
+
+        self._call_count += 1
         return graph
 
 
@@ -151,54 +268,67 @@ class MapFnArgsToInput:
     def bind_kwarg(self, kwarg_name, input_name):
         self._map_fn_parameters_to_graph_inputs[kwarg_name] = input_name
 
-    def adapt_graph_to_tensor_inputs(self, graph: OptimizedGraph, *tensors, **tensors_map):
-        tensor_map = {}
-        for arg_position, tensor in enumerate(tensors):
-            arg_name = self.get_arg_name_at_pos(arg_position)
-            original_tensor_name = self._map_fn_parameters_to_graph_inputs[arg_name]
-            for input_node_name in graph.input_names():
-                if input_node_name == original_tensor_name:
-                    tensor_map[input_node_name] = tensor
-                    break
-                # nodes_and_input_index = input_to_nodes_map[original_tensor_name]
-                # for (node, input_index) in nodes_and_input_index:
-                #     for original_node in graph._graph.node:
-                #         if node == original_node:
+    def normalize_function_inputs(self, *tensors, **tensors_map):
+        normalized_input = [None] * len(self._fn_signature.parameters)
+        parameters = self._fn_signature.parameters
 
-            
-            # for node in graph.node:
-            #     if original_tensor_name in 
-            #     for node_input in node.input:
-            #         if original_tensor_name == node_input:
-            #             input_idx = list(node.input).index(original_tensor_name)
-            #             node.input[input_idx] = tensor._internal_name
+        for arg_position, tensor in enumerate(tensors):
+            normalized_input[arg_position] = tensor
 
         for kwarg_name, tensor in tensors_map.items():
-            original_tensor_name = self._map_fn_parameters_to_graph_inputs[kwarg_name]
-            for input_node_name in graph.input_names():
-                if input_node_name == original_tensor_name:
-                    tensor_map[input_node_name] = tensor
+            for idx, (k, v) in enumerate(parameters.items()):
+                if kwarg_name == k:
+                    normalized_input[idx] = tensor
                     break
-            # for node in graph.node:
-            #     for node_input in node.input:
-            #         if original_tensor_name == node_input:
-            #             input_idx = list(node.input).index(original_tensor_name)
-            #             node.input[input_idx] = tensor._internal_name
-        return graph.build_graph_for_tensors(tensor_map)
 
-    # def build_input_map(self, *tensors, **tensors_map):
-    #     inputs = {}
-    #     for arg_position, tensor in enumerate(tensors):
-    #         arg_name = self.get_arg_name_at_pos(arg_position)
-    #         inputs[self._map_fn_parameters_to_graph_inputs[arg_name]] = tensor
+        if any(map(lambda el: el is None, normalized_input)):
+            raise ValueError("Not all tensors were mapped to function input.")
 
-    #     for kwarg_name, tensor in tensors_map.items():
-    #         inputs[self._map_fn_parameters_to_graph_inputs[kwarg_name]] = tensor
-
-    #     return inputs
+        return normalized_input
 
 
+def generate_graph_flow(func, *array_objs, **array_obj_kwargs):
+    graph = onnx.GraphProto(name=f"JIT_graph_{uuid.uuid4()}")
+
+    with OpTrackerContext(graph, *array_objs, **array_obj_kwargs) as tracker:
+        result_array = tracker.track_function_call(func)
+
+    if isinstance(result_array, tuple) or result_array is None:
+        raise ValueError(
+            "Jit only supports functions with a single return array")
+    if not isinstance(result_array, array.Array):
+        raise TypeError("Jit only supports Array object as a return value")
+
+    fn_to_graph_input_map = MapFnArgsToInput(inspect.signature(func))
+    for idx, tensor in enumerate(array_objs):
+        fn_to_graph_input_map.bind_arg(idx, tensor._internal_name)
+
+    for argname, tensor in array_obj_kwargs.items():
+        fn_to_graph_input_map.bind_kwarg(argname, tensor._internal_name)
+
+    return graph, fn_to_graph_input_map, result_array
+
+
+global_function_signature_cache = {}
 global_function_graph_cache = {}
+
+
+def generate_cached_graph(func, *array_objs, **array_obj_kwargs):
+    graph, fn_to_graph_input_map, result_array = generate_graph_flow(
+        func, *array_objs, **array_obj_kwargs)
+    global_function_signature_cache[func] = fn_to_graph_input_map
+
+    normalized_tensors = fn_to_graph_input_map.normalize_function_inputs(
+        *array_objs, **array_obj_kwargs)
+    inputs_type_shape_id = [TypeShapeID(t.dtype, t.shape) for t in normalized_tensors]
+
+    # TODO: add graph optimisation before caching graph
+    optimized_graph = OptimizedGraph(graph, *normalized_tensors)
+    graph_signature = GraphSignature(inputs_type_shape_id)
+    signature = JitFunctionSignature(func, graph_signature)
+
+    global_function_graph_cache[signature] = optimized_graph
+    return result_array
 
 
 def jit(func):  # Callable[[IterableType[array.Array]], array.Array]
@@ -208,43 +338,58 @@ def jit(func):  # Callable[[IterableType[array.Array]], array.Array]
            any(map(lambda a: not isinstance(a, array.Array), array_obj_kwargs.values())):
             raise TypeError("Jit is currently only support with Array objects")
 
-        if func not in global_function_graph_cache:
-
-            graph = onnx.GraphProto(name=f"JIT_graph_{uuid.uuid4()}")
-
-            with OpTrackerContext(graph, *array_objs, **array_obj_kwargs) as tracker:
-                result_array = tracker.track_function_call(func)
-
-            if isinstance(result_array, tuple) or result_array is None:
-                raise ValueError(
-                    "Jit only supports functions with a single return array")
-            if not isinstance(result_array, array.Array):
-                raise TypeError("Jit only supports Array object as a return value")
-
-            fn_to_graph_input_map = MapFnArgsToInput(inspect.signature(func))
-            for idx, tensor in enumerate(array_objs):
-                fn_to_graph_input_map.bind_arg(idx, tensor._internal_name)
-
-            for argname, tensor in array_obj_kwargs.items():
-                fn_to_graph_input_map.bind_kwarg(argname, tensor._internal_name)
-
-            # TODO: add graph optimisation before caching graph
-
-            global_function_graph_cache[func] = (OptimizedGraph(graph), fn_to_graph_input_map,
-                                                 result_array.shape, result_array.dtype)
+        if func not in global_function_signature_cache:
+            result_array = generate_cached_graph(func, *array_objs, **array_obj_kwargs)
         else:
-            graph, fn_to_graph_input_map, output_shape, output_dtype = global_function_graph_cache[
-                func]
+            fn_to_graph_input_map = global_function_signature_cache[func]
+            normalized_tensors = fn_to_graph_input_map.normalize_function_inputs(
+                *array_objs, **array_obj_kwargs)
+            inputs_type_shape_id = [TypeShapeID(t.dtype, t.shape)
+                                    for t in normalized_tensors]
+            signature = JitFunctionSignature(func, GraphSignature(inputs_type_shape_id))
 
-            fn_to_graph_input_map.adapt_graph_to_tensor_inputs(
-                graph, *array_objs, **array_obj_kwargs
-            )
-            input_evaluators = [t._evaluator for t in array_objs]
-            input_evaluators += [t._evaluator for k, t in array_obj_kwargs.items()]
+            if signature in global_function_graph_cache:
+                cached_graph = global_function_graph_cache[signature]
 
-            result_array = array.Array(dims=output_shape, dtype=output_dtype)
-            result_array._evaluator.add_subgraph(graph)
-            merge_array_evaluators(result_array._evaluator, *input_evaluators)
+                graph = cached_graph.build_graph_for_tensors(*normalized_tensors)
+
+                input_evaluators = [t._evaluator for t in array_objs]
+                input_evaluators += [t._evaluator for k, t in array_obj_kwargs.items()]
+
+                if len(graph.output) != 1:
+                    raise NotImplementedError(
+                        "Currently JIT only supports single output graphs")
+                else:
+                    graph_output_name = graph.output[0].name
+                    # we can remove output from the graph
+                    # since the array will track it
+                    graph.output.pop(0)
+
+                    # get output dtype and shape
+                    type_shape_info = cached_graph.get_output_type_shape_info()[0]
+                    output_shape = tuple(type_shape_info._shape)
+                    output_dtype = type_shape_info._dtype
+
+                lazy_tensors = set(t._internal_name for t in normalized_tensors if t._ort_value is None)
+
+                for idx, input in enumerate(graph.input):
+                    # not an actual input
+                    if input.name in lazy_tensors:
+                        graph.input.pop(idx)
+
+                evaluator = LazyEvaluator()
+                evaluator.add_subgraph(graph)
+
+                result_array = array.Array(
+                    dims=output_shape, dtype=output_dtype, internal_name=graph_output_name, evaluator=evaluator)
+                merge_array_evaluators(result_array._evaluator, *input_evaluators)
+
+            else:
+                # this is a cache miss because the function now takes a new parameter dtype/shape combination
+                # so we generate a new cached graph for this unseen combination
+                result_array = generate_cached_graph(
+                    func, *array_objs, **array_obj_kwargs)
+
         return result_array
 
     return wrapper_jit

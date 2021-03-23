@@ -7,6 +7,7 @@ from .types import numpy_to_onnx, numpy_to_ort, ort_to_numpy
 from .shapes import shapes_match
 import uuid
 
+from onnxruntime.capi import _pybind_state as C
 
 def flatten(vals, dtype) -> List[Any]:
     # TODO: implement this without numpy
@@ -94,7 +95,19 @@ class LazyEvaluator:
             self._graph = graph
         else:
             if graph.name not in self._graph_names:
-                self._graph.MergeFrom(graph)
+                # only merge inputs and outputs since these must be unique
+                for input in graph.input:
+                    if input not in self._graph.input:
+                        self._graph.input.append(input)
+                for initializer in graph.initializer:
+                    if initializer not in self._graph.initializer:
+                        self._graph.initializer.append(initializer)
+                for output in graph.output:
+                    if output not in self._graph.output:
+                        self._graph.output.append(output)
+                self._graph.node.MergeFrom(graph.node)
+
+                # self._graph.MergeFrom(graph)
                 self._graph_names.add(graph.name)
 
     def merge(self, other: "LazyEvaluator"):
@@ -125,12 +138,20 @@ class LazyEvaluator:
         feeds = self._input_values
         output_names = [output_name]
 
-        # inputs = list(self._graph.input)
-        # outputs = list(self._graph.output)
-        # nodes = list(self._graph.node)
+        inputs = list(self._graph.input)
+        outputs = list(self._graph.output)
+        nodes = list(self._graph.node)
 
         # TODO: how to handle multiple return values?
-        session = onnxruntime.InferenceSession(buffer)
+        try:
+            # TODO: maybe disable optimisations when graph has already been optimised with jit?
+            # session_options = C.get_default_session_options()
+            # session_options.graph_optimization_level = session_options.graph_optimization_level.ORT_DISABLE_ALL
+            # session = onnxruntime.InferenceSession(buffer, sess_options=session_options)
+            session = onnxruntime.InferenceSession(buffer)
+        except:
+            onnx.save_model(m, "failed_model.onnx")
+            raise
         io_binding = session.io_binding()
 
         for input_name, ortvalue in self._input_values.items():

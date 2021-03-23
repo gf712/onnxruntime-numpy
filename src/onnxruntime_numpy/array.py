@@ -99,8 +99,8 @@ class Array:
     def __eq__(self, other: "Array") -> "Array":
         return ops.equal(self, other)
 
-    def __repr__(self) -> str:
-        return self.numpy().__repr__()
+    # def __repr__(self) -> str:
+    #     return self.numpy().__repr__()
 
     def __iter__(self) -> Any:
         self._eval()
