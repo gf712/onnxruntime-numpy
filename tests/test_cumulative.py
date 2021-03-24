@@ -2,6 +2,7 @@ import onnxruntime_numpy as onp
 from onnxruntime_numpy.types import float_types
 import numpy as np
 import pytest
+from .utils import expect
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -13,7 +14,7 @@ def test_cumsum_1d(type_a):
 
     result = onp.cumsum(x, axis)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -25,7 +26,7 @@ def test_cumsum_1d_exclusive(type_a):
 
     result = onp.cumsum(x, axis, exclusive=True)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -37,7 +38,7 @@ def test_cumsum_1d_reverse(type_a):
 
     result = onp.cumsum(x, axis, reverse=True)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -49,7 +50,7 @@ def test_cumsum_1d_reverse_exclusive(type_a):
 
     result = onp.cumsum(x, axis, reverse=True, exclusive=True)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -63,7 +64,7 @@ def test_cumsum_2d_axis_0(type_a):
 
     result = onp.cumsum(x, axis)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -77,7 +78,7 @@ def test_cumsum_2d_axis_1(type_a):
 
     result = onp.cumsum(x, axis)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -91,4 +92,4 @@ def test_cumsum_2d_negative_axis(type_a):
 
     result = onp.cumsum(x, axis)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())

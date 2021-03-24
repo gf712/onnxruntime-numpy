@@ -7,7 +7,8 @@ from .ops_utils import (unary_operator, binary_operator, nary_operator,
                         initializer_operator, initializer_operator_from_shape,
                         reduction_axis, output_shape_from_einsum,
                         output_type, allow_broadcasting, array_is_square_matrix,
-                        determinant_output_shape)
+                        determinant_output_shape, broadcast_to,
+                        flatten_shape, gather_check)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
                     unsigned_integer_types)
@@ -340,3 +341,97 @@ def equal(x, y):
         return binary_operator(x, y, "Equal")
 
     return equal_helper(x, y)
+
+
+def erf(x):
+    @not_implemented_types([*integer_types, np.float64])
+    @allowed_types(numeric_types)
+    def erf_helper(x):
+        return unary_operator(x, "Erf")
+
+    return erf_helper(x)
+
+
+def exp(x):
+    @allowed_types(float_types)
+    def exp_helper(x):
+        return unary_operator(x, "Exp")
+
+    return exp_helper(x)
+
+
+def expand(x, shape):
+    # we have to evaluate the graph here (if necessary)
+    numpy_array_shape = shape.numpy()
+    if (len(numpy_array_shape.shape) != 1):
+        raise ValueError("Shape must be a 1D tensor")
+
+    @allowed_types(all_types, [np.int64])
+    @output_checks_and_inference(
+        broadcast_to(tuple(int(el) for el in numpy_array_shape))
+    )
+    def expand_helper(x, shape):
+        return nary_operator("Expand", x, shape)
+
+    return expand_helper(x, shape)
+
+
+def eye_like(x: "array.Array", dtype: np.dtype = None, k=0):
+
+    if x.ndims != 2:
+        raise ValueError("Tensor must be 2D")
+
+    if dtype is None:
+        dtype = x.dtype
+    if dtype not in all_types:
+        raise TypeError(
+            f"Output type {dtype} not supported. Supported types are {all_types}")
+    if dtype not in [*float_types, np.uint64, np.int32, np.int64]:
+        raise NotImplementedError(f"Output type {dtype} currently not implemented")
+
+    @allowed_types(all_types)
+    @not_implemented_types([np.int8, np.int16, np.uint8, np.uint16, np.uint32, np.bool_])
+    @output_checks_and_inference(
+        output_type(dtype)
+    )
+    def eye_like_helper(x: "array.Array", dtype: int, k: int):
+        return unary_operator(x, "EyeLike", dtype=dtype, k=k)
+
+    return eye_like_helper(x, dtype=numpy_to_onnx(np.dtype(dtype)), k=int(k))
+
+
+def flatten(x: "Array.array", axis: int = 1):
+
+    @allowed_types(all_types)
+    @output_checks_and_inference(
+        flatten_shape(int(axis))
+    )
+    def flatten_helper(x: "Array.array", axis: int):
+        return unary_operator(x, "Flatten", axis=axis)
+
+    return flatten_helper(x, axis=int(axis))
+
+
+def floor(x: "array.Array"):
+    @allowed_types(float_types)
+    def floor_helper(x: "array.Array"):
+        return unary_operator(x, "Floor")
+    return floor_helper(x)
+
+
+def gru(x: "array.Array", w: "array.Array", r: "array.Array", b: "array.Array", sequence_length: "array.Array", initial_h: "array.Array",
+        hidden_size: int, activation_alpha: List[float] = None, activation_beta: List[float] = None, activations: List[str] = None, clip: float = 0.0,
+        direction: str = "forward", layout: int = 0, linear_before_reset: bool = False):
+    raise NotImplementedError()
+
+
+def gather(x: "array.Array", indices: "array.Array", axis: int = 0):
+
+    @allowed_types(all_types, [np.int32, np.int64])
+    @output_checks_and_inference(
+        gather_check(int(axis))
+    )
+    def gather_helper(x: "array.Array", indices: "array.Array", axis: int):
+        return nary_operator("Gather", x, indices, axis=axis)
+
+    return gather_helper(x, indices, axis=int(axis))

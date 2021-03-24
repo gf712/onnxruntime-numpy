@@ -5,8 +5,10 @@ from . import ops
 from .einsum_helper import einsum_parse_and_resolve_equation
 from .types import is_float, is_integer, is_bool, onnx_to_numpy
 import functools
-from typing import Any
+from typing import Any, Tuple
 import numpy as np
+from functools import reduce
+import operator
 
 STRICT_MODE = True
 
@@ -178,7 +180,8 @@ def array_is_square_matrix(func):
     def wrapper_array_is_square_matrix(*array_objs_and_inputs, **kwargs):
         input_shape = array_objs_and_inputs[0].shape
         if len(input_shape) < 2:
-            raise ValueError("1-dimensional array given. Array must be at least two-dimensional")
+            raise ValueError(
+                "1-dimensional array given. Array must be at least two-dimensional")
         else:
             m, n = input_shape[-2:]
             if m != n and m < 2:
@@ -325,7 +328,7 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
         # no broadcasting needed
         shape = array_shapes[0]
     elif all(map(lambda a: len(a) == len(array_shapes[0]), array_shapes)):
-        # The tensors all have the same number of dimensions and the length of each 
+        # The tensors all have the same number of dimensions and the length of each
         # dimensions is either a common length or 1.
         shape = ()
         for idx, dims_at_idx in enumerate(zip(*array_shapes)):
@@ -333,23 +336,26 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
             s_set = set()
             for s in dims_at_idx:
                 if s != s0 and s != 1:
-                    raise ValueError(f"Broadcasting not possible with shapes {array_shapes}")
+                    raise ValueError(
+                        f"Broadcasting not possible with shapes {array_shapes}")
                 else:
                     s_set.add(s)
             shape = (*shape, max(s_set))
     else:
-        # The tensors that have too few dimensions can have their shapes 
+        # The tensors that have too few dimensions can have their shapes
         # prepended with a dimension of length 1 to satisfy property 2.
         max_array_shape = max(map(lambda a: len(a), array_shapes))
-        prepend_ones_to_shape = lambda s, n: (*(1,)*n, *s) 
-        array_shapes = [prepend_ones_to_shape(a, max_array_shape - len(a)) if len(a) < max_array_shape else a for a in array_shapes]
+        def prepend_ones_to_shape(s, n): return (*(1,)*n, *s)
+        array_shapes = [prepend_ones_to_shape(
+            a, max_array_shape - len(a)) if len(a) < max_array_shape else a for a in array_shapes]
         shape = ()
         for idx, dims_at_idx in enumerate(zip(*array_shapes)):
             s0 = dims_at_idx[0]
             s_set = set()
             for s in dims_at_idx:
                 if s != s0 and s != 1:
-                    raise ValueError(f"Broadcasting not possible with shapes {array_shapes}")
+                    raise ValueError(
+                        f"Broadcasting not possible with shapes {array_shapes}")
                 else:
                     s_set.add(s)
             shape = (*shape, max(s_set))
@@ -366,9 +372,69 @@ def determinant_output_shape(return_array, *input_arrays_and_args, **kwargs):
         return_array._dims = input_shape[:-2]
 
 
+def broadcast_to(shape: Tuple[int]):
+    def wrapper_broadcast_to(return_array, *input_arrays_and_args, **kwargs):
+        input_array_shape = input_arrays_and_args[0].shape
+        for s1, s2 in zip(reversed(shape), reversed(input_array_shape)):
+            if s1 != s2 and (1 not in [s1, s2]):
+                raise ValueError(
+                    f"Can not broadcast array with shape {input_array_shape} to {shape}")
+
+        return_array._dims = shape
+
+    return wrapper_broadcast_to
+
+
+def flatten_shape(axis: int):
+    def wrapper_flatten_shape(return_array, *input_arrays_and_args, **kwargs):
+        array_shape = input_arrays_and_args[0].shape
+        if axis < -len(array_shape) or axis > len(array_shape) - 1:
+            raise ValueError(
+                f"Axis must be in the range [-{len(array_shape)}, {len(array_shape)-1}]")
+
+        def merge_axis(s): return reduce(operator.mul, s, 1)
+
+        if axis == 0:
+            output_shape = (1, merge_axis(array_shape))
+        else:
+            a = len(array_shape) + axis if axis < 0 else axis
+            output_shape = (merge_axis(array_shape[:a]), merge_axis(array_shape[a:]))
+
+        return_array._dims = output_shape
+
+    return wrapper_flatten_shape
+
+
+def gather_check(axis_: int):
+    def wrapper_gather_check(return_array, *input_arrays_and_args, **kwargs):
+        x = input_arrays_and_args[0]
+        x_shape = x.shape
+        indices = input_arrays_and_args[1]
+
+        if x.ndims == 0:
+            raise ValueError(f"Array cannot be a scalar")
+
+        if axis_ < -len(x_shape) or axis_ > len(x_shape) - 1:
+            raise ValueError(
+                f"Axis must be in the range [-{len(x_shape)}, {len(x_shape)-1}]")
+        axis = len(x_shape) + axis_ if axis_ < 0 else axis_
+
+
+        if indices._ort_value is not None:
+            # TODO: in this case we can perform a check of input values
+            # it would be possible to force evaluation, but it might not be worth it?
+            pass
+
+        output_shape = (*x_shape[:axis], *indices.shape, *x_shape[axis+1:])
+            
+        return_array._dims = output_shape
+
+    return wrapper_gather_check
+
+
 def output_checks_and_inference(*output_checks):
     def decorator(func):
-        @functools.wraps(func)
+        @ functools.wraps(func)
         def wrapper_output_checks_and_inference(*input_arrays_and_args, **kwargs):
             return_array = func(*input_arrays_and_args, **kwargs)
             for output_check in output_checks:

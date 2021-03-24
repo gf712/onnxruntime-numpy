@@ -2,6 +2,7 @@ import onnxruntime_numpy as onp
 from onnxruntime_numpy.types import float_types
 import numpy as np
 import pytest
+from .utils import expect
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -14,7 +15,7 @@ def test_einsum_batch_diagonal(type_a):
 
     result = onp.einsum(x, equation=equation)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -29,7 +30,7 @@ def test_einsum_batch_matmul(type_a):
 
     result = onp.einsum(x, y, equation=equation)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 def test_einsum_inner_prod(type_a):
@@ -37,11 +38,11 @@ def test_einsum_inner_prod(type_a):
     y = onp.array([1,2,3,4,5], dtype=type_a)
 
     equation = "i,i"
-    expected = onp.array([55], dtype=type_a)
+    expected = onp.array(55, dtype=type_a)
 
     result = onp.einsum(x, y, equation=equation)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 def test_einsum_sum(type_a):
@@ -52,7 +53,7 @@ def test_einsum_sum(type_a):
 
     result = onp.einsum(x, equation=equation)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -64,4 +65,4 @@ def test_einsum_transpose(type_a):
 
     result = onp.einsum(x, equation=equation)
 
-    assert np.allclose(result.numpy(), expected.numpy())
+    expect(result.numpy(), expected.numpy())

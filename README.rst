@@ -5,7 +5,7 @@ onnxruntime_numpy
    :alt: onnxruntime-numpy main branch build status
    :target: https://dev.azure.com/OnnxruntimeNumpy/onnxruntime_numpy/_build?definitionId=1
 
-Numpy API with using `onnxruntime <https://github.com/microsoft/onnxruntime/>`_ as a backend.
+Numpy API with `onnxruntime <https://github.com/microsoft/onnxruntime/>`_ backend.
 
 
 Description

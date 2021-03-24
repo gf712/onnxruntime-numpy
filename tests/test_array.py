@@ -18,7 +18,7 @@ def test_array_type_deduction_float():
 
 def test_array_type_deduction_bool():
     a = onp.array([True])
-    assert(a.dtype == np.bool)
+    assert(a.dtype == np.bool_)
     nested = onp.array([[[[True], [True]], [[False], [False]]],
                         [[[True], [True]], [[True], [False]]]])
-    assert(nested.dtype == np.bool)
+    assert(nested.dtype == np.bool_)
