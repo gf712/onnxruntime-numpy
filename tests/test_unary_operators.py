@@ -316,11 +316,89 @@ def test_flatten_with_default_axis(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", float_types)
+@pytest.mark.parametrize("type_a", [np.float32])
 def test_floor(type_a):
-    x = np.random.randn(3, 4, 5).astype(np.float32)
+    x = np.random.randn(3, 4, 5).astype(type_a)
     expected = np.floor(x)
 
     result = onp.floor(onp.array(x))
 
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_identity(type_a):
+    x = np.array([[[
+        [1, 2],
+        [3, 4],
+    ]]], dtype=type_a)
+
+    expected = x
+
+    result = onp.identity(onp.array(x))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_isinf_infinity(type_a):
+    x = np.array([-1.2, np.nan, np.inf, 2.8, np.NINF, np.inf],
+                 dtype=type_a)
+    expected = np.isinf(x)
+    result = onp.isinf(onp.array(x))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_isinf_negative_infinity_only(type_a):
+    x = np.array([-1.7, np.nan, np.inf, -3.6, np.NINF, np.inf],
+                 dtype=type_a)
+    expected = np.isneginf(x)
+    result = onp.isneginf(onp.array(x))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_isinf_positive_infinity_only(type_a):
+    x = np.array([-1.7, np.nan, np.inf, -3.6, np.NINF, np.inf],
+                 dtype=type_a)
+    expected = np.isposinf(x)
+    result = onp.isposinf(onp.array(x))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_isnan(type_a):
+    x = np.array([3.0, np.nan, 4.0, np.nan], dtype=type_a)
+    expected = np.isnan(x)
+    result = onp.isnan(onp.array(x))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_log(type_a):
+    x = np.array([1, 10], dtype=type_a)
+    expected = np.log(x)
+    result = onp.log(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.exp(np.random.randn(3, 4, 5).astype(type_a))
+    expected = np.log(x)
+    result = onp.log(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_lp_normalization(type_a):
+    x = np.array([1, 10], dtype=type_a)
+    expected = np.array([0.09950372, 0.99503719], dtype=type_a)
+    result = onp.lp_normalization(onp.array(x))
+    expect(expected, result.numpy())
+
+    expected = np.array([0.09090909, 0.90909091], dtype=type_a)
+    result = onp.lp_normalization(onp.array(x), p=1)
     expect(expected, result.numpy())

@@ -16,20 +16,28 @@ STRICT_MODE = True
 def add_node(evaluator, op_type, input_arrays, output_arrays, **attributes):
     attributes = {k: v for k, v in attributes.items() if v is not None}
     evaluator.add_node(op_type,
-                       [i._internal_name for i in input_arrays],
-                       [o._internal_name for o in output_arrays],
+                       [i._internal_name if i is not None else "" for i in input_arrays],
+                       [o._internal_name if o is not None else "" for o in output_arrays],
                        **attributes)
 
 
 def nary_operator(op_name, *arrays, **attributes):
-    if len(arrays) > 0:
-        arrays = list(filter(lambda a: a is not None, arrays))
+    # if len(arrays) > 0:
+    #     arrays = list(filter(lambda a: a is not None, arrays))
     if len(arrays) == 0:
         raise ValueError("")
-    new_evaluator = arrays[0]._evaluator.copy()
-    if len(arrays) > 1:
-        for array_i in arrays[1:]:
-            new_evaluator.merge(array_i._evaluator)
+    if any(map(lambda a: a is not None, arrays)):
+        first_not_none_idx = [idx for idx, a in enumerate(arrays) if a is not None][0]
+        new_evaluator = arrays[first_not_none_idx]._evaluator.copy()
+        if len(arrays) > 1:
+            for array_i in arrays[1:]:
+                if array_i is not None:
+                    new_evaluator.merge(array_i._evaluator)
+    else:
+        # if all inputs are none we create a new evaluator
+        # and the graph starts from here
+        # TODO: is this ever valid in the ONNX standard?
+        new_evaluator = evaluator.LazyEvaluator()
 
     new_array = array.Array(evaluator=new_evaluator)
     add_node(new_evaluator, op_name, arrays, [new_array], **attributes)
@@ -87,7 +95,7 @@ def allowed_types(*expected_types):
         def wrapper_allowed_types(*arrays, **kwargs):
             # type checks
             for idx, (array_obj, dtypes) in enumerate(zip(arrays, expected_types)):
-                if array_obj._dtype not in dtypes:
+                if array_obj is not None and array_obj._dtype not in dtypes:
                     raise ValueError(f"Unexpected type for argument {idx}, got {array_obj.dtype}, "
                                      f"but expected one of {dtypes}!")
             return func(*arrays, **kwargs)
@@ -101,7 +109,7 @@ def not_implemented_types(*expected_types):
         def wrapper_allowed_types(*arrays, **kwargs):
             # type checks
             for idx, (array_obj, dtypes) in enumerate(zip(arrays, expected_types)):
-                if array_obj._dtype in dtypes:
+                if array_obj is not None and array_obj._dtype in dtypes:
                     raise NotImplementedError(
                         f"Operator not implemented for type \"{array_obj.dtype}\" (argument {idx})")
             return func(*arrays, **kwargs)
@@ -113,7 +121,8 @@ def shapes_match_exactly(func):
     def wrapper_shapes_match_exactly(*array_objs, **kwargs):
         shapes = [o.shape for o in array_objs]
         if len(shapes) < 2:
-            raise ValueError(f"Expected at least two arrays, but got {len(shapes)}")
+            return func(*array_objs, **kwargs)
+            # raise ValueError(f"Expected at least two arrays, but got {len(shapes)}")
         if not all(len(o.shape) == len(shapes[0]) for o in array_objs):
             raise ValueError(f"Not all shapes matched {shapes}")
         reference_shape = shapes[0]
@@ -136,7 +145,7 @@ def types_match_exactly(func):
 
 def check_input_shape_matmul(func):
     def wrapper_check_input_shape_matmul(*array_objs_and_inputs, **kwargs):
-        A, B = array_objs_and_inputs
+        A, B = array_objs_and_inputs[:2]
         a_shape = A.shape
         b_shape = B.shape
         if len(a_shape) < 2:
@@ -176,6 +185,55 @@ def check_input_shape_matmul(func):
     return wrapper_check_input_shape_matmul
 
 
+def check_input_shape_gemm(func):
+    def check_input_shape_gemm(*array_objs_and_inputs, **kwargs):
+        A, B, C = array_objs_and_inputs
+        transA = kwargs["transA"]
+        transB = kwargs["transB"]
+        a_shape = tuple(reversed(A.shape)) if transA else A.shape
+        b_shape = tuple(reversed(B.shape)) if transB else B.shape
+        # (n,k),(k,m)->(n,m)
+        n, ka = a_shape
+        kb, m = b_shape
+        if (ka != kb):
+            raise ValueError(
+                f"Shape of A {a_shape} is incompatiable with shape of B {b_shape} (after transposing)")
+
+        # unidirectional broadcasting
+        if C is not None and C.ndims > 0:
+            output_shape = (n, m)
+            c_shape = C.shape
+            # Tensor A and B both have exactly the same shape.
+            if c_shape == output_shape:
+                pass
+            # Tensor A and B all have the same number of dimensions
+            # and the length of each dimensions is either a common
+            # length or B's length is 1.
+            elif len(c_shape) == len(output_shape):
+                for s1, s2 in zip(output_shape, c_shape):
+                    if s1 != s2 and s2 != 1:
+                        raise ValueError(
+                            f"C has incompatible shape {c_shape} with matrix "
+                            f"multiplication result shape {output_shape}")
+            # Tensor B has too few dimensions, and B can have
+            # its shapes prepended with a dimension of length
+            # 1 to satisfy property 2.
+            elif len(c_shape) < len(output_shape):
+                pad = len(output_shape) - len(c_shape)
+                c_shape = (*(1,)*pad, *c_shape)
+                for s1, s2 in zip(output_shape, c_shape):
+                    if s1 != s2 and s2 != 1:
+                        raise ValueError(
+                            f"C has incompatible shape {c_shape} with matrix "
+                            f"multiplication result shape {output_shape}")
+            else:
+                raise ValueError(
+                    f"C has invalid shape {c_shape}")
+
+        return func(*array_objs_and_inputs, **kwargs)
+    return check_input_shape_gemm
+
+
 def array_is_square_matrix(func):
     def wrapper_array_is_square_matrix(*array_objs_and_inputs, **kwargs):
         input_shape = array_objs_and_inputs[0].shape
@@ -209,7 +267,7 @@ def propagate_shape_from_argn_position(arg_position):
 
 def propagate_shape_matmul():
     def wrapper_propagate_shape_matmul(return_array, *input_arrays_and_args, **kwargs):
-        A, B = input_arrays_and_args
+        A, B = input_arrays_and_args[:2]
         a_shape = A.shape
         b_shape = B.shape
         if len(a_shape) < 2:
@@ -419,18 +477,33 @@ def gather_check(axis_: int):
                 f"Axis must be in the range [-{len(x_shape)}, {len(x_shape)-1}]")
         axis = len(x_shape) + axis_ if axis_ < 0 else axis_
 
-
         if indices._ort_value is not None:
             # TODO: in this case we can perform a check of input values
             # it would be possible to force evaluation, but it might not be worth it?
             pass
 
         output_shape = (*x_shape[:axis], *indices.shape, *x_shape[axis+1:])
-            
+
         return_array._dims = output_shape
 
     return wrapper_gather_check
 
+
+def propagate_shape_gemm(return_array, *input_arrays_and_args, **kwargs):
+    A, B, C = input_arrays_and_args
+    transA = kwargs["transA"]
+    transB = kwargs["transB"]
+    a_shape = tuple(reversed(A.shape)) if transA else A.shape
+    b_shape = tuple(reversed(B.shape)) if transB else B.shape
+    # (n,k),(k,m)->(n,m)
+    n, _ = a_shape
+    _, m = b_shape
+    return_array._dims = (n, m)
+
+
+def propagate_shape_pool(return_array, *input_arrays_and_args, **kwargs):
+    N, C, H, W = input_arrays_and_args[0].shape
+    return_array._dims = (N, C, 1, 1)
 
 def output_checks_and_inference(*output_checks):
     def decorator(func):

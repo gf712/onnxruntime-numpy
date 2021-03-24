@@ -99,8 +99,20 @@ class Array:
     def __eq__(self, other: "Array") -> "Array":
         return ops.equal(self, other)
 
-    # def __repr__(self) -> str:
-    #     return self.numpy().__repr__()
+    def __gt__(self, other: "Array") -> "Array":
+        return ops.greater(self, other)
+
+    def __ge__(self, other: "Array") -> "Array":
+        return ops.greater_equal(self, other)
+
+    def __lt__(self, other: "Array") -> "Array":
+        return ops.less(self, other)
+
+    def __le__(self, other: "Array") -> "Array":
+        return ops.less_equal(self, other)
+
+    def __repr__(self) -> str:
+        return self.numpy().__repr__()
 
     def __iter__(self) -> Any:
         self._eval()
