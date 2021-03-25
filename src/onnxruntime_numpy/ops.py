@@ -258,7 +258,6 @@ def relu(x):
         return unary_operator(x, "Relu")
     return relu_helper(x)
 
-
 def cos(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -817,3 +816,16 @@ def maxunpool(x: "array.Array", indices: "array.Array", kernel_shape: List[int],
         return nary_operator("MaxUnpool", x, indices, output_shape, kernel_shape=kernel_shape, pads=pads, strides=strides)
 
     return helper_maxunpool(x, indices, output_shape, kernel_shape=kernel_shape, pads=pads, strides=strides)
+
+
+
+def power(x: "array.Array", y: "array.Array"):
+    @allowed_types([*float_types, np.int32, np.int64], numeric_types)
+    @not_implemented_types([], [np.uint8,np.uint16,np.uint32,np.uint64,np.int8,np.int16])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def helper_power(x: "array.Array", y: "array.Array"):
+        return binary_operator(x, y, "Pow")
+    
+    return helper_power(x, y)

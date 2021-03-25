@@ -219,3 +219,31 @@ def test_maximum(type_a):
     result = onp.maximum(onp.array(data_0), onp.array(data_1))
     expected = np.maximum(data_0, data_1)
     expect(expected, result.numpy())
+
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
+@pytest.mark.parametrize("type_b", [*float_types, np.int32, np.int64])
+def test_pow(type_a, type_b):
+    x = np.array([1, 2, 3]).astype(type_a)
+    y = np.array([4, 5, 6]).astype(type_b)
+    expected = np.power(x, y).astype(type_a)
+    result = onp.power(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
+@pytest.mark.parametrize("type_b", [*float_types, np.int32, np.int64])
+def test_pow_broadcast(type_a, type_b):
+    x = np.array([1, 2, 3]).astype(type_a)
+    y = np.array(2).astype(type_b)
+    expected = np.power(x, y).astype(type_a)
+    result = onp.power(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
+    x = np.array([[1, 2, 3], [4, 5, 6]]).astype(type_a)
+    y = np.array([1, 2, 3]).astype(type_b)
+    expected = np.power(x, y).astype(type_a)
+    result = onp.power(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())

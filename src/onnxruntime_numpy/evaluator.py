@@ -6,13 +6,10 @@ import numpy as np  # FIXME maybe
 from .types import numpy_to_onnx, numpy_to_ort, ort_to_numpy
 from .shapes import shapes_match
 import uuid
+from .graph import Graph
+from collections.abc import Iterable
 
 from onnxruntime.capi import _pybind_state as C
-
-def flatten(vals, dtype) -> List[Any]:
-    # TODO: implement this without numpy
-    import numpy as np
-    return np.array(vals, dtype=dtype).flatten().tolist()
 
 
 class LazyEvaluator:
@@ -27,16 +24,13 @@ class LazyEvaluator:
         self._initializer_names = set()
         graph_name = f"graph_{uuid.uuid4()}"
         self._graph_names = set((graph_name,))
-        self._graph = onnx.GraphProto(name=graph_name)
+        # self._graph = onnx.GraphProto(name=graph_name)
+        self._graph = Graph()
 
     def copy(self) -> "LazyEvaluator":
         evaluator = LazyEvaluator()
-        # evaluator._nodes = self._nodes
-        # evaluator._initializers = self._initializers
         evaluator._input_values = self._input_values
-        # evaluator._inputs = self._inputs
-        # FIXME: is this copy necessary?
-        evaluator._graph.CopyFrom(self._graph)
+        evaluator._graph = self._graph.copy()
         evaluator._input_names = copy.deepcopy(self._input_names)
         evaluator._node_names = copy.deepcopy(self._node_names)
         evaluator._initializer_names = copy.deepcopy(self._initializer_names)
@@ -51,13 +45,22 @@ class LazyEvaluator:
         self._initializer_names = set()
 
     def add_node(self, op_type, inputs, outputs, **attributes):
-        node_name = op_type + ''.join(inputs) + ''.join(outputs) + \
-            ''.join(str(k) + str(v) for k, v in attributes.items())
+        node_name = op_type + ''.join(n._internal_name if n is not None else "None" for n in inputs) + \
+            ''.join(n._internal_name if n is not None else "None" for n in outputs) + \
+            ''.join(f"{k}:{v}" for k, v in attributes.items())
+
+        if isinstance(inputs, Iterable):
+            inputs = tuple(inputs)
+        else:
+            inputs = tuple((inputs,))
+
+        if isinstance(outputs, Iterable):
+            outputs = tuple(outputs)
+        else:
+            outputs = tuple((outputs,))
+
         if node_name not in self._node_names:
-            # self._nodes[node_name] = onnx.helper.make_node(
-            #     op_type, inputs, outputs, **attributes)
-            node = onnx.helper.make_node(op_type, inputs, outputs, **attributes)
-            self._graph.node.append(node)
+            self._graph.add_node(op_type, inputs, outputs, **attributes)
             self._node_names.add(node_name)
 
     def add_initializer(self, name: str, dtype: np.dtype, dims: Tuple[int], vals):
@@ -65,17 +68,18 @@ class LazyEvaluator:
         #     flat_values = flatten(vals)
         #     self._initializers[name] = onnx.helper.make_tensor(name, dtype, dims, flat_values)
         if name not in self._initializer_names:
-            flat_values = flatten(vals, dtype=dtype)
-            initializer = onnx.helper.make_tensor(name, dtype, dims, flat_values)
-            self._graph.intializer.append(initializer)
-            self._initializer_names.add(name)
+            raise ValueError("")
+            self._graph.add_initializer()
+        #     flat_values = flatten(vals, dtype=dtype)
+        #     initializer = onnx.helper.make_tensor(name, dtype, dims, flat_values)
+        #     self._graph.intializer.append(initializer)
+        #     self._initializer_names.add(name)
 
-    def add_input(self, name: str, dtype: np.dtype, dims: Tuple[int], default_values: onnxruntime.OrtValue):
-        # if name not in self._inputs:
-        #     self._inputs[name] = onnx.helper.make_tensor_value_info(name, dtype, dims)
-        #     # FIXME
-        #     self._input_values[name] = np.array(default_values, dtype=onnx_to_numpy(dtype)).reshape(dims)
-        #     self._graph.inputs.append()
+    def add_input(self, array: "array.Array"):
+        name = array._internal_name
+        dtype = array.dtype
+        dims = array.shape
+        default_values = array._ort_value
         if name not in self._input_names:
             onnx_type = numpy_to_onnx(dtype)
             input_node = onnx.helper.make_tensor_value_info(name, onnx_type, dims)
@@ -87,60 +91,45 @@ class LazyEvaluator:
                     raise ValueError(
                         f"Input tensor shape {default_values.shape()} does not match input node shape {dims}")
                 self._input_values[name] = default_values
-            self._graph.input.append(input_node)
             self._input_names.add(name)
+            self._graph.add_input(array)
 
-    def add_subgraph(self, graph: onnx.GraphProto):
+    def add_subgraph(self, other_graph: Graph):
         if self._graph is None:
-            self._graph = graph
+            self._graph = other_graph
         else:
-            if graph.name not in self._graph_names:
-                # only merge inputs and outputs since these must be unique
-                for input in graph.input:
-                    if input not in self._graph.input:
-                        self._graph.input.append(input)
-                for initializer in graph.initializer:
-                    if initializer not in self._graph.initializer:
-                        self._graph.initializer.append(initializer)
-                for output in graph.output:
-                    if output not in self._graph.output:
-                        self._graph.output.append(output)
-                self._graph.node.MergeFrom(graph.node)
-
-                # self._graph.MergeFrom(graph)
-                self._graph_names.add(graph.name)
+            # if graph.name not in self._graph_names:
+            self._graph.add_subgraph(other_graph._graph)
+            # self._graph_names.add(graph.name)
 
     def merge(self, other: "LazyEvaluator"):
-        # self._nodes = {**self._nodes, **other._nodes}
-        # self._inputs = {**self._inputs, **other._inputs}
         self.add_subgraph(other._graph)
         self._input_values = {**self._input_values, **other._input_values}
         self._input_names.update(other._input_names)
         self._node_names.update(other._node_names)
         self._initializer_names.update(other._initializer_names)
         self._graph_names.update(other._graph_names)
-
         # self._initializers = {**self._initializers, **other._initializers}
 
-    def evaluate(self, output_name: str, expected_output_type: np.dtype, expected_output_shape: Tuple[int]) -> List[np.ndarray]:
+    def evaluate(self, array: "array.Array") -> List[np.ndarray]:
         if self._graph is None:
             raise ValueError("Graph is empty. "
                              "This is an internal error. Please file a bug")
 
-        output = onnx.helper.make_tensor_value_info(
-            output_name, numpy_to_onnx(np.dtype(expected_output_type)), expected_output_shape)
-        outputs = [output]
+        self._graph.add_output(array)
 
-        self._graph.output.extend(outputs)
-        m = onnx.helper.make_model(self._graph)
+        onnx_graph = self._graph.build_onnx_graph()
+        m = onnx.helper.make_model(onnx_graph)
         buffer = m.SerializeToString()
+
+        output_name = array._internal_name
 
         feeds = self._input_values
         output_names = [output_name]
 
-        inputs = list(self._graph.input)
-        outputs = list(self._graph.output)
-        nodes = list(self._graph.node)
+        # inputs = list(onnx_graph.input)
+        # outputs = list(onnx_graph.output)
+        # nodes = list(onnx_graph.node)
 
         # TODO: how to handle multiple return values?
         try:
@@ -162,13 +151,15 @@ class LazyEvaluator:
             if ort_value_dtype == np.uint64:
                 ort_value_dtype = np.ulonglong
 
+            shape = ortvalue.shape()
+
             io_binding.bind_input(name=input_name, device_type=ortvalue.device_name(),
                                   device_id=0,
                                   element_type=ort_value_dtype,
-                                  shape=ortvalue.shape(),
+                                  shape=shape,
                                   buffer_ptr=ortvalue.data_ptr())
 
-        if len(outputs) != 1:
+        if len(onnx_graph.output) != 1:
             raise NotImplementedError("Only single output inference is supported")
 
         io_binding.bind_output(output_name)

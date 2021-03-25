@@ -31,13 +31,11 @@ class Array:
             self._evaluator.add_initializer(
                 self._internal_name, self._dtype, self._dims, self._ort_value)
         else:
-            self._evaluator.add_input(
-                self._internal_name, self._dtype, self._dims, self._ort_value)
+            self._evaluator.add_input(self)
 
     def _eval(self):
         if self._ort_value is None:
-            result = self._evaluator.evaluate(
-                self._internal_name, self.dtype, self.shape)
+            result = self._evaluator.evaluate(self)
             self._ort_value = result
 
     def ort_value(self) -> onnxruntime.OrtValue:
@@ -113,6 +111,9 @@ class Array:
 
     def __repr__(self) -> str:
         return self.numpy().__repr__()
+
+    def __hash__(self):
+        return hash(self._internal_name)
 
     def __iter__(self) -> Any:
         self._eval()

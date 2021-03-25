@@ -16,8 +16,8 @@ STRICT_MODE = True
 def add_node(evaluator, op_type, input_arrays, output_arrays, **attributes):
     attributes = {k: v for k, v in attributes.items() if v is not None}
     evaluator.add_node(op_type,
-                       [i._internal_name if i is not None else "" for i in input_arrays],
-                       [o._internal_name if o is not None else "" for o in output_arrays],
+                       input_arrays,
+                       output_arrays,
                        **attributes)
 
 
@@ -62,9 +62,10 @@ def initializer_operator(op_name: str, **attributes):
     attribute, value = next(iter(attributes.items()))
     new_evaluator = evaluator.LazyEvaluator()
     new_array = array.Array(evaluator=new_evaluator)
-    attributes[attribute] = onnx_utils.make_onnx_tensor(new_array._internal_name, value)
-    new_array._dtype = onnx_to_numpy(attributes[attribute].data_type)
-    new_array._dims = (*attributes[attribute].dims,)
+    value._internal_name = new_array._internal_name
+    attributes[attribute] = value
+    new_array._dtype = value.dtype
+    new_array._dims = value.shape
 
     add_node(new_evaluator, op_name, [], [new_array], **attributes)
     return new_array
@@ -76,9 +77,9 @@ def initializer_operator_from_shape(op_name: str, shape: array.Array, value: arr
     new_array._dtype = value.dtype
     # FIXME: how could we get the shape without evaluating the shape Array?
     new_array._dims = tuple(shape.values())
-    tensor_value = onnx_utils.make_onnx_tensor(new_array._internal_name, value)
 
-    add_node(new_evaluator, op_name, [shape], [new_array], value=tensor_value)
+    value._internal_name = new_array._internal_name
+    add_node(new_evaluator, op_name, [shape], [new_array], value=value)
     return new_array
 
 
