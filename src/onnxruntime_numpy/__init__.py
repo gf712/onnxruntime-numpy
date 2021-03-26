@@ -17,5 +17,5 @@ finally:
 
 from .ops import *
 from .jit import jit
-from .grad import grad
+# from .grad import grad
 from .array import array

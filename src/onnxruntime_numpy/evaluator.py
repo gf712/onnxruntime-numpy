@@ -20,12 +20,12 @@ class LazyEvaluator:
         self._input_values = {}
         # graph_name = f"graph_{uuid.uuid4()}"
         # self._graph_names = set((graph_name,))
-        self._graph = Graph()
+        self._graph = None
 
     def copy(self) -> "LazyEvaluator":
         evaluator = LazyEvaluator()
         evaluator._input_values = self._input_values
-        evaluator._graph = self._graph.copy()
+        evaluator._graph = self._graph
         # evaluator._input_names = copy.deepcopy(self._input_names)
         # evaluator._node_names = copy.deepcopy(self._node_names)
         # evaluator._initializer_names = copy.deepcopy(self._initializer_names)
@@ -35,11 +35,15 @@ class LazyEvaluator:
 
     def _reset(self):
         self._input_values = {}
+        self._parent_node = None
         # self._input_names = set()
         # self._node_names = set()
         # self._initializer_names = set()
 
     def add_node(self, op_type, inputs, outputs, **attributes):
+
+        if self._graph is None:
+            self._graph = Graph()
 
         if isinstance(inputs, Iterable):
             inputs = tuple(inputs)
@@ -60,8 +64,8 @@ class LazyEvaluator:
         #     flat_values = flatten(vals)
         #     self._initializers[name] = onnx.helper.make_tensor(name, dtype, dims, flat_values)
         # if name not in self._initializer_names:
-        raise ValueError("")
-        self._graph.add_initializer()
+        raise NotImplementedError("Initializers not implemented")
+        # self._graph.add_initializer()
         #     flat_values = flatten(vals, dtype=dtype)
         #     initializer = onnx.helper.make_tensor(name, dtype, dims, flat_values)
         #     self._graph.intializer.append(initializer)
@@ -73,8 +77,8 @@ class LazyEvaluator:
         dims = array.shape
         default_values = array._ort_value
         # if name not in self._input_names:
-        onnx_type = numpy_to_onnx(dtype)
-        input_node = onnx.helper.make_tensor_value_info(name, onnx_type, dims)
+        # onnx_type = numpy_to_onnx(dtype)
+        # input_node = onnx.helper.make_tensor_value_info(name, onnx_type, dims)
         # FIXME
         if default_values is not None:
             if default_values.data_type() != numpy_to_ort(dtype):
@@ -82,15 +86,16 @@ class LazyEvaluator:
             if not shapes_match(default_values.shape(), dims):
                 raise ValueError(
                     f"Input tensor shape {default_values.shape()} does not match input node shape {dims}")
-            self._input_values[name] = default_values
+            self._input_values[name] = array
+        else:
+            raise NotImplementedError()
         # self._input_names.add(name)
-        self._parent_node = self._graph.add_input(array)
+        # self._parent_node = self._graph.add_input(array)
         
-
     def add_subgraph(self, other_graph: Graph):
         if self._graph is None:
             self._graph = other_graph
-        else:
+        elif other_graph is not None:
             # if graph.name not in self._graph_names:
             self._graph.add_subgraph(other_graph)
             # self._graph_names.add(graph.name)
@@ -109,9 +114,7 @@ class LazyEvaluator:
             raise ValueError("Graph is empty. "
                              "This is an internal error. Please file a bug")
 
-        self._graph.add_output(array)
-
-        onnx_graph = self._graph.build_onnx_graph()
+        onnx_graph = self._graph.build_onnx_graph(array, self._input_values, self._parent_node)
         m = onnx.helper.make_model(onnx_graph)
         buffer = m.SerializeToString()
 
@@ -135,7 +138,8 @@ class LazyEvaluator:
             raise
         io_binding = session.io_binding()
 
-        for input_name, ortvalue in self._input_values.items():
+        for input_name, array in self._input_values.items():
+            ortvalue = array._ort_value
             # this will work 99% of the time in this century :D
             ort_value_dtype = ortvalue._numpy_obj.dtype
             if ort_value_dtype == np.int64:
