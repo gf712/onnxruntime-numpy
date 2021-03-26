@@ -4,7 +4,7 @@ from .ops_utils import (unary_operator, binary_operator, nary_operator,
                         output_checks_and_inference, propagate_shape_matmul,
                         check_input_shape_matmul, not_implemented_types,
                         concatenate_shapes, types_match_exactly,
-                        initializer_operator, initializer_operator_from_shape,
+                        initializer_operator, reduce_axis,
                         reduction_axis, output_shape_from_einsum,
                         output_type, allow_broadcasting, array_is_square_matrix,
                         determinant_output_shape, broadcast_to,
@@ -244,7 +244,11 @@ def constant_of_shape(shape: IterableType[int], value=0.0) -> array.Array:
     if len(value) != 1:
         raise ValueError("Value must be a one-dim tensor with a single element")
     shape = array.array(shape, dtype=np.int64)
-    return initializer_operator_from_shape("ConstantOfShape", shape, value)
+    output = nary_operator("ConstantOfShape", shape, value=value)
+    output._dtype = value.dtype
+    # FIXME: how could we get the shape without evaluating the shape Array?
+    output._dims = tuple(shape.values())
+    return output
 
 
 def conv():
@@ -257,6 +261,7 @@ def relu(x):
     def relu_helper(x):
         return unary_operator(x, "Relu")
     return relu_helper(x)
+
 
 def cos(x):
     @not_implemented_types([np.float64])
@@ -807,8 +812,9 @@ def maxunpool(x: "array.Array", indices: "array.Array", kernel_shape: List[int],
               pads: Optional[List[int]] = None, strides: Optional[List[int]] = None):
 
     if output_shape is None:
-        raise NotImplementedError("Currently onnxruntime requires output_shape to be specified")
-    
+        raise NotImplementedError(
+            "Currently onnxruntime requires output_shape to be specified")
+
     @allowed_types(float_types, [np.int64], [np.int64])
     @not_implemented_types([np.float64])
     def helper_maxunpool(x: "array.Array", indices: "array.Array", output_shape: Optional[List[int]], kernel_shape: List[int],
@@ -818,14 +824,37 @@ def maxunpool(x: "array.Array", indices: "array.Array", kernel_shape: List[int],
     return helper_maxunpool(x, indices, output_shape, kernel_shape=kernel_shape, pads=pads, strides=strides)
 
 
-
 def power(x: "array.Array", y: "array.Array"):
     @allowed_types([*float_types, np.int32, np.int64], numeric_types)
-    @not_implemented_types([], [np.uint8,np.uint16,np.uint32,np.uint64,np.int8,np.int16])
+    @not_implemented_types([], [np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
     @output_checks_and_inference(
         allow_broadcasting
     )
     def helper_power(x: "array.Array", y: "array.Array"):
         return binary_operator(x, y, "Pow")
-    
+
     return helper_power(x, y)
+
+
+def sum(x: "array.Array", axes: Union[int, "array.Array"] = None, keepdims: bool = True, noop_with_empty_axes: bool = False):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0) and not noop_with_empty_axes:
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    if noop_with_empty_axes:
+        import warnings
+        warnings.warn("option noop_with_empty_axes is currently unstable.")
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([], [np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_sum(x: "array.Array", axes: "array.Array", keepdims: bool, noop_with_empty_axes: bool):
+        if len(axes) == 0 and not noop_with_empty_axes:
+            axes = None
+        return nary_operator("ReduceSum", x, axes, keepdims=keepdims, noop_with_empty_axes=noop_with_empty_axes)
+
+    return helper_sum(x, axes, keepdims=bool(keepdims), noop_with_empty_axes=bool(noop_with_empty_axes))

@@ -1,7 +1,7 @@
 from .evaluator import LazyEvaluator
 from . import ops
 from .types import numpy_to_ort, python_to_numpy, ort_to_numpy
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Union
 from typing import Iterable as IterableType
 from collections.abc import Iterable
 from functools import reduce
@@ -23,6 +23,7 @@ class Array:
         )) if ort_value is not None and dtype is None else dtype
         self._evaluator = evaluator if evaluator is not None else LazyEvaluator()
         self._treat_array_as_initializer = False
+        self._required_grad = True
         if evaluator is None:
             self._initialize()
 
@@ -109,6 +110,9 @@ class Array:
     def __le__(self, other: "Array") -> "Array":
         return ops.less_equal(self, other)
 
+    def __pow__(self, other: Union["Array", int]) -> "Array":
+        return ops.power(self, array(other))
+
     # def __repr__(self) -> str:
     #     return self.numpy().__repr__()
 
@@ -149,7 +153,7 @@ def infer_dtype_from_array(array: IterableType[Any]) -> int:
 def array(values, dtype: np.dtype = None) -> Array:
     # it's already an Array
     if isinstance(values, Array):
-        if values.dtype == dtype:
+        if dtype is None or values.dtype == dtype:
             return values
         else:
             # do cast

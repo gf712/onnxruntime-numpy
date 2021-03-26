@@ -1,6 +1,5 @@
 import onnx
 from typing import List, Any, Tuple
-import copy
 import onnxruntime
 import numpy as np  # FIXME maybe
 from .types import numpy_to_onnx, numpy_to_ort, ort_to_numpy

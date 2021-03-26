@@ -5,7 +5,7 @@ from . import ops
 from .einsum_helper import einsum_parse_and_resolve_equation
 from .types import is_float, is_integer, is_bool, onnx_to_numpy
 import functools
-from typing import Any, Tuple
+from typing import Any, Tuple, Union
 import numpy as np
 from functools import reduce
 import operator
@@ -45,13 +45,13 @@ def nary_operator(op_name, *arrays, **attributes):
         for x in range(1, n_return_values):
             evaluators.append(new_evaluator.copy())
     new_arrays = []
-    for evaluator in evaluators:
-        new_arrays.append(array.Array(evaluator=evaluator))
-        # by default assume that the output shape and are the same as lhs
+    for e in evaluators:
+        new_arrays.append(array.Array(evaluator=e))
+        # by default assume that the output shape and dtype are the same as lhs
         new_arrays[-1]._dtype = arrays[0].dtype
         new_arrays[-1]._dims = arrays[0].shape
-    
-    add_node(evaluator, op_name, arrays, new_arrays, **attributes)
+
+    add_node(new_evaluator, op_name, arrays, new_arrays, **attributes)
 
     # FIXME: assuming single output for now
     return new_arrays[0]
@@ -78,18 +78,6 @@ def initializer_operator(op_name: str, **attributes):
     new_array._dims = value.shape
 
     add_node(new_evaluator, op_name, [], [new_array], **attributes)
-    return new_array
-
-
-def initializer_operator_from_shape(op_name: str, shape: array.Array, value: array.Array):
-    new_evaluator = shape._evaluator.copy()
-    new_array = array.Array(evaluator=new_evaluator)
-    new_array._dtype = value.dtype
-    # FIXME: how could we get the shape without evaluating the shape Array?
-    new_array._dims = tuple(shape.values())
-
-    value._internal_name = new_array._internal_name
-    add_node(new_evaluator, op_name, [shape], [new_array], value=value)
     return new_array
 
 
@@ -515,6 +503,35 @@ def propagate_shape_gemm(return_array, *input_arrays_and_args, **kwargs):
 def propagate_shape_pool(return_array, *input_arrays_and_args, **kwargs):
     N, C, H, W = input_arrays_and_args[0].shape
     return_array._dims = (N, C, 1, 1)
+
+
+def reduce_axis(axes: Union["array.Array", None], keepdims: bool):
+    def output_reduce_axis(return_array, *input_arrays_and_args, **kwargs):
+        if axes is None:
+            # noop (this only happens in ReduceSum when noop_with_empty_axes is True and axis is not specified)
+            return
+
+        x_shape = input_arrays_and_args[0].shape
+        axes_np = axes.numpy()
+        if any(map(lambda axis: axis < -len(x_shape) or axis > len(x_shape) - 1, axes_np)):
+            raise ValueError(
+                f"Axis must be in the range [-{len(x_shape)}, {len(x_shape)-1}]")
+
+        reduction_axes = [len(x_shape) + axis if axis < 0 else axis for axis in axes_np]
+
+        output_shape = list(x_shape)
+
+        if keepdims:
+            for axis in reduction_axes:
+                output_shape[axis] = 1
+        else:
+            for axis in reduction_axes:
+                output_shape[axis] = None
+
+        return_array._dims = tuple(filter(lambda s: s is not None, output_shape))
+
+    return output_reduce_axis
+
 
 def output_checks_and_inference(*output_checks):
     def decorator(func):
