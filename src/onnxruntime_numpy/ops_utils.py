@@ -39,12 +39,22 @@ def nary_operator(op_name, *arrays, **attributes):
         # TODO: is this ever valid in the ONNX standard?
         new_evaluator = evaluator.LazyEvaluator()
 
-    new_array = array.Array(evaluator=new_evaluator)
-    add_node(new_evaluator, op_name, arrays, [new_array], **attributes)
-    # by default assume that the shape and are the same as lhs
-    new_array._dtype = arrays[0].dtype
-    new_array._dims = arrays[0].shape
-    return new_array
+    evaluators = [new_evaluator]
+    n_return_values = 1
+    if n_return_values > 1:
+        for x in range(1, n_return_values):
+            evaluators.append(new_evaluator.copy())
+    new_arrays = []
+    for evaluator in evaluators:
+        new_arrays.append(array.Array(evaluator=evaluator))
+        # by default assume that the output shape and are the same as lhs
+        new_arrays[-1]._dtype = arrays[0].dtype
+        new_arrays[-1]._dims = arrays[0].shape
+    
+    add_node(evaluator, op_name, arrays, new_arrays, **attributes)
+
+    # FIXME: assuming single output for now
+    return new_arrays[0]
 
 
 def unary_operator(array_obj: "array.Array", op_name: str, **attributes):

@@ -10,17 +10,17 @@ from collections import namedtuple, Hashable
 from typing import Tuple
 
 
-class Node(namedtuple("Node", "inputs outputs op_type attributes name")):
+class Node(namedtuple("Node", "inputs outputs op_type attributes")):
     def __repr__(self):
         return f'{self.op_type}'
 
 
-class Input(namedtuple("Input", "dtype shape name")):
+class Input(namedtuple("Input", "dtype shape")):
     def __repr__(self):
         return f'Input({self.shape}, dtype={self.dtype})'
 
 
-class Output(namedtuple("Output", "dtype shape name")):
+class Output(namedtuple("Output", "dtype shape")):
     def __repr__(self):
         return f'Output({self.shape}, dtype={self.dtype})'
 
@@ -122,47 +122,55 @@ class Graph:
             inputs,
             outputs,
             op_type,
-            HashableAttributes(**attributes),
-            ""
-        )
-        self._graph.add_node(new_node)
+            HashableAttributes(**attributes))
+        node_name = str(hash(new_node))
+        self._graph.add_node(node_name, node=new_node)
         for i in inputs:
-            self._graph.add_edge(i, new_node)
+            # nodes can have empty inputs
+            if i is not None:
+                self._graph.add_edge(i._evaluator._parent_node, node_name)
+        return node_name
 
     def add_initializer(self, name: str, dtype: np.dtype, dims: Tuple[int], vals):
         raise NotImplementedError()
 
     def add_input(self, array):
-        self._graph.add_node(Input(array.dtype, array.shape, array._internal_name))
+        new_node = Input(array.dtype, array.shape)
+        self._graph.add_node(array._internal_name, input=new_node)
+        return array._internal_name
 
     def add_output(self, array):
-        self._graph.add_node(Output(array.dtype, array.shape, array._internal_name))
+        self._graph.add_node(array._internal_name,
+                             output=Output(array.dtype, array.shape))
+        return array._internal_name
 
-    def add_subgraph(self, other_graph: nx.DiGraph):
-        self._graph = nx.compose(self._graph, other_graph)
+    def add_subgraph(self, other_graph):
+        self._graph = nx.compose(self._graph, other_graph._graph)
 
     def build_onnx_graph(self):
 
         g = onnx.GraphProto()
 
-        for node in self._graph.nodes:
-            if isinstance(node, Input):
+        for node_name, node in self._graph.nodes(data=True):
+            if len(node) != 1:
+                raise ValueError("")
+            if "input" in node:
+                node = node["input"]
                 g.input.append(onnx.helper.make_tensor_value_info(
-                    node.name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
-            elif isinstance(node, Output):
+                    node_name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
+            elif "output" in node:
+                node = node["output"]
                 g.output.append(onnx.helper.make_tensor_value_info(
-                    node.name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
-            elif isinstance(node, array.Array):
-                # FIXME
-                pass
-            elif node is None:
-                # FIXME
-                pass
-            else:
+                    node_name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
+            elif "node" in node:
+                node = node["node"]
                 n = onnx.helper.make_node(node.op_type,
                                           [n._internal_name if n is not None else "" for n in node.inputs],
                                           [n._internal_name if n is not None else "" for n in node.outputs],
+                                          name=node_name,
                                           **node.attributes)
                 g.node.append(n)
+            else:
+                raise ValueError("")
 
         return g
