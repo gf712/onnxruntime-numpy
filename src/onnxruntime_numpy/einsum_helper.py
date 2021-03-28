@@ -1,7 +1,10 @@
 import re
 import string
 
-# obtained and modified from https://github.com/tensorflow/tensorflow/blob/590d6eef7e91a6a7392c8ffffb7b58f2e0c8bc6b/tensorflow/python/ops/special_math_ops.py#L311
+# obtained and modified from
+# https://github.com/tensorflow/tensorflow/blob/590d6eef7e91a6a7392c8ffffb7b58f2e0c8bc6b/tensorflow/python/ops/special_math_ops.py#L311
+
+
 def einsum_parse_and_resolve_equation(equation, input_shapes):
     """Helper for einsum() that splits/resolves inputs & outputs.
     Args:
@@ -42,7 +45,8 @@ def einsum_parse_and_resolve_equation(equation, input_shapes):
             if '...' in ax:
                 parts = ax.split('...')
                 if len(parts) != 2:
-                    raise ValueError('Unable to resolve ellipsis. Excess number found.')
+                    raise ValueError(
+                        'Unable to resolve ellipsis. Excess number found.')
                 n = len(input_shapes[i]) - len(''.join(parts))
                 if n < 0:
                     raise ValueError('Ellipses lengths do not match.')
@@ -50,8 +54,8 @@ def einsum_parse_and_resolve_equation(equation, input_shapes):
                     raise ValueError(
                         'Unable to resolve ellipsis, too many distinct labels.')
                 replace_axes = unused[-n:] if n > 0 else ''
-                input_axis_labels[i] = input_axis_labels[i].replace('...',
-                                                                    replace_axes)
+                input_axis_labels[i] = input_axis_labels[i].replace(
+                    '...', replace_axes)
                 if len(replace_axes) > len(ellipsis_axes):
                     ellipsis_axes = replace_axes
 
@@ -59,7 +63,8 @@ def einsum_parse_and_resolve_equation(equation, input_shapes):
             raise ValueError('period "." found outside of ellipsis')
 
         if output_axis_labels is not None:
-            output_axis_labels = output_axis_labels.replace('...', ellipsis_axes)
+            output_axis_labels = output_axis_labels.replace(
+                '...', ellipsis_axes)
             if '.' in output_axis_labels:
                 raise ValueError('period "." found outside of ellipsis')
 

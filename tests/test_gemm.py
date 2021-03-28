@@ -1,5 +1,5 @@
 import onnxruntime_numpy as onp
-from onnxruntime_numpy.types import float_types, all_types
+from onnxruntime_numpy.types import float_types
 import numpy as np
 import pytest
 from .utils import expect

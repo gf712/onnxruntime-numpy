@@ -39,7 +39,8 @@ def test_relu(type_a):
 def test_global_average_pool(type_a):
     x = np.random.randn(1, 3, 5, 5).astype(type_a)
     spatial_shape = np.ndim(x) - 2
-    expected = np.average(x, axis=tuple(range(spatial_shape, spatial_shape + 2)))
+    expected = np.average(x, axis=tuple(
+        range(spatial_shape, spatial_shape + 2)))
     for _ in range(spatial_shape):
         expected = np.expand_dims(expected, -1)
 
@@ -180,9 +181,9 @@ def test_hardmax(type_a):
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
-def test_hardmax(type_a):
+def test_instancenorm(type_a):
 
-    def instancenorm_test_mode(x, s, bias, epsilon=1e-5):  # type: ignore
+    def instancenorm_test_mode(x, s, bias, epsilon=1e-5):
         dims_x = len(x.shape)
         axis = tuple(range(2, dims_x))
         mean = np.mean(x, axis=axis, keepdims=True)
@@ -206,8 +207,13 @@ def test_hardmax(type_a):
     epsilon = 1e-2
     expected = instancenorm_test_mode(x, s, bias, epsilon).astype(type_a)
 
-    expect(expected, onp.instance_normalization(onp.array(x),
-                                                onp.array(s), onp.array(bias), epsilon=epsilon), rtol=1e-02)
+    expect(
+        expected, onp.instance_normalization(
+            onp.array(x),
+            onp.array(s),
+            onp.array(bias),
+            epsilon=epsilon),
+        rtol=1e-02)
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -219,10 +225,12 @@ def test_lrn_default(type_a):
     x = np.random.randn(5, 5, 5, 5).astype(type_a)
     square_sum = np.zeros((5, 5, 5, 5)).astype(type_a)
     for n, c, h, w in np.ndindex(x.shape):
-        square_sum[n, c, h, w] = sum(x[n,
-                                       max(0, c - int(math.floor((nsize - 1) / 2))):min(5, c + int(math.ceil((nsize - 1) / 2)) + 1),
-                                       h,
-                                       w] ** 2)
+        square_sum[n, c, h, w] = sum(
+            x
+            [n,
+             max(0, c - int(math.floor((nsize - 1) / 2))):
+             min(5, c + int(math.ceil((nsize - 1) / 2)) + 1),
+             h, w] ** 2)
     expected = x / ((bias + (alpha / nsize) * square_sum) ** beta)
 
     expect(expected, onp.lrn(onp.array(x), size=nsize))
@@ -237,13 +245,18 @@ def test_lrn(type_a):
     x = np.random.randn(5, 5, 5, 5).astype(type_a)
     square_sum = np.zeros((5, 5, 5, 5)).astype(type_a)
     for n, c, h, w in np.ndindex(x.shape):
-        square_sum[n, c, h, w] = sum(x[n,
-                                       max(0, c - int(math.floor((nsize - 1) / 2))):min(5, c + int(math.ceil((nsize - 1) / 2)) + 1),
-                                       h,
-                                       w] ** 2)
+        square_sum[n, c, h, w] = sum(
+            x
+            [n,
+             max(0, c - int(math.floor((nsize - 1) / 2))):
+             min(5, c + int(math.ceil((nsize - 1) / 2)) + 1),
+             h, w] ** 2)
     expected = x / ((bias + (alpha / nsize) * square_sum) ** beta)
 
-    expect(expected, onp.lrn(onp.array(x), size=nsize, alpha=alpha, beta=beta, bias=bias))
+    expect(
+        expected, onp.lrn(
+            onp.array(x),
+            size=nsize, alpha=alpha, beta=beta, bias=bias))
 
 
 @pytest.mark.parametrize("type_a", [np.float32])

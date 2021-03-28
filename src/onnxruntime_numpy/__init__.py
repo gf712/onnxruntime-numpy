@@ -15,7 +15,7 @@ except PackageNotFoundError:  # pragma: no cover
 finally:
     del version, PackageNotFoundError
 
-from .ops import *
-from .jit import jit
-# from .grad import grad
-from .array import array
+from .ops import *  # noqa
+from .jit import jit  # noqa
+from .grad import grad  # noqa
+from .array import array  # noqa

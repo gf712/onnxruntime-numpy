@@ -28,3 +28,6 @@ steps:
 
 - script: tox -e py
   displayName: 'Run tests with Tox'
+
+- script: tox -e flake8
+  displayName: 'Check code style with flake8'

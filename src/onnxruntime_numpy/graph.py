@@ -25,7 +25,8 @@ class Output(namedtuple("Output", "dtype shape")):
         return f'Output({self.shape}, dtype={self.dtype})'
 
 
-class TensorProtoInternal(namedtuple("TensorProtoInternal", "values dtype shape name")):
+class TensorProtoInternal(
+        namedtuple("TensorProtoInternal", "values dtype shape name")):
     def __repr__(self):
         return f'TensorProtoInternal({self.shape}, dtype={self.dtype})'
 
@@ -80,7 +81,12 @@ def build_graph_from_onnx(onnx_graph, outputs):
 
     for i in onnx_graph.input:
         node_obj = node_map[i.name]
-        G.add_edge(Node("", (i.name,), "Input", HashableAttributes({}), i.name), node_obj)
+        G.add_edge(
+            Node(
+                "", (i.name,),
+                "Input", HashableAttributes({}),
+                i.name),
+            node_obj)
 
     for node in onnx_graph.node:
         for output in node.output:
@@ -104,14 +110,15 @@ class Graph:
 
     @classmethod
     def from_onnx(cls, onnx_graph, outputs=None):
+        g = cls()
         if len(onnx_graph.output) == 0 and outputs is None:
             raise ValueError(
                 "ONNX graph does not have an output and none was specified")
         elif outputs is None:
             outputs = onnx_graph.output
 
-        self._graph = build_graph_from_onnx(onnx_graph, outputs)
-        if not self._graph.is_directed():
+        g._graph = build_graph_from_onnx(onnx_graph, outputs)
+        if not g._graph.is_directed():
             raise ValueError("Graph is not a DAG")
 
     @property
@@ -124,28 +131,35 @@ class Graph:
     def reversed_toposort(self):
         return reversed(list(self.toposort()))
 
-    def add_node(self, op_type: str, inputs: List["array.Array"], outputs: List["array.Array"], **attributes):
+    def add_node(
+            self, op_type: str, inputs: List["array.Array"],
+            outputs: List["array.Array"],
+            **attributes):
         new_node = Node(
             inputs,
             outputs,
             op_type,
             HashableAttributes(**attributes))
-        
+
         node_name = str(hash(new_node))
-        
+
         self._graph.add_node(node_name, node=new_node)
 
         for idx, i in enumerate(inputs):
             # nodes can have empty inputs
             if i is not None:
-                # input nodes are not added. This way graphs do not have to be copied around
+                # input nodes are not added. This way graphs do not have to be copied
+                # around
                 if i._evaluator._parent_node is not None:
-                    self._graph.add_edge(i._evaluator._parent_node, node_name, index=idx)
+                    self._graph.add_edge(
+                        i._evaluator._parent_node, node_name, index=idx)
                 else:
-                    self._input_edges[i._internal_name] = node_name        
+                    self._input_edges[i._internal_name] = node_name
         return node_name
 
-    def add_initializer(self, name: str, dtype: np.dtype, dims: Tuple[int], vals):
+    def add_initializer(
+            self, name: str, dtype: np.dtype, dims: Tuple[int],
+            vals):
         raise NotImplementedError()
 
     def add_input(self, array):
@@ -173,9 +187,11 @@ class Graph:
             self._input_edges = {**other_graph._input_edges}
         elif other_graph._graph is not None:
             self._graph = nx.compose(self._graph, other_graph._graph)
-            self._input_edges = {**self._input_edges, **other_graph._input_edges}
+            self._input_edges = {**self._input_edges,
+                                 **other_graph._input_edges}
 
-    def _build_graph_with_inputs_outputs(self, input_arrays, output_array, output):
+    def _build_graph_with_inputs_outputs(
+            self, input_arrays, output_array, output):
         inputs = set()
         input_arrays = list(input_arrays)
         for a in input_arrays:
@@ -208,17 +224,22 @@ class Graph:
             #         node_name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
             elif isinstance(node, Node):
                 n = onnx.helper.make_node(node.op_type,
-                                          [n._internal_name if n is not None else "" for n in node.inputs],
-                                          [n._internal_name if n is not None else "" for n in node.outputs],
-                                          name=node_name,
-                                          **node.attributes)
+                                          [n._internal_name
+                                           if n is not None else ""
+                                           for n in node.inputs],
+                                          [n._internal_name
+                                           if n is not None else ""
+                                           for n in node.outputs],
+                                          name=node_name, **node.attributes)
                 g.node.append(n)
             else:
                 raise ValueError("")
 
         output_node = self._graph.nodes[output_name]["node"]
-        g.output.append(onnx.helper.make_tensor_value_info(
-            output_name, numpy_to_onnx(np.dtype(output_node.dtype)), output_node.shape))
+        g.output.append(
+            onnx.helper.make_tensor_value_info(
+                output_name, numpy_to_onnx(np.dtype(output_node.dtype)),
+                output_node.shape))
 
         # clean up
         self._remove_graph_inputs_outputs(input_names, output_name)

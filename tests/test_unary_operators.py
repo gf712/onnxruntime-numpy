@@ -1,5 +1,7 @@
 import onnxruntime_numpy as onp
-from onnxruntime_numpy.types import float_types, integer_types, is_unsigned_int, all_types, is_bool, numeric_types
+from onnxruntime_numpy.types import (
+    float_types, integer_types, is_unsigned_int, all_types, is_bool,
+    numeric_types)
 import pytest
 import numpy as np
 from .utils import expect
@@ -126,7 +128,7 @@ def test_constant_value_floats(type_a):
 
     a = onp.array([[[[0, 1, 2]]]], dtype=type_a)
 
-    with pytest.raises(Exception) as e_info:
+    with pytest.raises(Exception):
         # only works with 1D arrays
         result = onp.constant(value_floats=a)
 
@@ -148,7 +150,7 @@ def test_constant_value_ints(type_a):
 
     a = onp.array([[[[0, 1, 2]]]], dtype=type_a)
 
-    with pytest.raises(Exception) as e_info:
+    with pytest.raises(Exception):
         # only works with 1D arrays
         result = onp.constant(value_ints=a)
 
@@ -190,7 +192,8 @@ def test_det(type_a):
 
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_det_nd(type_a):
-    a = onp.array([[[1, 2], [3, 4]], [[1, 2], [2, 1]], [[1, 3], [3, 1]]], dtype=type_a)
+    a = onp.array([[[1, 2], [3, 4]], [[1, 2], [2, 1]],
+                   [[1, 3], [3, 1]]], dtype=type_a)
     expected = onp.array([-2., -3., -8.], dtype=type_a)
     result = onp.det(a)
     expect(expected.numpy(), result.numpy())
@@ -215,8 +218,10 @@ def test_exp(type_a):
     expect(expected.numpy(), result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.uint64, np.int32, np.int64])
-@pytest.mark.parametrize("type_b", [*float_types, np.uint64, np.int32, np.int64])
+@pytest.mark.parametrize("type_a",
+                         [*float_types, np.uint64, np.int32, np.int64])
+@pytest.mark.parametrize("type_b",
+                         [*float_types, np.uint64, np.int32, np.int64])
 def test_eyelike_populate_off_main_diagonal(type_a, type_b):
     shape = (4, 5)
     off_diagonal_offset = 1
@@ -236,8 +241,10 @@ def test_eyelike_populate_off_main_diagonal(type_a, type_b):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.uint64, np.int32, np.int64])
-@pytest.mark.parametrize("type_b", [*float_types, np.uint64, np.int32, np.int64])
+@pytest.mark.parametrize("type_a",
+                         [*float_types, np.uint64, np.int32, np.int64])
+@pytest.mark.parametrize("type_b",
+                         [*float_types, np.uint64, np.int32, np.int64])
 def test_eyelike_with_dtype(type_a, type_b):
     shape = (3, 4)
     if type_a in integer_types:
@@ -255,7 +262,8 @@ def test_eyelike_with_dtype(type_a, type_b):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.uint64, np.int32, np.int64])
+@pytest.mark.parametrize("type_a",
+                         [*float_types, np.uint64, np.int32, np.int64])
 def test_eyelike_without_dtype(type_a):
     shape = (4, 4)
     if type_a in integer_types:

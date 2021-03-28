@@ -1,11 +1,8 @@
 from . import array
 from . import evaluator
-from . import onnx_utils
-from . import ops
 from .einsum_helper import einsum_parse_and_resolve_equation
-from .types import is_float, is_integer, is_bool, onnx_to_numpy
 import functools
-from typing import Any, Tuple, Union
+from typing import Tuple, Union
 import numpy as np
 from functools import reduce
 import operator
@@ -27,7 +24,8 @@ def nary_operator(op_name, *arrays, **attributes):
     if len(arrays) == 0:
         raise ValueError("")
     if any(map(lambda a: a is not None, arrays)):
-        first_not_none_idx = [idx for idx, a in enumerate(arrays) if a is not None][0]
+        first_not_none_idx = [idx for idx,
+                              a in enumerate(arrays) if a is not None][0]
         new_evaluator = arrays[first_not_none_idx]._evaluator.copy()
         if len(arrays) > 1:
             for array_i in arrays[1:]:
@@ -61,13 +59,14 @@ def unary_operator(array_obj: "array.Array", op_name: str, **attributes):
     return nary_operator(op_name, array_obj, **attributes)
 
 
-def binary_operator(lhs: "array.Array", rhs: "array.Array", op_name: str, **attributes):
+def binary_operator(
+        lhs: "array.Array", rhs: "array.Array", op_name: str, **attributes):
     return nary_operator(op_name, lhs, rhs, **attributes)
 
 
 def initializer_operator(op_name: str, **attributes):
     if len(attributes) != 1:
-        raise NotImplemented()
+        raise NotImplementedError("TODO")
 
     attribute, value = next(iter(attributes.items()))
     new_evaluator = evaluator.LazyEvaluator()
@@ -84,7 +83,8 @@ def initializer_operator(op_name: str, **attributes):
 def deduce_output_type(lhs: "array.Array", rhs: "array.Array"):
     if lhs._dtype != rhs._dtype:
         raise ValueError(
-            f"Cannot handle differing types for lhs ({lhs._dtype}) and rhs ({rhs._dtype})")
+            f"Cannot handle differing types for lhs ({lhs._dtype}) and rhs "
+            f"({rhs._dtype})")
     return lhs._dtype
 
 
@@ -93,10 +93,12 @@ def allowed_types(*expected_types):
         @functools.wraps(func)
         def wrapper_allowed_types(*arrays, **kwargs):
             # type checks
-            for idx, (array_obj, dtypes) in enumerate(zip(arrays, expected_types)):
+            for idx, (array_obj, dtypes) in enumerate(
+                    zip(arrays, expected_types)):
                 if array_obj is not None and array_obj._dtype not in dtypes:
-                    raise ValueError(f"Unexpected type for argument {idx}, got {array_obj.dtype}, "
-                                     f"but expected one of {dtypes}!")
+                    raise ValueError(
+                        f"Unexpected type for argument {idx}, got {array_obj.dtype}, "
+                        f"but expected one of {dtypes}!")
             return func(*arrays, **kwargs)
         return wrapper_allowed_types
     return decorator
@@ -107,10 +109,12 @@ def not_implemented_types(*expected_types):
         @functools.wraps(func)
         def wrapper_allowed_types(*arrays, **kwargs):
             # type checks
-            for idx, (array_obj, dtypes) in enumerate(zip(arrays, expected_types)):
+            for idx, (array_obj, dtypes) in enumerate(
+                    zip(arrays, expected_types)):
                 if array_obj is not None and array_obj._dtype in dtypes:
                     raise NotImplementedError(
-                        f"Operator not implemented for type \"{array_obj.dtype}\" (argument {idx})")
+                        f"Operator not implemented for type \"{array_obj.dtype}\" "
+                        f"(argument {idx})")
             return func(*arrays, **kwargs)
         return wrapper_allowed_types
     return decorator
@@ -135,8 +139,11 @@ def shapes_match_exactly(func):
 
 def types_match_exactly(func):
     def wrapper_types_match_exactly(*array_objs, **kwargs):
-        array_objs_filter = filter(lambda a: isinstance(a, array.Array), array_objs)
-        if any(map(lambda a: a.dtype != array_objs[0].dtype, array_objs_filter)) and STRICT_MODE:
+        array_objs_filter = filter(
+            lambda a: isinstance(a, array.Array),
+            array_objs)
+        if any(map(lambda a: a.dtype != array_objs[0].dtype, array_objs_filter)) \
+           and STRICT_MODE:
             raise ValueError("Expected all arrays to be of the same type")
         return func(*array_objs, **kwargs)
     return wrapper_types_match_exactly
@@ -149,12 +156,14 @@ def check_input_shape_matmul(func):
         b_shape = B.shape
         if len(a_shape) < 2:
             if len(a_shape) == 0:
-                raise ValueError(f"Matrix multiplication is not valid with scalars")
+                raise ValueError(
+                    "Matrix multiplication is not valid with scalars")
             else:
                 a_shape = (1, *a_shape)
         if len(b_shape) < 2:
             if len(b_shape) == 0:
-                raise ValueError(f"Matrix multiplication is not valid with scalars")
+                raise ValueError(
+                    "Matrix multiplication is not valid with scalars")
             else:
                 b_shape = (*b_shape, 1)
         if len(a_shape) == 2 and len(b_shape) == 2:
@@ -163,15 +172,15 @@ def check_input_shape_matmul(func):
             kb, m = b_shape
             if (ka != kb):
                 raise ValueError(
-                    f"Matrix multiplication invalid. Number of rows of A ({a_shape}) does not match number of columns of B ({b_shape})")
+                    f"Matrix multiplication invalid. Number of rows of A ({a_shape}) "
+                    f"does not match number of columns of B ({b_shape})")
         else:
             n, ka = a_shape[-2:]
             kb, m = b_shape[-2:]
-            # Numpy error when >2D don't match
-            # ValueError: operands could not be broadcast together with remapped shapes [original->remapped]: (2,2,4)->(2,newaxis,newaxis) (3,4,2)->(3,newaxis,newaxis) and requested shape (2,2)
             if (ka != kb):
                 raise ValueError(
-                    f"Matrix multiplication invalid. Number of rows of A ({A.shape}) does not match number of columns of B ({B.shape})")
+                    f"Matrix multiplication invalid. Number of rows of A ({A.shape}) "
+                    f"does not match number of columns of B ({B.shape})")
             rest_a = a_shape[:-2]
             rest_b = b_shape[:-2]
             if len(rest_a) != len(rest_b):
@@ -196,7 +205,8 @@ def check_input_shape_gemm(func):
         kb, m = b_shape
         if (ka != kb):
             raise ValueError(
-                f"Shape of A {a_shape} is incompatiable with shape of B {b_shape} (after transposing)")
+                f"Shape of A {a_shape} is incompatiable with shape of B {b_shape} "
+                f"(after transposing)")
 
         # unidirectional broadcasting
         if C is not None and C.ndims > 0:
@@ -242,41 +252,42 @@ def array_is_square_matrix(func):
         else:
             m, n = input_shape[-2:]
             if m != n and m < 2:
-                raise ValueError("Last 2 dimensions of the array must be square")
+                raise ValueError(
+                    "Last 2 dimensions of the array must be square")
         return func(*array_objs_and_inputs, **kwargs)
     return wrapper_array_is_square_matrix
 
 
 def output_type_is_argn_position(arg_position):
-    def wrapper_output_type_is_arg_position(return_array, *input_arrays_and_args, **kwargs):
+    def wrapper_output_type_is_arg_position(
+            return_array, *input_arrays_and_args, **kwargs):
         return_array._dtype = input_arrays_and_args[arg_position]
     return wrapper_output_type_is_arg_position
 
-# def output_type_is_kwarg_position(kwarg_name):
-#     def wrapper_output_type_is_arg_position(return_array, *input_arrays_and_args, **kwargs):
-#         return_array._dtype = kwargs[kwarg_name].dtype
-#     return wrapper_output_type_is_arg_position
-
 
 def propagate_shape_from_argn_position(arg_position):
-    def wrapper_propagate_shape_from_argn_position(return_array, *input_arrays_and_args, **kwargs):
+    def wrapper_propagate_shape_from_argn_position(
+            return_array, *input_arrays_and_args, **kwargs):
         return_array._dims = input_arrays_and_args[arg_position].shape
     return wrapper_propagate_shape_from_argn_position
 
 
 def propagate_shape_matmul():
-    def wrapper_propagate_shape_matmul(return_array, *input_arrays_and_args, **kwargs):
+    def wrapper_propagate_shape_matmul(
+            return_array, *input_arrays_and_args, **kwargs):
         A, B = input_arrays_and_args[:2]
         a_shape = A.shape
         b_shape = B.shape
         if len(a_shape) < 2:
             if len(a_shape) == 0:
-                raise ValueError(f"Matrix multiplication is not valid with scalars")
+                raise ValueError(
+                    "Matrix multiplication is not valid with scalars")
             else:
                 a_shape = (1, *a_shape)
         if len(b_shape) < 2:
             if len(b_shape) == 0:
-                raise ValueError(f"Matrix multiplication is not valid with scalars")
+                raise ValueError(
+                    "Matrix multiplication is not valid with scalars")
             else:
                 b_shape = (*b_shape, 1)
         if len(a_shape) == 2 and len(b_shape) == 2:
@@ -301,16 +312,22 @@ def propagate_shape_matmul():
 
 
 def concatenate_shapes(axis_kwarg):
-    def wrapper_concatenate_shapes(return_array, *input_arrays_and_args, **kwargs):
+    def wrapper_concatenate_shapes(
+            return_array, *input_arrays_and_args, **kwargs):
         axis = kwargs[axis_kwarg]
         # check all shapes are the same size
         shape_sizes = list(map(lambda a: len(a.shape), input_arrays_and_args))
-        if any(map(lambda s: s != len(input_arrays_and_args[0].shape), shape_sizes)):
-            raise ValueError("All shapes must have the same number of dimensions")
+        if any(
+            map(
+                lambda s: s != len(input_arrays_and_args[0].shape),
+                shape_sizes)):
+            raise ValueError(
+                "All shapes must have the same number of dimensions")
         if axis < 0:
             if abs(axis) > shape_sizes[0]:
                 raise ValueError(
-                    f"Axis must be in the range [-{shape_sizes[0]}, {shape_sizes[0]-1}]")
+                    f"Axis must be in the range [-{shape_sizes[0]}, "
+                    f"{shape_sizes[0]-1}]")
             else:
                 axis = len(input_arrays_and_args[0].shape) - 1
 
@@ -350,7 +367,8 @@ def reduction_axis(*, axis_arg=None, axis_kwarg=None):
 
 
 def output_shape_from_einsum(equation_kwarg: str):
-    def wrapper_output_shape_from_einsum(return_array, *input_arrays_and_args, **kwargs):
+    def wrapper_output_shape_from_einsum(
+            return_array, *input_arrays_and_args, **kwargs):
         if equation_kwarg not in kwargs:
             raise ValueError("Equation string not passed as kwarg. "
                              "Please file a bug report")
@@ -362,7 +380,8 @@ def output_shape_from_einsum(equation_kwarg: str):
         output_shape = ()
 
         for output_axis_label in output_axis_labels:
-            for input_axis_label, input_shape in zip(input_axis_labels, input_shapes):
+            for input_axis_label, input_shape in zip(
+                    input_axis_labels, input_shapes):
                 pos = input_axis_label.find(output_axis_label)
                 if pos != -1:
                     output_shape = (*output_shape, input_shape[pos])
@@ -403,8 +422,9 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
         # prepended with a dimension of length 1 to satisfy property 2.
         max_array_shape = max(map(lambda a: len(a), array_shapes))
         def prepend_ones_to_shape(s, n): return (*(1,)*n, *s)
-        array_shapes = [prepend_ones_to_shape(
-            a, max_array_shape - len(a)) if len(a) < max_array_shape else a for a in array_shapes]
+        array_shapes = [
+            prepend_ones_to_shape(a, max_array_shape - len(a))
+            if len(a) < max_array_shape else a for a in array_shapes]
         shape = ()
         for idx, dims_at_idx in enumerate(zip(*array_shapes)):
             s0 = dims_at_idx[0]
@@ -435,7 +455,8 @@ def broadcast_to(shape: Tuple[int]):
         for s1, s2 in zip(reversed(shape), reversed(input_array_shape)):
             if s1 != s2 and (1 not in [s1, s2]):
                 raise ValueError(
-                    f"Can not broadcast array with shape {input_array_shape} to {shape}")
+                    f"Can not broadcast array with shape {input_array_shape} to "
+                    f"{shape}")
 
         return_array._dims = shape
 
@@ -447,7 +468,8 @@ def flatten_shape(axis: int):
         array_shape = input_arrays_and_args[0].shape
         if axis < -len(array_shape) or axis > len(array_shape) - 1:
             raise ValueError(
-                f"Axis must be in the range [-{len(array_shape)}, {len(array_shape)-1}]")
+                f"Axis must be in the range [-{len(array_shape)}, "
+                f"{len(array_shape)-1}]")
 
         def merge_axis(s): return reduce(operator.mul, s, 1)
 
@@ -455,7 +477,9 @@ def flatten_shape(axis: int):
             output_shape = (1, merge_axis(array_shape))
         else:
             a = len(array_shape) + axis if axis < 0 else axis
-            output_shape = (merge_axis(array_shape[:a]), merge_axis(array_shape[a:]))
+            output_shape = (
+                merge_axis(array_shape[: a]),
+                merge_axis(array_shape[a:]))
 
         return_array._dims = output_shape
 
@@ -469,7 +493,7 @@ def gather_check(axis_: int):
         indices = input_arrays_and_args[1]
 
         if x.ndims == 0:
-            raise ValueError(f"Array cannot be a scalar")
+            raise ValueError("Array cannot be a scalar")
 
         if axis_ < -len(x_shape) or axis_ > len(x_shape) - 1:
             raise ValueError(
@@ -508,16 +532,19 @@ def propagate_shape_pool(return_array, *input_arrays_and_args, **kwargs):
 def reduce_axis(axes: Union["array.Array", None], keepdims: bool):
     def output_reduce_axis(return_array, *input_arrays_and_args, **kwargs):
         if axes is None:
-            # noop (this only happens in ReduceSum when noop_with_empty_axes is True and axis is not specified)
+            # noop (this only happens in ReduceSum when noop_with_empty_axes is True
+            # and axis is not specified)
             return
 
         x_shape = input_arrays_and_args[0].shape
         axes_np = axes.numpy()
-        if any(map(lambda axis: axis < -len(x_shape) or axis > len(x_shape) - 1, axes_np)):
+        if any(map(lambda axis: axis < -len(x_shape) or axis > len(x_shape) - 1,
+                   axes_np)):
             raise ValueError(
                 f"Axis must be in the range [-{len(x_shape)}, {len(x_shape)-1}]")
 
-        reduction_axes = [len(x_shape) + axis if axis < 0 else axis for axis in axes_np]
+        reduction_axes = [len(x_shape) + axis if axis <
+                          0 else axis for axis in axes_np]
 
         output_shape = list(x_shape)
 
@@ -528,7 +555,8 @@ def reduce_axis(axes: Union["array.Array", None], keepdims: bool):
             for axis in reduction_axes:
                 output_shape[axis] = None
 
-        return_array._dims = tuple(filter(lambda s: s is not None, output_shape))
+        return_array._dims = tuple(
+            filter(lambda s: s is not None, output_shape))
 
     return output_reduce_axis
 
@@ -536,7 +564,8 @@ def reduce_axis(axes: Union["array.Array", None], keepdims: bool):
 def output_checks_and_inference(*output_checks):
     def decorator(func):
         @ functools.wraps(func)
-        def wrapper_output_checks_and_inference(*input_arrays_and_args, **kwargs):
+        def wrapper_output_checks_and_inference(
+                *input_arrays_and_args, **kwargs):
             return_array = func(*input_arrays_and_args, **kwargs)
             for output_check in output_checks:
                 output_check(return_array, *input_arrays_and_args, **kwargs)

@@ -1,15 +1,13 @@
-from .ops_utils import (unary_operator, binary_operator, nary_operator,
-                        allowed_types, output_type_is_argn_position,
-                        shapes_match_exactly, propagate_shape_from_argn_position,
-                        output_checks_and_inference, propagate_shape_matmul,
-                        check_input_shape_matmul, not_implemented_types,
-                        concatenate_shapes, types_match_exactly,
-                        initializer_operator, reduce_axis,
-                        reduction_axis, output_shape_from_einsum,
-                        output_type, allow_broadcasting, array_is_square_matrix,
-                        determinant_output_shape, broadcast_to,
-                        flatten_shape, gather_check, check_input_shape_gemm,
-                        propagate_shape_gemm, propagate_shape_pool)
+from .ops_utils import (
+    unary_operator, binary_operator, nary_operator, allowed_types,
+    output_type_is_argn_position, shapes_match_exactly,
+    propagate_shape_from_argn_position, output_checks_and_inference,
+    propagate_shape_matmul, check_input_shape_matmul, not_implemented_types,
+    concatenate_shapes, types_match_exactly, initializer_operator, reduce_axis,
+    output_shape_from_einsum, output_type, allow_broadcasting,
+    array_is_square_matrix, determinant_output_shape, broadcast_to,
+    flatten_shape, gather_check, check_input_shape_gemm, propagate_shape_gemm,
+    propagate_shape_pool)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
                     unsigned_integer_types)
@@ -159,7 +157,9 @@ def clip(input, minimum=None, maximum=None):
     @allowed_types([*numeric_types, *numeric_types, *numeric_types])
     def clip_helper(input, minimum, maximum):
         return nary_operator("Clip", input, minimum, maximum)
-    return clip_helper(input, array.array(minimum, input.dtype), array.array(maximum, input.dtype))
+    return clip_helper(
+        input, array.array(minimum, input.dtype),
+        array.array(maximum, input.dtype))
 
 
 def cast(array: "array.Array", to: type):
@@ -197,7 +197,8 @@ def constant(*, sparse_value=None,
              value_ints: Union[array.Array, IterableType[int]] = None,
              value_string: str = None, value_strings=None) -> array.Array:
 
-    def check_array_shape_and_type(values, expected_ndims, expected_dtype, argname):
+    def check_array_shape_and_type(
+            values, expected_ndims, expected_dtype, argname):
         if isinstance(values, array.Array):
             shape = values.shape
             dtype = values.dtype
@@ -206,10 +207,12 @@ def constant(*, sparse_value=None,
             dtype = array.infer_dtype_from_array(values)
         if len(shape) != expected_ndims:
             raise ValueError(
-                f"Argument {argname} expects a {expected_ndims}D array, but got {len(shape)}D array")
+                f"Argument {argname} expects a {expected_ndims}D array, "
+                f"but got {len(shape)}D array")
         if dtype != expected_dtype:
-            raise ValueError(f"Argument {argname} expects an array of type {expected_dtype}, "
-                             f"but got type {dtype}")
+            raise ValueError(
+                f"Argument {argname} expects an array of type {expected_dtype}, "
+                f"but got type {dtype}")
 
     if sparse_value:
         raise NotImplementedError("Sparse matrices are currently not supported")
@@ -217,13 +220,15 @@ def constant(*, sparse_value=None,
         return initializer_operator("Constant", value=value)
     if value_float:
         # TODO: should this be strict? i.e. if not isinstance(value, float) throw?
-        return initializer_operator("Constant", value_float=array.array([float(value_float)]))
+        return initializer_operator("Constant", value_float=array.array(
+            [float(value_float)]))
     if value_floats:
         check_array_shape_and_type(value_floats, 1, np.float32, "value_floats")
         return initializer_operator("Constant", value_floats=value_floats)
     if value_int:
         # TODO: should this be strict? i.e. if not isinstance(value, int) throw?
-        return initializer_operator("Constant", value_int=array.array([int(value_int)]))
+        return initializer_operator(
+            "Constant", value_int=array.array([int(value_int)]))
     if value_ints:
         check_array_shape_and_type(value_ints, 1, np.int32, "value_ints")
         return initializer_operator("Constant", value_ints=value_ints)
@@ -324,7 +329,8 @@ def elu(x, alpha=1.0):
 
 
 def equal(x, y):
-    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
+    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
     @allowed_types(numeric_types, numeric_types)
     @output_checks_and_inference(
         output_type(np.bool_),
@@ -380,10 +386,12 @@ def eye_like(x: "array.Array", dtype: np.dtype = None, k=0):
         raise TypeError(
             f"Output type {dtype} not supported. Supported types are {all_types}")
     if dtype not in [*float_types, np.uint64, np.int32, np.int64]:
-        raise NotImplementedError(f"Output type {dtype} currently not implemented")
+        raise NotImplementedError(
+            f"Output type {dtype} currently not implemented")
 
     @allowed_types(all_types)
-    @not_implemented_types([np.int8, np.int16, np.uint8, np.uint16, np.uint32, np.bool_])
+    @not_implemented_types([np.int8, np.int16, np.uint8, np.uint16, np.uint32,
+                            np.bool_])
     @output_checks_and_inference(
         output_type(dtype)
     )
@@ -393,13 +401,13 @@ def eye_like(x: "array.Array", dtype: np.dtype = None, k=0):
     return eye_like_helper(x, dtype=numpy_to_onnx(np.dtype(dtype)), k=int(k))
 
 
-def flatten(x: "Array.array", axis: int = 1):
+def flatten(x: "array.Array", axis: int = 1):
 
     @allowed_types(all_types)
     @output_checks_and_inference(
         flatten_shape(int(axis))
     )
-    def flatten_helper(x: "Array.array", axis: int):
+    def flatten_helper(x: "array.Array", axis: int):
         return unary_operator(x, "Flatten", axis=axis)
 
     return flatten_helper(x, axis=int(axis))
@@ -413,9 +421,13 @@ def floor(x: "array.Array"):
     return floor_helper(x)
 
 
-def gru(x: "array.Array", w: "array.Array", r: "array.Array", b: "array.Array", sequence_length: "array.Array", initial_h: "array.Array",
-        hidden_size: int, activation_alpha: List[float] = None, activation_beta: List[float] = None, activations: List[str] = None, clip: float = 0.0,
-        direction: str = "forward", layout: int = 0, linear_before_reset: bool = False):
+def gru(
+        x: "array.Array", w: "array.Array", r: "array.Array", b: "array.Array",
+        sequence_length: "array.Array", initial_h: "array.Array",
+        hidden_size: int, activation_alpha: List[float] = None,
+        activation_beta: List[float] = None, activations: List[str] = None,
+        clip: float = 0.0, direction: str = "forward", layout: int = 0,
+        linear_before_reset: bool = False):
     raise NotImplementedError()
 
 
@@ -441,7 +453,8 @@ def gather_elements(x: "array.Array", indices: "array.Array", axis: int = 0):
     @output_checks_and_inference(
         propagate_shape_from_argn_position(1)
     )
-    def gather_elements_helper(x: "array.Array", indices: "array.Array", axis: int):
+    def gather_elements_helper(
+            x: "array.Array", indices: "array.Array", axis: int):
         return nary_operator("GatherElements", x, indices, axis=axis)
 
     return gather_elements_helper(x, indices, axis=int(axis))
@@ -474,17 +487,22 @@ def gemm(a: "array.Array", b: "array.Array", c: Optional["array.Array"] = None,
     @output_checks_and_inference(
         propagate_shape_gemm
     )
-    def gemm_helper(a: "array.Array", b: "array.Array", c: "array.Array", alpha: float,
-                    beta: float, transA: int, transB: int):
-        return nary_operator("Gemm", a, b, c, alpha=alpha, beta=beta, transA=transA,
-                             transB=transB)
+    def gemm_helper(
+            a: "array.Array", b: "array.Array", c: "array.Array", alpha: float,
+            beta: float, transA: int, transB: int):
+        return nary_operator(
+            "Gemm", a, b, c, alpha=alpha, beta=beta, transA=transA,
+            transB=transB)
 
     if a.dtype != b.dtype and a.dtype != c.dtype:
         raise TypeError(
             f"Type of A ({a.dtype}) must match type of B ({b.dtype}) and C ({c.dtype})")
 
-    return gemm_helper(a, b, c, alpha=float(alpha), beta=float(beta), transA=int(transA),
-                       transB=int(transB))
+    return gemm_helper(
+        a, b, c, alpha=float(alpha),
+        beta=float(beta),
+        transA=int(transA),
+        transB=int(transB))
 
 
 def global_average_pool(x: "array.Array"):
@@ -539,7 +557,8 @@ def global_max_pool(x: "array.Array"):
 
 
 def greater(a: "array.Array", b: "array.Array"):
-    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
+    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
     @allowed_types(numeric_types, numeric_types)
     @output_checks_and_inference(
         output_type(np.bool_),
@@ -551,7 +570,8 @@ def greater(a: "array.Array", b: "array.Array"):
 
 
 def greater_equal(a: "array.Array", b: "array.Array"):
-    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
+    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
     @allowed_types(numeric_types, numeric_types)
     @output_checks_and_inference(
         output_type(np.bool_),
@@ -593,11 +613,14 @@ def identity(x: "array.Array"):
     return helper_identity(x)
 
 
-def instance_normalization(x: "array.Array", scale: "array.Array", bias: "array.Array", epsilon: float = 1e-05):
+def instance_normalization(
+        x: "array.Array", scale: "array.Array", bias: "array.Array",
+        epsilon: float = 1e-05):
 
     if x.dtype != scale.dtype or x.dtype != bias.dtype:
         raise TypeError(
-            f"The types of scale ({scale.dtype}) and B ({bias.dtype}) must match the one of x ({x.dtype})")
+            f"The types of scale ({scale.dtype}) and B ({bias.dtype}) must match the "
+            f"one of x ({x.dtype})")
     if scale.ndims != 1:
         raise ValueError("scale must be a 1D tensor")
     if bias.ndims != 1:
@@ -605,21 +628,30 @@ def instance_normalization(x: "array.Array", scale: "array.Array", bias: "array.
 
     @allowed_types(float_types, float_types, float_types)
     @not_implemented_types([np.float64], [np.float64], [np.float64])
-    def helper_instance_normalization(x: "array.Array", scale: "array.Array", bias: "array.Array", epsilon: float):
-        return nary_operator("InstanceNormalization", x, scale, bias, epsilon=epsilon)
+    def helper_instance_normalization(
+            x: "array.Array", scale: "array.Array", bias: "array.Array",
+            epsilon: float):
+        return nary_operator(
+            "InstanceNormalization", x, scale, bias, epsilon=epsilon)
 
     return helper_instance_normalization(x, scale, bias, epsilon=epsilon)
 
 
-def isinf(x: "array.Array", detect_negative: bool = True, detect_positive: bool = True):
+def isinf(x: "array.Array", detect_negative: bool = True,
+          detect_positive: bool = True):
     @allowed_types(float_types)
     @output_checks_and_inference(
         output_type(np.bool_)
     )
-    def helper_isinf(x: "array.Array", detect_negative: int, detect_positive: int):
-        return unary_operator(x, "IsInf", detect_negative=detect_negative, detect_positive=detect_positive)
+    def helper_isinf(
+            x: "array.Array", detect_negative: int, detect_positive: int):
+        return unary_operator(
+            x, "IsInf", detect_negative=detect_negative,
+            detect_positive=detect_positive)
 
-    return helper_isinf(x, detect_negative=int(detect_negative), detect_positive=int(detect_positive))
+    return helper_isinf(
+        x, detect_negative=int(detect_negative),
+        detect_positive=int(detect_positive))
 
 
 def isneginf(x: "array.Array"):
@@ -642,7 +674,9 @@ def isnan(x: "array.Array"):
     return helper_isnan(x)
 
 
-def lrn(x: "array.Array", size: int, alpha: float = 0.0001, beta: float = 0.75, bias: float = 1.0):
+def lrn(
+        x: "array.Array", size: int, alpha: float = 0.0001, beta: float = 0.75,
+        bias: float = 1.0):
 
     if x.ndims != 4:
         raise ValueError(
@@ -650,15 +684,21 @@ def lrn(x: "array.Array", size: int, alpha: float = 0.0001, beta: float = 0.75, 
 
     @allowed_types(float_types)
     @not_implemented_types([np.float64])
-    def helper_lrn(x: "array.Array", size: int, alpha: float, beta: float, bias: float):
-        return unary_operator(x, "LRN", size=size, alpha=alpha, beta=beta, bias=bias)
+    def helper_lrn(x: "array.Array", size: int, alpha: float, beta: float,
+                   bias: float):
+        return unary_operator(
+            x, "LRN", size=size, alpha=alpha, beta=beta, bias=bias)
 
     return helper_lrn(x, size=size, alpha=alpha, beta=beta, bias=bias)
 
 
-def lstm(x: "array.Array", w: "array.Array", r: "array.Array", b: "array.Array", sequence_length: "array.Array", initial_h: "array.Array",
-         initial_c: "array.Array", P: "array.Array", hidden_size: int, activation_alpha: List[float] = None, activation_beta: List[float] = None,
-         activations: List[str] = None, clip: float = 0.0, direction: str = "forward", layout: int = 0, input_forget: bool = False):
+def lstm(
+        x: "array.Array", w: "array.Array", r: "array.Array", b: "array.Array",
+        sequence_length: "array.Array", initial_h: "array.Array",
+        initial_c: "array.Array", P: "array.Array", hidden_size: int,
+        activation_alpha: List[float] = None, activation_beta: List[float] = None,
+        activations: List[str] = None, clip: float = 0.0, direction: str = "forward",
+        layout: int = 0, input_forget: bool = False):
     raise NotImplementedError()
 
 
@@ -671,7 +711,8 @@ def leakyrelu(x: "array.Array", alpha: float = 0.01):
 
 
 def less(a: "array.Array", b: "array.Array"):
-    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
+    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
     @allowed_types(numeric_types, numeric_types)
     @output_checks_and_inference(
         output_type(np.bool_),
@@ -683,7 +724,8 @@ def less(a: "array.Array", b: "array.Array"):
 
 
 def less_equal(a: "array.Array", b: "array.Array"):
-    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
+    @not_implemented_types([np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
     @allowed_types(numeric_types, numeric_types)
     @output_checks_and_inference(
         output_type(np.bool_),
@@ -724,7 +766,8 @@ def lp_normalization(x: "array.Array", axis: int = -1, p: int = 2):
             f"Axis must be in the range [-{x.ndims}, {x.ndims-1}]")
     p = int(p)
     if p not in [1, 2]:
-        raise ValueError(f"Normalization order has to be either 1 or 2, but got {p}")
+        raise ValueError(
+            f"Normalization order has to be either 1 or 2, but got {p}")
 
     @allowed_types(float_types)
     def helper_lp_normalization(x: "array.Array", axis: int, p: int):
@@ -733,7 +776,10 @@ def lp_normalization(x: "array.Array", axis: int = -1, p: int = 2):
     return helper_lp_normalization(x, axis=axis, p=p)
 
 
-def lp_pool(x: "array.Array", kernel_shape: List[int], auto_pad: str = "NOTSET", p: int = 2, pads: List[int] = None, strides: List[int] = None):
+def lp_pool(
+        x: "array.Array", kernel_shape: List[int],
+        auto_pad: str = "NOTSET", p: int = 2, pads: List[int] = None,
+        strides: List[int] = None):
     raise NotImplementedError()
 
 
@@ -749,7 +795,9 @@ def matmul(x: "array.Array", y: "array.Array"):
     return matmul_helper(x, y)
 
 
-def matmul_integer(A: "array.Array", B: "array.Array", a_zero_point: "array.Array" = None, b_zero_point: "array.Array" = None):
+def matmul_integer(A: "array.Array", B: "array.Array",
+                   a_zero_point: "array.Array" = None,
+                   b_zero_point: "array.Array" = None):
 
     if a_zero_point is None:
         a_zero_point = array.array(0, dtype=A.dtype)
@@ -758,7 +806,8 @@ def matmul_integer(A: "array.Array", B: "array.Array", a_zero_point: "array.Arra
             "The A zero point 1D tensor must match the number of rows of A")
     elif a_zero_point.dtype != A.dtype:
         raise TypeError(
-            f"The A zero points ({a_zero_point.dtype}) must have the same type as A ({A.dtype})")
+            f"The A zero points ({a_zero_point.dtype}) must have the same type as A "
+            f"({A.dtype})")
 
     if b_zero_point is None:
         b_zero_point = array.array(0, dtype=B.dtype)
@@ -767,12 +816,15 @@ def matmul_integer(A: "array.Array", B: "array.Array", a_zero_point: "array.Arra
             "The B zero point 1D tensor must match the number of rows of B")
     elif b_zero_point.dtype != B.dtype:
         raise TypeError(
-            f"The B zero points ({b_zero_point.dtype}) must have the same type as B ({B.dtype})")
+            f"The B zero points ({b_zero_point.dtype}) must have the same type as B "
+            f"({B.dtype})")
 
-    if (A.dtype == np.int8 and B.dtype == np.uint8) or (A.dtype == np.int8 and B.dtype == np.int8):
+    if (A.dtype == np.int8 and B.dtype == np.uint8) or \
+       (A.dtype == np.int8 and B.dtype == np.int8):
         # uint8-int8 and int8-int8 known to not be implemented
         raise NotImplementedError(
-            f"Combination A B matrix types int8-uint8 and int8-int8 are not implemented. Got {A.dtype}-{B.dtype}")
+            f"Combination A B matrix types int8-uint8 and int8-int8 are not "
+            f"implemented. Got {A.dtype}-{B.dtype}")
 
     @allowed_types([np.uint8, np.int8],
                    [np.uint8, np.int8])
@@ -798,18 +850,26 @@ def maximum(*arrays):
     return helper_maximum(*arrays)
 
 
-def maxpool(x: "array.Array", kernel_shape: List[int], auto_pad: str = "NOTSET", ceil_mode: bool = False,
-            dilations: Optional[List[int]] = None, pads: Optional[List[int]] = None,
-            storage_order: int = 0, strides: Optional[List[int]] = None):
-    raise NotImplementedError("Operators with more than one output are not handled yet")
+def maxpool(
+        x: "array.Array", kernel_shape: List[int],
+        auto_pad: str = "NOTSET", ceil_mode: bool = False,
+        dilations: Optional[List[int]] = None, pads: Optional[List[int]] = None,
+        storage_order: int = 0, strides: Optional[List[int]] = None):
+    raise NotImplementedError(
+        "Operators with more than one output are not handled yet")
 
 
-def maxroipool(x: "array.Array", rois: "array.Array", pooled_shape: List[int], spatial_scale: float = 1.0):
-    raise NotImplementedError("Operators with more than one output are not handled yet")
+def maxroipool(
+        x: "array.Array", rois: "array.Array", pooled_shape: List[int],
+        spatial_scale: float = 1.0):
+    raise NotImplementedError(
+        "Operators with more than one output are not handled yet")
 
 
-def maxunpool(x: "array.Array", indices: "array.Array", kernel_shape: List[int], output_shape: Optional[List[int]] = None,
-              pads: Optional[List[int]] = None, strides: Optional[List[int]] = None):
+def maxunpool(
+        x: "array.Array", indices: "array.Array", kernel_shape: List[int],
+        output_shape: Optional[List[int]] = None, pads: Optional[List[int]] = None,
+        strides: Optional[List[int]] = None):
 
     if output_shape is None:
         raise NotImplementedError(
@@ -817,16 +877,26 @@ def maxunpool(x: "array.Array", indices: "array.Array", kernel_shape: List[int],
 
     @allowed_types(float_types, [np.int64], [np.int64])
     @not_implemented_types([np.float64])
-    def helper_maxunpool(x: "array.Array", indices: "array.Array", output_shape: Optional[List[int]], kernel_shape: List[int],
-                         pads: List[int], strides: List[int]):
-        return nary_operator("MaxUnpool", x, indices, output_shape, kernel_shape=kernel_shape, pads=pads, strides=strides)
+    def helper_maxunpool(
+            x: "array.Array", indices: "array.Array",
+            output_shape: Optional[List[int]],
+            kernel_shape: List[int],
+            pads: List[int],
+            strides: List[int]):
+        return nary_operator(
+            "MaxUnpool", x, indices, output_shape, kernel_shape=kernel_shape,
+            pads=pads, strides=strides)
 
-    return helper_maxunpool(x, indices, output_shape, kernel_shape=kernel_shape, pads=pads, strides=strides)
+    return helper_maxunpool(
+        x, indices, output_shape, kernel_shape=kernel_shape, pads=pads,
+        strides=strides)
 
 
 def power(x: "array.Array", y: "array.Array"):
     @allowed_types([*float_types, np.int32, np.int64], numeric_types)
-    @not_implemented_types([], [np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
+    @not_implemented_types([],
+                           [np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
     @output_checks_and_inference(
         allow_broadcasting
     )
@@ -836,9 +906,12 @@ def power(x: "array.Array", y: "array.Array"):
     return helper_power(x, y)
 
 
-def sum(x: "array.Array", axes: Union[int, "array.Array"] = None, keepdims: bool = True, noop_with_empty_axes: bool = False):
+def sum(
+        x: "array.Array", axes: Union[int, "array.Array"] = None,
+        keepdims: bool = True, noop_with_empty_axes: bool = False):
 
-    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0) and not noop_with_empty_axes:
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0) \
+            and not noop_with_empty_axes:
         axes = array.array(range(x.ndims), np.int64)
     elif isinstance(axes, int):
         axes = array.array([axes], np.int64)
@@ -848,13 +921,21 @@ def sum(x: "array.Array", axes: Union[int, "array.Array"] = None, keepdims: bool
         warnings.warn("option noop_with_empty_axes is currently unstable.")
 
     @allowed_types([*float_types, np.int32, np.int64], [np.int64])
-    @not_implemented_types([], [np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16])
+    @not_implemented_types([],
+                           [np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
     @output_checks_and_inference(
         reduce_axis(axes, bool(keepdims))
     )
-    def helper_sum(x: "array.Array", axes: "array.Array", keepdims: bool, noop_with_empty_axes: bool):
+    def helper_sum(
+            x: "array.Array", axes: "array.Array", keepdims: bool,
+            noop_with_empty_axes: bool):
         if len(axes) == 0 and not noop_with_empty_axes:
             axes = None
-        return nary_operator("ReduceSum", x, axes, keepdims=keepdims, noop_with_empty_axes=noop_with_empty_axes)
+        return nary_operator(
+            "ReduceSum", x, axes, keepdims=keepdims,
+            noop_with_empty_axes=noop_with_empty_axes)
 
-    return helper_sum(x, axes, keepdims=bool(keepdims), noop_with_empty_axes=bool(noop_with_empty_axes))
+    return helper_sum(
+        x, axes, keepdims=bool(keepdims),
+        noop_with_empty_axes=bool(noop_with_empty_axes))

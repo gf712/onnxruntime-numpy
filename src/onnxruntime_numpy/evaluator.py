@@ -1,14 +1,12 @@
 import onnx
-from typing import List, Any, Tuple
+from typing import List, Tuple
 import onnxruntime
 import numpy as np  # FIXME maybe
-from .types import numpy_to_onnx, numpy_to_ort, ort_to_numpy
+from .types import numpy_to_ort
 from .shapes import shapes_match
-import uuid
 from .graph import Graph
 from collections.abc import Iterable
-
-from onnxruntime.capi import _pybind_state as C
+from . import array
 
 
 class LazyEvaluator:
@@ -55,20 +53,14 @@ class LazyEvaluator:
             outputs = tuple((outputs,))
 
         # if node_name not in self._node_names:
-        self._parent_node = self._graph.add_node(op_type, inputs, outputs, **attributes)
+        self._parent_node = self._graph.add_node(
+            op_type, inputs, outputs, **attributes)
         # self._node_names.add(node_name)
 
-    def add_initializer(self, name: str, dtype: np.dtype, dims: Tuple[int], vals):
-        # if name not in self._initializers:
-        #     flat_values = flatten(vals)
-        #     self._initializers[name] = onnx.helper.make_tensor(name, dtype, dims, flat_values)
-        # if name not in self._initializer_names:
+    def add_initializer(
+            self, name: str, dtype: np.dtype, dims: Tuple[int],
+            vals):
         raise NotImplementedError("Initializers not implemented")
-        # self._graph.add_initializer()
-        #     flat_values = flatten(vals, dtype=dtype)
-        #     initializer = onnx.helper.make_tensor(name, dtype, dims, flat_values)
-        #     self._graph.intializer.append(initializer)
-        #     self._initializer_names.add(name)
 
     def add_input(self, array: "array.Array"):
         name = array._internal_name
@@ -84,13 +76,14 @@ class LazyEvaluator:
                 raise TypeError("Input type does not match input node")
             if not shapes_match(default_values.shape(), dims):
                 raise ValueError(
-                    f"Input tensor shape {default_values.shape()} does not match input node shape {dims}")
+                    f"Input tensor shape {default_values.shape()} does not match input "
+                    f"node shape {dims}")
             self._input_values[name] = array
         else:
             raise NotImplementedError()
         # self._input_names.add(name)
         # self._parent_node = self._graph.add_input(array)
-        
+
     def add_subgraph(self, other_graph: Graph):
         if self._graph is None:
             self._graph = other_graph
@@ -113,26 +106,19 @@ class LazyEvaluator:
             raise ValueError("Graph is empty. "
                              "This is an internal error. Please file a bug")
 
-        onnx_graph = self._graph.build_onnx_graph(array, self._input_values, self._parent_node)
+        onnx_graph = self._graph.build_onnx_graph(
+            array, self._input_values, self._parent_node)
         m = onnx.helper.make_model(onnx_graph)
         buffer = m.SerializeToString()
 
         output_name = array._internal_name
 
-        output_names = [output_name]
-
-        inputs = list(onnx_graph.input)
-        outputs = list(onnx_graph.output)
-        nodes = list(onnx_graph.node)
-
         # TODO: how to handle multiple return values?
         try:
-            # TODO: maybe disable optimisations when graph has already been optimised with jit?
-            # session_options = C.get_default_session_options()
-            # session_options.graph_optimization_level = session_options.graph_optimization_level.ORT_DISABLE_ALL
-            # session = onnxruntime.InferenceSession(buffer, sess_options=session_options)
+            # TODO: maybe disable optimisations when graph has already been optimised
+            # with jit?
             session = onnxruntime.InferenceSession(buffer)
-        except:
+        except Exception:
             onnx.save_model(m, "failed_model.onnx")
             raise
         io_binding = session.io_binding()
@@ -148,14 +134,14 @@ class LazyEvaluator:
 
             shape = ortvalue.shape()
 
-            io_binding.bind_input(name=input_name, device_type=ortvalue.device_name(),
-                                  device_id=0,
-                                  element_type=ort_value_dtype,
-                                  shape=shape,
-                                  buffer_ptr=ortvalue.data_ptr())
+            io_binding.bind_input(
+                name=input_name, device_type=ortvalue.device_name(),
+                device_id=0, element_type=ort_value_dtype, shape=shape,
+                buffer_ptr=ortvalue.data_ptr())
 
         if len(onnx_graph.output) != 1:
-            raise NotImplementedError("Only single output inference is supported")
+            raise NotImplementedError(
+                "Only single output inference is supported")
 
         io_binding.bind_output(output_name)
 
