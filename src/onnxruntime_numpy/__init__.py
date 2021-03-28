@@ -16,6 +16,6 @@ finally:
     del version, PackageNotFoundError
 
 from .ops import *  # noqa
-from .jit import jit  # noqa
+from .array import array  # type: ignore # noqa
+from .jit import jit  # type: ignore # noqa
 from .grad import grad  # noqa
-from .array import array  # noqa

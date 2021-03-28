@@ -1,6 +1,7 @@
 # FIXME: re-enable flake8 after refactoring this file
 # flake8: noqa
-from . import array
+# type: ignore
+from .array import Array
 from .evaluator import LazyEvaluator
 from .types import onnx_to_numpy
 from .onnx_utils import make_onnx_tensor_value_info
@@ -53,7 +54,7 @@ class OpTracker:
         for tensor in t_args:
             if tensor._ort_value is None:
                 self._lazy_tensors.add(tensor._internal_name)
-            mock_tensor = array.Array(
+            mock_tensor = Array(
                 dims=tensor.shape, dtype=tensor.dtype,
                 internal_name=tensor._internal_name)
             self._op_t_args.append(mock_tensor)
@@ -62,7 +63,7 @@ class OpTracker:
         for kw, tensor in t_kwargs.items():
             if tensor._ort_value is None:
                 self._lazy_tensors.add(tensor._internal_name)
-            mock_tensor = array.Array(
+            mock_tensor = Array(
                 dims=tensor.shape, dtype=tensor.dtype,
                 internal_name=tensor._internal_name)
             self._op_t_kwargs[kw] = mock_tensor
@@ -73,7 +74,7 @@ class OpTracker:
         if self._graph is not None:
             raise ValueError("Can only track a function call once")
         mock_array = func(*self._op_t_args, **self._op_t_kwargs)
-        if not isinstance(mock_array, array.Array):
+        if not isinstance(mock_array, Array):
             raise NotImplementedError(
                 "Tracing only possible with functions with a single output of type array.Array")
         self._graph = Graph()
@@ -170,7 +171,7 @@ class OptimizedGraph:
     def get_output_type_shape_info(self):
         return self._output_type_shape_info
 
-    def build_graph_for_tensors(self, *tensors: array.Array):
+    def build_graph_for_tensors(self, *tensors: Array):
         if len(tensors) != len(self._tensor_input_mapping):
             raise ValueError(
                 f"This graph has {len(self._inputs)} inputs, but {len(tensors)} were provided")
@@ -278,7 +279,7 @@ def generate_graph_flow(func, *array_objs, **array_obj_kwargs):
     if isinstance(result_array, tuple) or result_array is None:
         raise ValueError(
             "Jit only supports functions with a single return array")
-    if not isinstance(result_array, array.Array):
+    if not isinstance(result_array, Array):
         raise TypeError("Jit only supports Array object as a return value")
 
     fn_to_graph_input_map = MapFnArgsToInput(inspect.signature(func))
@@ -319,10 +320,10 @@ def jit(func):  # Callable[[IterableType[array.Array]], array.Array]
     def wrapper_jit(*array_objs, **array_obj_kwargs):
         # only Array objects are supported
         if any(
-            map(lambda a: not isinstance(a, array.Array),
+            map(lambda a: not isinstance(a, Array),
                 array_objs)) or any(
             map(
-                lambda a: not isinstance(a, array.Array),
+                lambda a: not isinstance(a, Array),
                 array_obj_kwargs.values())):
             raise TypeError("Jit is currently only support with Array objects")
 
@@ -375,7 +376,7 @@ def jit(func):  # Callable[[IterableType[array.Array]], array.Array]
                 evaluator = LazyEvaluator()
                 evaluator.add_subgraph(graph)
 
-                result_array = array.Array(
+                result_array = Array(
                     dims=output_shape, dtype=output_dtype,
                     internal_name=graph_output_name, evaluator=evaluator)
                 merge_array_evaluators(

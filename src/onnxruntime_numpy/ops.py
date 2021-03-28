@@ -167,7 +167,7 @@ def cast(array: "array.Array", to: type):
     @output_checks_and_inference(
         output_type_is_argn_position(1)
     )
-    def cast_helper(array: "array.Array", to: type):
+    def cast_helper(array: "array.Array", to: type):  # type: ignore
         return unary_operator(array, "Cast", to=numpy_to_onnx(np.dtype(to)))
 
     return cast_helper(array, to)
@@ -494,7 +494,7 @@ def gemm(a: "array.Array", b: "array.Array", c: Optional["array.Array"] = None,
             "Gemm", a, b, c, alpha=alpha, beta=beta, transA=transA,
             transB=transB)
 
-    if a.dtype != b.dtype and a.dtype != c.dtype:
+    if a.dtype != b.dtype and (c is not None and a.dtype != c.dtype):
         raise TypeError(
             f"Type of A ({a.dtype}) must match type of B ({b.dtype}) and C ({c.dtype})")
 
@@ -798,10 +798,17 @@ def matmul(x: "array.Array", y: "array.Array"):
 def matmul_integer(A: "array.Array", B: "array.Array",
                    a_zero_point: "array.Array" = None,
                    b_zero_point: "array.Array" = None):
+    if len(A.shape) > 1:
+        A_cols = A.shape[-2]  # type: ignore
+    elif len(A.shape) == 1:
+        A_cols = A.shape[0]
+    else:
+        A_cols = 0
+    B_rows = B.shape[0] if len(B.shape) > 0 else 0
 
     if a_zero_point is None:
         a_zero_point = array.array(0, dtype=A.dtype)
-    elif a_zero_point.ndims == 1 and a_zero_point.shape[0] != A.shape[-2]:
+    elif a_zero_point.ndims == 1 and a_zero_point.shape[0] != A_cols:
         raise ValueError(
             "The A zero point 1D tensor must match the number of rows of A")
     elif a_zero_point.dtype != A.dtype:
@@ -811,7 +818,7 @@ def matmul_integer(A: "array.Array", B: "array.Array",
 
     if b_zero_point is None:
         b_zero_point = array.array(0, dtype=B.dtype)
-    elif b_zero_point.ndims == 1 and b_zero_point.shape[0] != B.shape[-1]:
+    elif b_zero_point.ndims == 1 and b_zero_point.shape[0] != B_rows:
         raise ValueError(
             "The B zero point 1D tensor must match the number of rows of B")
     elif b_zero_point.dtype != B.dtype:
@@ -907,7 +914,7 @@ def power(x: "array.Array", y: "array.Array"):
 
 
 def sum(
-        x: "array.Array", axes: Union[int, "array.Array"] = None,
+        x: "array.Array", axes: Optional[Union[int, "array.Array"]] = None,
         keepdims: bool = True, noop_with_empty_axes: bool = False):
 
     if axes is None or (isinstance(axes, Iterable) and len(axes) == 0) \
@@ -931,7 +938,7 @@ def sum(
             x: "array.Array", axes: "array.Array", keepdims: bool,
             noop_with_empty_axes: bool):
         if len(axes) == 0 and not noop_with_empty_axes:
-            axes = None
+            axes = None  # type: ignore
         return nary_operator(
             "ReduceSum", x, axes, keepdims=keepdims,
             noop_with_empty_axes=noop_with_empty_axes)

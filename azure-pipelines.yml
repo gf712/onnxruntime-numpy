@@ -27,7 +27,10 @@ steps:
   displayName: 'Install Tox'
 
 - script: tox -e py
-  displayName: 'Run tests with Tox'
+  displayName: 'Run tests'
 
 - script: tox -e flake8
-  displayName: 'Check code style with flake8'
+  displayName: 'Check code style'
+
+- script: tox -e mypy
+  displayName: 'Static type checking'

@@ -1,7 +1,7 @@
 from .evaluator import LazyEvaluator
 from . import ops
 from .types import numpy_to_ort, python_to_numpy, ort_to_numpy
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple, Union, Optional
 from typing import Iterable as IterableType
 from collections.abc import Iterable
 from functools import reduce
@@ -12,13 +12,13 @@ import onnxruntime
 
 class Array:
     def __init__(self, ort_value: onnxruntime.OrtValue = None,
-                 dims: Tuple[int] = None, dtype: np.dtype = None, *,
+                 dims: Optional[Tuple[int]] = None, dtype: np.dtype = None, *,
                  evaluator: LazyEvaluator = None, internal_name: str = None):
         self._internal_name = str(
             uuid.uuid4()) if internal_name is None else internal_name  # FIXME
         self._ort_value = ort_value
-        self._dims = (*ort_value.shape(),
-                      ) if ort_value is not None and dims is None else dims
+        self._dims = tuple(
+            ort_value.shape()) if ort_value is not None and dims is None else dims
         self._dtype = ort_to_numpy(ort_value.data_type(
         )) if ort_value is not None and dtype is None else dtype
         self._evaluator = evaluator if evaluator is not None else LazyEvaluator()
@@ -49,19 +49,21 @@ class Array:
 
     def values(self) -> List[Any]:
         self._eval()
+        if self._ort_value is None:
+            return []
         return self._ort_value.numpy().tolist()
 
-    @property
+    @ property
     def shape(self) -> Tuple[int]:
         if self._dims is None:
             raise ValueError("Unevaluated shape.. This is a bug!")
-        return self._dims
+        return self._dims  # type: ignore
 
-    @property
+    @ property
     def dtype(self) -> np.dtype:
         return self._dtype
 
-    @property
+    @ property
     def ndims(self) -> int:
         return len(self.shape)
 
@@ -78,7 +80,8 @@ class Array:
         return float(self.numpy())
 
     def __setitem__(self, index, value):
-        raise NotImplementedError("Array value setter currently not implemented")
+        raise NotImplementedError(
+            "Array value setter currently not implemented")
 
     def __add__(self, other: "Array") -> "Array":
         return ops.add(self, other)
@@ -95,7 +98,10 @@ class Array:
     def __matmul__(self, other: "Array") -> "Array":
         return ops.matmul(self, other)
 
-    def __eq__(self, other: "Array") -> "Array":
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Array):
+            raise NotImplementedError(
+                "Can only compare Array with another array")
         return ops.equal(self, other)
 
     def __gt__(self, other: "Array") -> "Array":
@@ -113,8 +119,8 @@ class Array:
     def __pow__(self, other: Union["Array", int]) -> "Array":
         return ops.power(self, array(other))
 
-    # def __repr__(self) -> str:
-    #     return self.numpy().__repr__()
+    def __repr__(self) -> str:
+        return self.numpy().__repr__()
 
     def __hash__(self):
         return hash(self._internal_name)
@@ -138,7 +144,8 @@ def merge_types(*types: IterableType[type]) -> type:
         return bool
     # if none worked then this type is invalid
     else:
-        raise ValueError(f"Could not infer onnx type from python types {type_set}")
+        raise ValueError(
+            f"Could not infer onnx type from python types {type_set}")
 
 
 def infer_dtype_from_array(array: IterableType[Any]) -> int:

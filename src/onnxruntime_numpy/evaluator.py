@@ -1,5 +1,5 @@
 import onnx
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import onnxruntime
 import numpy as np  # FIXME maybe
 from .types import numpy_to_ort
@@ -14,7 +14,7 @@ class LazyEvaluator:
         # the name of the node that needs to be executed to get the data
         self._parent_node = None
         # self._initializers = {}
-        self._input_values = {}
+        self._input_values: Dict[str, "array.Array"] = {}
         # graph_name = f"graph_{uuid.uuid4()}"
         # self._graph_names = set((graph_name,))
         self._graph = None
@@ -125,6 +125,10 @@ class LazyEvaluator:
 
         for input_name, array in self._input_values.items():
             ortvalue = array._ort_value
+            if ortvalue is None:
+                raise ValueError(
+                    "Internal bug. Array's Ortvalue is not set and can not be a model "
+                    "input")
             # this will work 99% of the time in this century :D
             ort_value_dtype = ortvalue._numpy_obj.dtype
             if ort_value_dtype == np.int64:

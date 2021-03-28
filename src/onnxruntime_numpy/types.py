@@ -125,7 +125,7 @@ onnx_str_map = {
     TensorProto.INT64:  "int64"
 }
 
-onnx_str_map = {
+onnx_python_map = {
     TensorProto.BOOL:   bool,
     TensorProto.FLOAT:  float,
     TensorProto.DOUBLE: float,
