@@ -7,7 +7,8 @@ import networkx as nx
 import onnx
 
 from collections import namedtuple, Hashable
-from typing import Tuple, List
+from typing import Tuple, List, Set, Dict
+from typing import Iterable as IterableType
 
 
 class Node(namedtuple("Node", "inputs outputs op_type attributes")):
@@ -100,26 +101,13 @@ def build_graph_from_onnx(onnx_graph, outputs):
 class Graph:
     def __init__(self):
         self._graph = nx.DiGraph()
-        self._input_edges = {}
+        self._input_edges: Dict[str, str] = {}
 
     def copy(self):
         g = Graph()
         g._graph = self._graph.copy()
         g._input_edges = {**self._input_edges}
         return g
-
-    @classmethod
-    def from_onnx(cls, onnx_graph, outputs=None):
-        g = cls()
-        if len(onnx_graph.output) == 0 and outputs is None:
-            raise ValueError(
-                "ONNX graph does not have an output and none was specified")
-        elif outputs is None:
-            outputs = onnx_graph.output
-
-        g._graph = build_graph_from_onnx(onnx_graph, outputs)
-        if not g._graph.is_directed():
-            raise ValueError("Graph is not a DAG")
 
     @property
     def nodes(self):
@@ -190,31 +178,47 @@ class Graph:
             self._input_edges = {**self._input_edges,
                                  **other_graph._input_edges}
 
-    def _build_graph_with_inputs_outputs(
-            self, input_arrays, output_array, output):
-        inputs = set()
-        input_arrays = list(input_arrays)
-        for a in input_arrays:
-            inputs.add(self.add_input(a))
 
-        output_name = self.add_output(output_array, output)
+class ExecutableGraph:
+    def __init__(
+            self, graph: Graph, inputs: IterableType["array.Array"],
+            outputs: Dict[str, "array.Array"]):
+        self._graph = graph.copy()
 
-        return inputs, output_name
+        self._input_names: Set[str] = set()
+        for a in inputs:
+            self._input_names.add(self._graph.add_input(a))
 
-    def _remove_graph_inputs_outputs(self, input_names, output_name):
-        for n in input_names:
-            self._graph.remove_node(n)
-        self._graph.remove_node(output_name)
+        if len(outputs) != 1:
+            raise NotImplementedError("Can only handle a single output value")
 
-    def build_onnx_graph(self, array, input_arrays, to_node):
+        self._output_names: Set[str] = set()
+        for parent_node, output_array in outputs.items():
+            self._output_names.add(self._graph.add_output(
+                output_array, parent_node))
 
-        input_names, output_name = self._build_graph_with_inputs_outputs(
-            input_arrays.values(), array, to_node)
+    @classmethod
+    def from_onnx(cls, onnx_graph, outputs=None):
+        g = cls()
+        if len(onnx_graph.output) == 0 and outputs is None:
+            raise ValueError(
+                "ONNX graph does not have an output and none was specified")
+        elif outputs is None:
+            outputs = onnx_graph.output
+
+        g._graph = build_graph_from_onnx(onnx_graph, outputs)
+        if not g._graph.is_directed():
+            raise ValueError("Graph is not a DAG")
+
+    def build_onnx_graph(self):
 
         g = onnx.GraphProto()
+        template_graph = self._graph._graph
 
-        for node_name in nx.ancestors(self._graph, output_name):
-            node = self._graph.nodes[node_name]["node"]
+        # FIXME: make this independent of the number of outputs
+        output_name = next(iter(self._output_names))
+        for node_name in nx.ancestors(template_graph, output_name):
+            node = template_graph.nodes[node_name]["node"]
             if isinstance(node, Input):
                 g.input.append(onnx.helper.make_tensor_value_info(
                     node_name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
@@ -235,13 +239,10 @@ class Graph:
             else:
                 raise ValueError("")
 
-        output_node = self._graph.nodes[output_name]["node"]
+        output_node = template_graph.nodes[output_name]["node"]
         g.output.append(
             onnx.helper.make_tensor_value_info(
                 output_name, numpy_to_onnx(np.dtype(output_node.dtype)),
                 output_node.shape))
-
-        # clean up
-        self._remove_graph_inputs_outputs(input_names, output_name)
 
         return g

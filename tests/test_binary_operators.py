@@ -244,6 +244,15 @@ def test_pow(type_a, type_b):
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 @pytest.mark.parametrize("type_b", [*float_types, np.int32, np.int64])
+def test_pow_operator(type_a, type_b):
+    x = np.array([1, 2, 3]).astype(type_a)
+    expected = np.power(x, 2).astype(type_a)
+    result = onp.array(x) ** 2
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
+@pytest.mark.parametrize("type_b", [*float_types, np.int32, np.int64])
 def test_pow_broadcast(type_a, type_b):
     x = np.array([1, 2, 3]).astype(type_a)
     y = np.array(2).astype(type_b)

@@ -449,16 +449,27 @@ def determinant_output_shape(return_array, *input_arrays_and_args, **kwargs):
         return_array._dims = input_shape[:-2]
 
 
-def broadcast_to(shape: Tuple[int]):
+def broadcast_to(shape_: Tuple[int]):
     def wrapper_broadcast_to(return_array, *input_arrays_and_args, **kwargs):
         input_array_shape = input_arrays_and_args[0].shape
-        for s1, s2 in zip(reversed(shape), reversed(input_array_shape)):
+        if len(input_array_shape) < len(shape_):
+            pad = len(shape_) - len(input_array_shape)
+            input_array_shape = (*(1,)*pad, *input_array_shape)
+            shape = shape_
+        elif len(input_array_shape) > len(shape_):
+            pad = len(input_array_shape) - len(shape_)
+            shape = (*(1,)*pad, *shape_)
+        else:
+            shape = shape_
+        output_shape = ()
+        for s1, s2 in zip(reversed(input_array_shape), reversed(shape)):
             if s1 != s2 and (1 not in [s1, s2]):
                 raise ValueError(
-                    f"Can not broadcast array with shape {input_array_shape} to "
+                    f"Cannot broadcast array with shape {input_array_shape} to "
                     f"{shape}")
+            output_shape = (max(s1, s2), *output_shape)
 
-        return_array._dims = shape
+        return_array._dims = output_shape
 
     return wrapper_broadcast_to
 

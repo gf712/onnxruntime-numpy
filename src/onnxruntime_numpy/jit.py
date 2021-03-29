@@ -2,7 +2,8 @@
 # flake8: noqa
 # type: ignore
 from .array import Array
-from .evaluator import LazyEvaluator
+from .evaluator import LazyEvaluator, merge_array_evaluators
+from .tracer import OpTracerContext
 from .types import onnx_to_numpy
 from .onnx_utils import make_onnx_tensor_value_info
 from .graph import Graph, Node, Input, Output
@@ -26,11 +27,6 @@ def make_graph_buffer(nodes, inputs, outputs, initializers):
     return onnx.helper.make_graph(nodes, "graph", inputs, outputs, initializers)
 
 
-def merge_array_evaluators(evaluator_to_merge_into: LazyEvaluator, *evaluators):
-    for evaluator in evaluators:
-        evaluator_to_merge_into.merge(evaluator)
-
-
 class TypeShapeID(namedtuple("TypeShapeID", "dtype shape")):
     def __repr__(self):
         return f'TypeShapeID({self.shape}, dtype={self.dtype}'
@@ -39,81 +35,6 @@ class TypeShapeID(namedtuple("TypeShapeID", "dtype shape")):
 class GraphSignature(namedtuple("GraphSignature", "inputs_type_shape_id")):
     def __repr__(self) -> str:
         return f"{[(t._shape, t._dtype) for t in self.inputs_type_shape_id]}"
-
-
-class OpTracker:
-    def __init__(self, *t_args, **t_kwargs):
-        self._original_evaluators = [a._evaluator for a in t_args]
-        self._original_evaluators += [a._evaluator for a in t_kwargs.values()]
-        self._lazy_tensors = set()
-        # this is a "tracker array"
-        # we just want to know what ops were added from here on
-        # this means that the array has the same shape/dtype/name as the original array
-        # but it has its own evaluator (that will start empty)
-        self._op_t_args = []
-        for tensor in t_args:
-            if tensor._ort_value is None:
-                self._lazy_tensors.add(tensor._internal_name)
-            mock_tensor = Array(
-                dims=tensor.shape, dtype=tensor.dtype,
-                internal_name=tensor._internal_name)
-            self._op_t_args.append(mock_tensor)
-
-        self._op_t_kwargs = {}
-        for kw, tensor in t_kwargs.items():
-            if tensor._ort_value is None:
-                self._lazy_tensors.add(tensor._internal_name)
-            mock_tensor = Array(
-                dims=tensor.shape, dtype=tensor.dtype,
-                internal_name=tensor._internal_name)
-            self._op_t_kwargs[kw] = mock_tensor
-
-        self._graph = None
-
-    def track_function_call(self, func):
-        if self._graph is not None:
-            raise ValueError("Can only track a function call once")
-        mock_array = func(*self._op_t_args, **self._op_t_kwargs)
-        if not isinstance(mock_array, Array):
-            raise NotImplementedError(
-                "Tracing only possible with functions with a single output of type array.Array")
-        self._graph = Graph()
-        self._graph.add_subgraph(mock_array._evaluator._graph)
-        self._graph.add_output(mock_array)
-        # inputs_ = list(self._graph.input)
-        # outputs_ = list(self._graph.output)
-        # nodes_ = list(self._graph.node)
-        # the mock_array becomes the actual array
-        # after merging all the input evaluators
-        merge_array_evaluators(mock_array._evaluator,
-                               *self._original_evaluators)
-
-        to_remove = set()
-
-        for idx, input in enumerate(mock_array._evaluator._graph.inputs):
-            # not an actual input
-            if input.name in self._lazy_tensors:
-                to_remove.add(input)
-
-        mock_array._evaluator._graph.remove_inputs(to_remove)
-
-        # inputs = list(mock_array._evaluator._graph.input)
-        # outputs = list(mock_array._evaluator._graph.output)
-        # nodes = list(mock_array._evaluator._graph.node)
-
-        return mock_array
-
-
-class OpTrackerContext(object):
-    def __init__(self, graph, *t_args, **t_kwargs):
-        self._graph_to_write_to = graph
-        self._tracker = OpTracker(*t_args, **t_kwargs)
-
-    def __enter__(self):
-        return self._tracker
-
-    def __exit__(self, type, value, traceback):
-        self._graph_to_write_to.add_subgraph(self._tracker._graph)
 
 
 class JitFunctionSignature(
@@ -273,8 +194,8 @@ class MapFnArgsToInput:
 def generate_graph_flow(func, *array_objs, **array_obj_kwargs):
     graph = Graph()
 
-    with OpTrackerContext(graph, *array_objs, **array_obj_kwargs) as tracker:
-        result_array = tracker.track_function_call(func)
+    with OpTracerContext(graph, *array_objs, **array_obj_kwargs) as tracker:
+        result_array = tracker.trace_function_call(func)
 
     if isinstance(result_array, tuple) or result_array is None:
         raise ValueError(

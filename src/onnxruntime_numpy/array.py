@@ -23,7 +23,6 @@ class Array:
         )) if ort_value is not None and dtype is None else dtype
         self._evaluator = evaluator if evaluator is not None else LazyEvaluator()
         self._treat_array_as_initializer = False
-        self._required_grad = True
         if evaluator is None:
             self._initialize()
 
@@ -36,8 +35,9 @@ class Array:
 
     def _eval(self):
         if self._ort_value is None:
-            result = self._evaluator.evaluate(self)
-            self._ort_value = result
+            self._ort_value = self._evaluator.evaluate(self)
+            self._evaluator = LazyEvaluator()
+            self._initialize()
 
     def ort_value(self) -> onnxruntime.OrtValue:
         if self._ort_value is None:
@@ -167,8 +167,8 @@ def array(values, dtype: np.dtype = None) -> Array:
             raise NotImplementedError("")
             pass
 
-    if not isinstance(values, Iterable):
-        values = values
+    if not isinstance(values, Iterable) and dtype is None:
+        dtype = python_to_numpy(type(values))
 
     if dtype is None:
         if isinstance(values, np.ndarray):

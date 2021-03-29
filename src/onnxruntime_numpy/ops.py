@@ -875,7 +875,7 @@ def maxroipool(
 
 def maxunpool(
         x: "array.Array", indices: "array.Array", kernel_shape: List[int],
-        output_shape: Optional[List[int]] = None, pads: Optional[List[int]] = None,
+        output_shape: Optional["array.Array"] = None, pads: Optional[List[int]] = None,
         strides: Optional[List[int]] = None):
 
     if output_shape is None:
@@ -886,13 +886,16 @@ def maxunpool(
     @not_implemented_types([np.float64])
     def helper_maxunpool(
             x: "array.Array", indices: "array.Array",
-            output_shape: Optional[List[int]],
+            output_shape: Optional["array.Array"],
             kernel_shape: List[int],
             pads: List[int],
             strides: List[int]):
-        return nary_operator(
+        result = nary_operator(
             "MaxUnpool", x, indices, output_shape, kernel_shape=kernel_shape,
             pads=pads, strides=strides)
+        if output_shape is not None:
+            result._dims = tuple(output_shape.values())
+        return result
 
     return helper_maxunpool(
         x, indices, output_shape, kernel_shape=kernel_shape, pads=pads,

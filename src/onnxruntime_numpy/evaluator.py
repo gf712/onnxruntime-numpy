@@ -2,9 +2,9 @@ import onnx
 from typing import List, Tuple, Dict
 import onnxruntime
 import numpy as np  # FIXME maybe
-from .types import numpy_to_ort
+from .types import numpy_to_ort, ort_to_numpy
 from .shapes import shapes_match
-from .graph import Graph
+from .graph import Graph, ExecutableGraph
 from collections.abc import Iterable
 from . import array
 
@@ -72,7 +72,7 @@ class LazyEvaluator:
         # input_node = onnx.helper.make_tensor_value_info(name, onnx_type, dims)
         # FIXME
         if default_values is not None:
-            if default_values.data_type() != numpy_to_ort(dtype):
+            if default_values.data_type() != numpy_to_ort(np.dtype(dtype)):
                 raise TypeError("Input type does not match input node")
             if not shapes_match(default_values.shape(), dims):
                 raise ValueError(
@@ -80,7 +80,8 @@ class LazyEvaluator:
                     f"node shape {dims}")
             self._input_values[name] = array
         else:
-            raise NotImplementedError()
+            # empty array
+            self._input_values[name] = array
         # self._input_names.add(name)
         # self._parent_node = self._graph.add_input(array)
 
@@ -101,13 +102,19 @@ class LazyEvaluator:
         # self._graph_names.update(other._graph_names)
         # self._initializers = {**self._initializers, **other._initializers}
 
+    def _build_executable_graph(self, array: "array.Array") -> ExecutableGraph:
+        return ExecutableGraph(
+            self._graph, self._input_values.values(),
+            {self._parent_node: array})
+
     def evaluate(self, array: "array.Array") -> List[np.ndarray]:
         if self._graph is None:
             raise ValueError("Graph is empty. "
                              "This is an internal error. Please file a bug")
 
-        onnx_graph = self._graph.build_onnx_graph(
-            array, self._input_values, self._parent_node)
+        executable_graph = self._build_executable_graph(array)
+
+        onnx_graph = executable_graph.build_onnx_graph()
         m = onnx.helper.make_model(onnx_graph)
         buffer = m.SerializeToString()
 
@@ -129,8 +136,8 @@ class LazyEvaluator:
                 raise ValueError(
                     "Internal bug. Array's Ortvalue is not set and can not be a model "
                     "input")
+            ort_value_dtype = ort_to_numpy(ortvalue.data_type())
             # this will work 99% of the time in this century :D
-            ort_value_dtype = ortvalue._numpy_obj.dtype
             if ort_value_dtype == np.int64:
                 ort_value_dtype = np.longlong
             if ort_value_dtype == np.uint64:
@@ -153,7 +160,10 @@ class LazyEvaluator:
 
         result = io_binding.get_outputs()[0]
 
-        self._graph = None
-        self._reset()
-
         return result
+
+
+def merge_array_evaluators(
+        evaluator_to_merge_into: LazyEvaluator, *evaluators: LazyEvaluator):
+    for evaluator in evaluators:
+        evaluator_to_merge_into.merge(evaluator)
