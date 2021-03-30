@@ -1,7 +1,7 @@
 import onnxruntime_numpy as onp
 import numpy as np
 import pytest
-from onnxruntime_numpy.types import float_types
+from onnxruntime_numpy.types import float_types, numeric_types, bool_types
 from .utils import expect
 
 
@@ -32,16 +32,6 @@ def test_divide(type_a):
 
     expected = onp.array([1./3., 1., 3.], dtype=type_a)
     result = onp.divide(a, b)
-    expect(expected.numpy(), result.numpy())
-
-
-@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
-def test_multiply(type_a):
-    a = onp.array([1., 2., 3.], dtype=type_a)
-    b = onp.array([3., 2., 1.], dtype=type_a)
-
-    expected = onp.array([3., 4., 3.], dtype=type_a)
-    result = onp.multiply(a, b)
     expect(expected.numpy(), result.numpy())
 
 
@@ -229,6 +219,155 @@ def test_maximum(type_a):
 
     result = onp.maximum(onp.array(data_0), onp.array(data_1))
     expected = np.maximum(data_0, data_1)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize(
+    "type_a", [np.float32])
+def test_mean(type_a):
+    data_0 = np.array([3, 0, 2]).astype(type_a)
+    data_1 = np.array([1, 3, 4]).astype(type_a)
+    data_2 = np.array([2, 6, 6]).astype(type_a)
+    expected = np.array([2, 3, 4]).astype(type_a)
+    result = onp.mean(
+        onp.array(data_0),
+        onp.array(data_1),
+        onp.array(data_2))
+    expect(expected, result.numpy())
+
+    result = onp.mean(onp.array(data_0))
+    expect(data_0, result.numpy())
+
+    result = onp.mean(onp.array(data_0), onp.array(data_1))
+    expected = np.divide(np.add(data_0, data_1), 2.).astype(type_a)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize(
+    "type_a", [*float_types, np.uint32, np.uint64, np.int32, np.int64])
+def test_minimum(type_a):
+    data_0 = np.array([3, 2, 1]).astype(type_a)
+    data_1 = np.array([1, 4, 4]).astype(type_a)
+    data_2 = np.array([2, 5, 3]).astype(type_a)
+    expected = np.array([1, 2, 1]).astype(type_a)
+    result = onp.minimum(
+        onp.array(data_0),
+        onp.array(data_1),
+        onp.array(data_2))
+    expect(expected, result.numpy())
+
+    result = onp.minimum(onp.array(data_0))
+    expect(data_0, result.numpy())
+
+    result = onp.minimum(onp.array(data_0), onp.array(data_1))
+    expected = np.minimum(data_0, data_1)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize(
+    "type_a", numeric_types)
+def test_mod_broadcast(type_a):
+    x = np.arange(0, 30).reshape([3, 2, 5]).astype(type_a)
+    y = np.array([7]).astype(type_a)
+    expected = np.mod(x, y)
+    result = onp.mod(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
+def test_mod_int64_fmod():
+    x = np.array([-4, 7, 5, 4, -7, 8]).astype(np.int64)
+    y = np.array([2, -3, 8, -2, 3, 5]).astype(np.int64)
+    expected = np.fmod(x, y)
+    result = onp.mod(onp.array(x), onp.array(y), fmod=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize(
+    "type_a", numeric_types)
+def test_mod_mixed_sign(type_a):
+    x = np.array([-4.3, 7.2, 5.0, 4.3, -7.2, 8.0]).astype(type_a)
+    y = np.array([2.1, -3.4, 8.0, -2.1, 3.4, 5.0]).astype(type_a)
+    expected = np.fmod(x, y) if type_a in float_types else np.mod(x, y)
+    result = onp.mod(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
+def test_multiply(type_a):
+    a = onp.array([1., 2., 3.], dtype=type_a)
+    b = onp.array([3., 2., 1.], dtype=type_a)
+    expected = onp.array([3., 4., 3.], dtype=type_a)
+    result = onp.multiply(a, b)
+    expect(expected.numpy(), result.numpy())
+
+    a = np.random.uniform(low=0, high=10, size=(3, 4, 5)).astype(type_a)
+    b = np.random.uniform(low=0, high=10, size=(3, 4, 5)).astype(type_a)
+    expected = a * b
+    result = onp.multiply(onp.array(a), onp.array(b))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
+def test_multiply_broadcast(type_a):
+    x = np.random.uniform(low=0, high=10, size=(3, 4, 5)).astype(type_a)
+    y = np.random.uniform(low=0, high=10, size=5).astype(type_a)
+    expected = x * y
+
+    result = onp.multiply(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", bool_types)
+def test_or(type_a):
+    x = (np.random.randn(3, 4) > 0).astype(type_a)
+    y = (np.random.randn(3, 4) > 0).astype(type_a)
+    expected = np.logical_or(x, y)
+    result = onp.logical_or(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    expected = np.logical_or(x, y)
+    result = onp.logical_or(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    expected = np.logical_or(x, y)
+    result = onp.logical_or(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", bool_types)
+def test_or_broadcast(type_a):
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(5) > 0).astype(type_a)
+    expected = np.logical_or(x, y)
+    result = onp.logical_or(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(4, 5) > 0).astype(type_a)
+    expected = np.logical_or(x, y)
+    result = onp.logical_or(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(5, 6) > 0).astype(type_a)
+    expected = np.logical_or(x, y)
+    result = onp.logical_or(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(4, 5, 6) > 0).astype(type_a)
+    expected = np.logical_or(x, y)
+    result = onp.logical_or(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(3, 1, 5, 6) > 0).astype(type_a)
+    expected = np.logical_or(x, y)
+    result = onp.logical_or(onp.array(x), onp.array(y))
     expect(expected, result.numpy())
 
 

@@ -1,6 +1,6 @@
 from .ops_utils import (
     unary_operator, binary_operator, nary_operator, allowed_types,
-    output_type_is_argn_position, shapes_match_exactly,
+    output_type_is_argn_position,
     propagate_shape_from_argn_position, output_checks_and_inference,
     propagate_shape_matmul, check_input_shape_matmul, not_implemented_types,
     concatenate_shapes, types_match_exactly, initializer_operator, reduce_axis,
@@ -43,16 +43,6 @@ def logical_and(x, y):
     return logical_and_helper(x, y)
 
 
-def logical_or(x, y):
-    @allowed_types(bool_types, bool_types)
-    @output_checks_and_inference(
-        allow_broadcasting
-    )
-    def logical_or_helper(x, y):
-        return binary_operator(x, y, "Or")
-    return logical_or_helper(x, y)
-
-
 def subtract(x, y):
     @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
     @allowed_types([*float_types, np.int32, np.int64],
@@ -75,18 +65,6 @@ def divide(x, y):
     def divide_helper(x, y):
         return binary_operator(x, y, "Div")
     return divide_helper(x, y)
-
-
-def multiply(x, y):
-    @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
-    @allowed_types([*float_types, np.int32, np.int64],
-                   [*float_types, np.int32, np.int64])
-    @output_checks_and_inference(
-        allow_broadcasting
-    )
-    def multiply_helper(x, y):
-        return binary_operator(x, y, "Mul")
-    return multiply_helper(x, y)
 
 
 def absolute(x):
@@ -174,6 +152,7 @@ def cast(array: "array.Array", to: type):
 
 
 def compress(array, condition, axis=None):
+    # TODO
     raise NotImplementedError()
 
 
@@ -257,6 +236,7 @@ def constant_of_shape(shape: IterableType[int], value=0.0) -> array.Array:
 
 
 def conv():
+    # TODO
     raise NotImplementedError()
 
 
@@ -428,6 +408,7 @@ def gru(
         activation_beta: List[float] = None, activations: List[str] = None,
         clip: float = 0.0, direction: str = "forward", layout: int = 0,
         linear_before_reset: bool = False):
+    # TODO
     raise NotImplementedError()
 
 
@@ -474,6 +455,7 @@ def gathernd(x: "array.Array", indices: "array.Array", batch_dims: int = 0):
     #     return nary_operator("GatherND", x, indices, axis=axis)
 
     # return gathernd_helper(x, indices, axis=int(axis))
+    # TODO
     raise NotImplementedError()
 
 
@@ -699,6 +681,7 @@ def lstm(
         activation_alpha: List[float] = None, activation_beta: List[float] = None,
         activations: List[str] = None, clip: float = 0.0, direction: str = "forward",
         layout: int = 0, input_forget: bool = False):
+    # TODO
     raise NotImplementedError()
 
 
@@ -780,6 +763,7 @@ def lp_pool(
         x: "array.Array", kernel_shape: List[int],
         auto_pad: str = "NOTSET", p: int = 2, pads: List[int] = None,
         strides: List[int] = None):
+    # TODO
     raise NotImplementedError()
 
 
@@ -850,7 +834,9 @@ def maximum(*arrays):
     @allowed_types(numeric_types)
     @not_implemented_types([np.uint8, np.uint16, np.int8, np.int16])
     @types_match_exactly
-    @shapes_match_exactly
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
     def helper_maximum(*arrays):
         return nary_operator("Max", *arrays)
 
@@ -862,6 +848,7 @@ def maxpool(
         auto_pad: str = "NOTSET", ceil_mode: bool = False,
         dilations: Optional[List[int]] = None, pads: Optional[List[int]] = None,
         storage_order: int = 0, strides: Optional[List[int]] = None):
+    # TODO
     raise NotImplementedError(
         "Operators with more than one output are not handled yet")
 
@@ -869,6 +856,7 @@ def maxpool(
 def maxroipool(
         x: "array.Array", rois: "array.Array", pooled_shape: List[int],
         spatial_scale: float = 1.0):
+    # TODO
     raise NotImplementedError(
         "Operators with more than one output are not handled yet")
 
@@ -878,6 +866,7 @@ def maxunpool(
         output_shape: Optional["array.Array"] = None, pads: Optional[List[int]] = None,
         strides: Optional[List[int]] = None):
 
+    # TODO: check this is still correct
     if output_shape is None:
         raise NotImplementedError(
             "Currently onnxruntime requires output_shape to be specified")
@@ -902,12 +891,209 @@ def maxunpool(
         strides=strides)
 
 
-def power(x: "array.Array", y: "array.Array"):
-    @allowed_types([*float_types, np.int32, np.int64], numeric_types)
-    @not_implemented_types([],
-                           [np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
-                            np.int16])
+def mean(*inputs: "array.Array"):
+    @allowed_types(float_types)
+    @not_implemented_types([np.float64])
+    @types_match_exactly
     @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def mean_helper(*inputs: "array.Array"):
+        return nary_operator("Mean", *inputs)
+    return mean_helper(*inputs)
+
+
+def mean_variance_normalization(x: "array.Array", axes: List[int] = [0, 2, 3]):
+    @allowed_types(float_types)
+    @not_implemented_types([np.float64])
+    def mean_variance_normalization_helper(x: "array.Array", axes: List[int]):
+        return nary_operator("MeanVarianceNormalization", x, axes=axes)
+    return mean_variance_normalization_helper(x, axes=axes)
+
+
+def minimum(*arrays: "array.Array"):
+    @allowed_types(numeric_types)
+    @not_implemented_types([np.uint8, np.uint16, np.int8, np.int16])
+    @types_match_exactly
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def helper_minimum(*arrays):
+        return nary_operator("Min", *arrays)
+
+    return helper_minimum(*arrays)
+
+
+def mod(x: "array.Array", y: "array.Array", fmod: bool = False):
+    if x.dtype in float_types:
+        fmod = True
+
+    @allowed_types(numeric_types, numeric_types)
+    # @not_implemented_types([np.uint8, np.uint16, np.int8, np.int16])
+    @types_match_exactly
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def helper_mod(x: "array.Array", y: "array.Array", fmod: bool):
+        return nary_operator("Mod", x, y, fmod=fmod)
+
+    return helper_mod(x, y, fmod=bool(fmod))
+
+
+def multiply(x: "array.Array", y: "array.Array"):
+    @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
+    @allowed_types([*float_types, np.int32, np.int64],
+                   [*float_types, np.int32, np.int64])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def multiply_helper(x: "array.Array", y: "array.Array"):
+        return binary_operator(x, y, "Mul")
+    return multiply_helper(x, y)
+
+
+def multinomial(
+        x: "array.Array", dtype: np.dtype = np.int32, sample_size: int = 1,
+        seed: Optional[float] = None):
+
+    if dtype not in [np.int32, np.int64]:
+        raise TypeError(
+            f"Expected output type to be either int32 or int64, but got {dtype}")
+
+    if x.ndims != 2:
+        raise ValueError(
+            f"Expected input array to have two dimensions, but got {x.ndims} "
+            "dimensions")
+
+    batch_size, _ = x.shape  # type: ignore
+
+    @allowed_types(float_types)
+    @not_implemented_types([np.float64])
+    def multinomial_helper(
+            x: "array.Array", dtype: np.dtype, sample_size: int,
+            seed: Optional[float]):
+        if seed is not None:
+            seed = float(seed)
+        result = unary_operator(
+            x, "Multinomial", dtype=numpy_to_onnx(np.dtype(dtype)),
+            sample_size=sample_size, seed=seed)
+        result._dtype = dtype
+        result._dims = (batch_size, 1)  # type: ignore
+        return result
+    return multinomial_helper(
+        x, dtype=dtype, sample_size=sample_size, seed=seed)
+
+
+def negative(x: "array.Array"):
+    @allowed_types([*float_types, *signed_integer_types])
+    @not_implemented_types([np.int16])
+    def helper_negative(x):
+        return nary_operator("Neg", x)
+
+    return helper_negative(x)
+
+
+def negative_loglikelihood_loss(
+        input: "array.Array", target: "array.Array",
+        weight: Optional["array.Array"] = None, ignore_index: Optional[int] = None,
+        reduction: str = "mean"):
+    def negative_loglikelihood_loss_helper(
+            input: "array.Array", target: "array.Array",
+            weight: Optional["array.Array"],
+            ignore_index: Optional[int],
+            reduction: str):
+        NotImplementedError("negative_loglikelihood_loss")
+    return negative_loglikelihood_loss_helper(
+        input, target, weight, ignore_index, reduction)
+
+
+def nonzero(x: "array.Array"):
+    # TODO
+    raise NotImplementedError(
+        "nonzero not implemented. Currently cannot handle dynamic shapes")
+
+    @allowed_types(all_types)
+    def nonzero_helper(x: "array.Array"):
+        return unary_operator(x, "NonZero")
+    return nonzero_helper(x)
+
+
+def not_(x: "array.Array"):
+    @allowed_types(bool_types)
+    def not_helper(x: "array.Array"):
+        return unary_operator(x, "Not")
+    return not_helper(x)
+
+
+def one_hot(
+        indices: "array.Array", depth: "array.Array", values: "array.Array",
+        axis: int = -1):
+    # TODO
+    raise NotImplementedError("OneHot")
+
+    @allowed_types(numeric_types, numeric_types, all_types)
+    def one_hot_helper(
+            indices: "array.Array", depth: "array.Array", values: "array.Array",
+            axis: int):
+        return nary_operator("OneHot", indices, depth, values, axis=axis)
+
+    return one_hot_helper(indices, depth, values, axis=axis)
+
+
+def logical_or(x, y):
+    @allowed_types(bool_types, bool_types)
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def logical_or_helper(x, y):
+        return binary_operator(x, y, "Or")
+    return logical_or_helper(x, y)
+
+
+def prelu(x: "array.Array", slope: Union["array.Array", float]):
+    if isinstance(slope, float):
+        slope = array.array([slope], dtype=x.dtype)
+
+    @allowed_types([*float_types, np.uint32, np.uint64, np.int32, np.int64])
+    @not_implemented_types([np.float, np.uint32, np.uint64, np.int32, np.int64])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def prelu_helper(x: "array.Array", slope: "array.Array"):
+        return nary_operator("PRelu", x, slope)
+
+    return prelu_helper(x, slope)
+
+
+def pad(x: "array.Array", pads: "array.Array",
+        constant_value: Union["array.Array", str, int, bool] = 0):
+
+    # TODO: fix this when dynamic shapes are implemented
+    raise NotImplementedError()
+
+    if isinstance(constant_value, str):
+        # TODO
+        raise NotImplementedError("")
+    elif isinstance(constant_value, array.Array) and constant_value.ndims > 1:
+        raise ValueError("Expected a scalar or 1D array")
+    else:
+        constant_value = array.array(constant_value)
+
+    def pad_helper(x: "array.Array", pads: "array.Array",
+                   constant_value: "array.Array"):
+        result = nary_operator("Pad", x, pads, constant_value)
+        result._dims = (-1) * result.ndims
+        return result
+
+    return pad_helper(x, pads, constant_value)
+
+
+def power(x: "array.Array", y: "array.Array"):
+    @ allowed_types([*float_types, np.int32, np.int64], numeric_types)
+    @ not_implemented_types([],
+                            [np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                             np.int16])
+    @ output_checks_and_inference(
         allow_broadcasting
     )
     def helper_power(x: "array.Array", y: "array.Array"):

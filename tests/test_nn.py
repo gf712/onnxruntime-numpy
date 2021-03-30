@@ -356,3 +356,32 @@ def test_maxunpool_with_output_shape(type_a):
 #     result = onp.maxunpool(onp.array(xT), onp.array(
 #         xI), kernel_shape=[2, 2], strides=[2, 2])
 #     expect(expected, result.numpy())
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_prelu(type_a):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    slope = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * slope
+    result = onp.prelu(onp.array(x), onp.array(slope))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_prelu_broadcast(type_a):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    slope = np.random.randn(5).astype(type_a)
+    expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * slope
+    result = onp.prelu(onp.array(x), onp.array(slope))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_prelu_broadcast_scalar(type_a):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    slope = np.random.randn(1).astype(type_a)
+    expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * slope
+    result = onp.prelu(onp.array(x), onp.array(slope))
+    expect(expected, result.numpy())
+
+    result = onp.prelu(onp.array(x), float(slope))
+    expect(expected, result.numpy())

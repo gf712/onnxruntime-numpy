@@ -1,7 +1,7 @@
 import onnxruntime_numpy as onp
 from onnxruntime_numpy.types import (
     float_types, integer_types, is_unsigned_int, all_types, is_bool,
-    numeric_types)
+    numeric_types, bool_types)
 import pytest
 import numpy as np
 from .utils import expect
@@ -409,4 +409,57 @@ def test_lp_normalization(type_a):
 
     expected = np.array([0.09090909, 0.90909091], dtype=type_a)
     result = onp.lp_normalization(onp.array(x), p=1)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_mean_variance_normalization(type_a):
+    input_data = np.array([[[[0.8439683], [0.5665144], [0.05836735]],
+                            [[0.02916367], [0.12964272], [0.5060197]],
+                            [[0.79538304], [0.9411346], [0.9546573]]],
+                           [[[0.17730942], [0.46192095], [0.26480448]],
+                            [[0.6746842], [0.01665257], [0.62473077]],
+                            [[0.9240844], [0.9722341], [0.11965699]]],
+                           [[[0.41356155], [0.9129373], [0.59330076]],
+                            [[0.81929934], [0.7862604], [0.11799799]],
+                            [[0.69248444], [0.54119414], [0.07513223]]]], dtype=type_a)
+
+    data_mean = np.mean(input_data, axis=(0, 2, 3), keepdims=1)
+    data_mean_squared = np.power(data_mean, 2)
+    data_squared = np.power(input_data, 2)
+    data_squared_mean = np.mean(data_squared, axis=(0, 2, 3), keepdims=1)
+    std = np.sqrt(data_squared_mean - data_mean_squared)
+    expected = ((input_data - data_mean) / (std + 1e-9)).astype(type_a)
+
+    result = onp.mean_variance_normalization(onp.array(input_data))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.int32, np.int64])
+def test_negative(type_a):
+    x = np.array([-4, 2]).astype(type_a)
+    expected = np.negative(x)
+    result = onp.negative(onp.array(x))
+    expect(expected, result.numpy())
+
+    result = -onp.array(x)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*bool_types])
+def test_not(type_a):
+    x = (np.random.randn(3, 4) > 0).astype(type_a)
+    expected = np.logical_not(x)
+    result = onp.not_(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    expected = np.logical_not(x)
+    result = onp.not_(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    expected = np.logical_not(x)
+    result = onp.not_(onp.array(x))
     expect(expected, result.numpy())

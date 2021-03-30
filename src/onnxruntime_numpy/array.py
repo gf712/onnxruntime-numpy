@@ -116,6 +116,9 @@ class Array:
     def __le__(self, other: "Array") -> "Array":
         return ops.less_equal(self, other)
 
+    def __neg__(self) -> "Array":
+        return ops.negative(self)
+
     def __pow__(self, other: Union["Array", int]) -> "Array":
         return ops.power(self, array(other))
 

@@ -2,7 +2,7 @@ from . import array
 from . import evaluator
 from .einsum_helper import einsum_parse_and_resolve_equation
 import functools
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 import numpy as np
 from functools import reduce
 import operator
@@ -540,7 +540,7 @@ def propagate_shape_pool(return_array, *input_arrays_and_args, **kwargs):
     return_array._dims = (N, C, 1, 1)
 
 
-def reduce_axis(axes: Union["array.Array", None], keepdims: bool):
+def reduce_axis(axes: Union[List[int], "array.Array", None], keepdims: bool):
     def output_reduce_axis(return_array, *input_arrays_and_args, **kwargs):
         if axes is None:
             # noop (this only happens in ReduceSum when noop_with_empty_axes is True
@@ -548,7 +548,11 @@ def reduce_axis(axes: Union["array.Array", None], keepdims: bool):
             return
 
         x_shape = input_arrays_and_args[0].shape
-        axes_np = axes.numpy()
+        if isinstance(axes, array.Array):
+            axes_np = axes.numpy()
+        else:
+            axes_np = np.array(axes)
+
         if any(map(lambda axis: axis < -len(x_shape) or axis > len(x_shape) - 1,
                    axes_np)):
             raise ValueError(
