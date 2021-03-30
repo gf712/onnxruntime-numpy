@@ -1055,7 +1055,7 @@ def prelu(x: "array.Array", slope: Union["array.Array", float]):
         slope = array.array([slope], dtype=x.dtype)
 
     @allowed_types([*float_types, np.uint32, np.uint64, np.int32, np.int64])
-    @not_implemented_types([np.float, np.uint32, np.uint64, np.int32, np.int64])
+    @not_implemented_types([np.float64, np.uint32, np.uint64, np.int32, np.int64])
     @output_checks_and_inference(
         allow_broadcasting
     )
