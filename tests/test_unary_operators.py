@@ -133,6 +133,13 @@ def test_constant_value_floats(type_a):
         result = onp.constant(value_floats=a)
 
 
+def test_constant_value_floats_from_list():
+    a = [0, 1, 2.]
+    expected = onp.array([0, 1, 2], dtype=np.float32)
+    result = onp.constant(value_floats=a)
+    expect(result, expected)
+
+
 @pytest.mark.parametrize("type_a", [np.int32])
 def test_constant_value_int(type_a):
     a = 1
@@ -155,6 +162,13 @@ def test_constant_value_ints(type_a):
         result = onp.constant(value_ints=a)
 
 
+def test_constant_value_ints_from_list():
+    a = [0, 1, 2]
+    expected = onp.array([0, 1, 2], dtype=np.int32)
+    result = onp.constant(value_ints=a)
+    expect(result, expected)
+
+
 @pytest.mark.parametrize("type_a", all_types)
 def test_constant_value_of_shape(type_a):
     a = onp.array([1], dtype=type_a)
@@ -162,6 +176,14 @@ def test_constant_value_of_shape(type_a):
     expected = onp.array([[[1, 1, 1],
                            [1, 1, 1]]], dtype=type_a)
     result = onp.constant_of_shape(shape=shape, value=a)
+    expect(expected.numpy(), result.numpy())
+
+
+def test_constant_value_of_shape_default():
+    shape = (1, 2, 3)
+    expected = onp.array([[[0, 0, 0],
+                           [0, 0, 0]]], dtype=np.float32)
+    result = onp.constant_of_shape(shape=shape)
     expect(expected.numpy(), result.numpy())
 
 
@@ -279,6 +301,29 @@ def test_eyelike_without_dtype(type_a):
 
     assert result.dtype == type_a
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a",
+                         [*float_types, np.uint64, np.int32, np.int64])
+def test_eyelike_with_3d_tensor(type_a):
+    shape = (4, 4, 1)
+    if type_a in integer_types:
+        x = np.random.randint(0, 100, size=shape, dtype=type_a)
+    elif type_a in float_types:
+        x = np.random.randn(*shape).astype(type_a)
+    else:
+        raise ValueError(f"Invalid type {type_a}")
+
+    with pytest.raises(ValueError):
+        _ = onp.eye_like(onp.array(x, dtype=type_a))
+
+
+def test_eyelike_unsupported_type():
+    shape = (4, 4)
+    x = np.random.randint(0, 100, size=shape, dtype=np.int32)
+
+    with pytest.raises(TypeError):
+        _ = onp.eye_like(onp.array(x), dtype=np.str_)
 
 
 @pytest.mark.parametrize("type_a", all_types)

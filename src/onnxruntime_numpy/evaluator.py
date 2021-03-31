@@ -30,13 +30,6 @@ class LazyEvaluator:
 
         return evaluator
 
-    def _reset(self):
-        self._input_values = {}
-        self._parent_node = None
-        # self._input_names = set()
-        # self._node_names = set()
-        # self._initializer_names = set()
-
     def add_node(self, op_type, inputs, outputs, **attributes):
 
         if self._graph is None:
@@ -72,9 +65,12 @@ class LazyEvaluator:
         # input_node = onnx.helper.make_tensor_value_info(name, onnx_type, dims)
         # FIXME
         if default_values is not None:
-            if default_values.data_type() != numpy_to_ort(np.dtype(dtype)):
+            if default_values.data_type() != numpy_to_ort(
+                    np.dtype(dtype)):  # pragma: no cover
                 raise TypeError("Input type does not match input node")
-            if not shapes_match(default_values.shape(), dims):
+            if not shapes_match(
+                    default_values.shape(),
+                    dims):  # pragma: no cover
                 raise ValueError(
                     f"Input tensor shape {default_values.shape()} does not match input "
                     f"node shape {dims}")
@@ -108,7 +104,7 @@ class LazyEvaluator:
             {self._parent_node: array})
 
     def evaluate(self, array: "array.Array") -> List[np.ndarray]:
-        if self._graph is None:
+        if self._graph is None:  # pragma: no cover
             raise ValueError("Graph is empty. "
                              "This is an internal error. Please file a bug")
 
@@ -125,7 +121,8 @@ class LazyEvaluator:
             # TODO: maybe disable optimisations when graph has already been optimised
             # with jit?
             session = onnxruntime.InferenceSession(buffer)
-        except Exception:
+        except Exception:  # pragma: no cover
+            # dump failed model for debugging purposes
             onnx.save_model(m, "failed_model.onnx")
             raise
         io_binding = session.io_binding()

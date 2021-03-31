@@ -37,7 +37,7 @@ class HashableAttributes(dict):
         for k, v in kwargs.items():
             if isinstance(v, list):
                 kwargs[k] = tuple(v)
-            elif not isinstance(v, Hashable):
+            elif not isinstance(v, Hashable):  # pragma: no cover
                 raise TypeError(
                     f"Value has to be hashable, but got non-hashable type {type(v)}")
         super(HashableAttributes, self).__init__(**kwargs)
@@ -53,21 +53,23 @@ class HashableAttributes(dict):
             return onnx_utils.make_onnx_tensor(value._internal_name, value)
         return value
 
-    def __iter__(self):
+    def __iter__(self):  # pragma: no cover
         for value in super(HashableAttributes, self).__iter__():
             if isinstance(value, array.Array):
-                return onnx_utils.make_onnx_tensor(value._internal_name, value)
-            return value
+                yield onnx_utils.make_onnx_tensor(value._internal_name, value)
+            yield value
 
 
-def build_node_from_onnx(onnx_proto):
+# TODO
+def build_node_from_onnx(onnx_proto):  # pragma: no cover
     return Node(tuple(onnx_proto.input), tuple(onnx_proto.output),
                 onnx_proto.op_type,
                 HashableAttributes(onnx_proto.attribute),
                 onnx_proto.name)
 
 
-def build_graph_from_onnx(onnx_graph, outputs):
+def build_graph_from_onnx(onnx_graph, outputs):  # pragma: no cover
+    # TODO
     raise NotImplementedError("FIXME")
     G = nx.DiGraph()
     node_map = {}
@@ -151,7 +153,7 @@ class Graph:
         raise NotImplementedError()
 
     def add_input(self, array):
-        if array._internal_name not in self._input_edges:
+        if array._internal_name not in self._input_edges:  # pragma: no cover
             raise ValueError("Invalid input array")
 
         new_node = Input(array.dtype, array.shape)
@@ -211,7 +213,6 @@ class ExecutableGraph:
             raise ValueError("Graph is not a DAG")
 
     def build_onnx_graph(self):
-
         g = onnx.GraphProto()
         template_graph = self._graph._graph
 
@@ -236,7 +237,7 @@ class ExecutableGraph:
                                            for n in node.outputs],
                                           name=node_name, **node.attributes)
                 g.node.append(n)
-            else:
+            else:  # pragma: no cover
                 raise ValueError("")
 
         output_node = template_graph.nodes[output_name]["node"]

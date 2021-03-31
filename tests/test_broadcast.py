@@ -31,3 +31,15 @@ def test_expand_dim_unchanged(type_a):
                         onp.array(new_shape, dtype=np.int64))
 
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*all_types])
+def test_expand_two_dimensional_array(type_a):
+
+    shape = [3, 1]
+    data = np.array([0, 1, 0], dtype=type_a).reshape(shape)
+    new_shape = [[3, 4]]
+
+    with pytest.raises(ValueError):
+        _ = onp.expand(onp.array(data, dtype=type_a),
+                       onp.array(new_shape, dtype=np.int64))

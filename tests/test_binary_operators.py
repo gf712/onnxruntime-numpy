@@ -1,7 +1,7 @@
 import onnxruntime_numpy as onp
 import numpy as np
 import pytest
-from onnxruntime_numpy.types import float_types, numeric_types, bool_types
+from onnxruntime_numpy.types import float_types, numeric_types, bool_types, is_integer
 from .utils import expect
 
 
@@ -15,24 +15,118 @@ def test_add(type_a):
     expect(expected.numpy(), result.numpy())
 
 
+@pytest.mark.parametrize("type_a", bool_types)
+def test_and(type_a):
+    x = (np.random.randn(3, 4) > 0).astype(type_a)
+    y = (np.random.randn(3, 4) > 0).astype(type_a)
+    expected = np.logical_and(x, y)
+    result = onp.logical_and(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    expected = np.logical_and(x, y)
+    result = onp.logical_and(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    expected = np.logical_and(x, y)
+    result = onp.logical_and(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", bool_types)
+def test_and_broadcast(type_a):
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(5) > 0).astype(type_a)
+    expected = np.logical_and(x, y)
+    result = onp.logical_and(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(4, 5) > 0).astype(type_a)
+    expected = np.logical_and(x, y)
+    result = onp.logical_and(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(5, 6) > 0).astype(type_a)
+    expected = np.logical_and(x, y)
+    result = onp.logical_and(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(4, 5, 6) > 0).astype(type_a)
+    expected = np.logical_and(x, y)
+    result = onp.logical_and(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(3, 1, 5, 6) > 0).astype(type_a)
+    expected = np.logical_and(x, y)
+    result = onp.logical_and(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 def test_sub(type_a):
     a = onp.array([1, 2, 3], dtype=type_a)
     b = onp.array([3, 2, 1], dtype=type_a)
-
     expected = onp.array([-2, 0, 2], dtype=type_a)
     result = onp.subtract(a, b)
     expect(expected.numpy(), result.numpy())
 
+    a = np.random.randn(3, 4, 5).astype(type_a)
+    b = np.random.randn(3, 4, 5).astype(type_a)
+    expected = a - b
+    result = onp.subtract(onp.array(a), onp.array(b))
+    expect(expected, result.numpy())
+
+    expect(expected, (onp.array(a) - onp.array(b)).numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
+def test_sub_broadcast(type_a):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    y = np.random.randn(5).astype(type_a)
+    expected = x - y
+    result = onp.subtract(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 def test_divide(type_a):
-    a = onp.array([1., 2., 3.], dtype=type_a)
-    b = onp.array([3., 2., 1.], dtype=type_a)
+    x = np.array([3, 4]).astype(type_a)
+    y = np.array([1, 2]).astype(type_a)
+    expected = (x / y).astype(type_a)
+    result = onp.divide(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
 
-    expected = onp.array([1./3., 1., 3.], dtype=type_a)
-    result = onp.divide(a, b)
-    expect(expected.numpy(), result.numpy())
+    if is_integer(type_a):
+        x = np.random.randint(1, 10, size=(3, 4, 5)).astype(type_a)
+        y = np.random.randint(0, 10, size=(3, 4, 5)).astype(type_a) + 1
+    else:
+        x = np.random.randn(3, 4, 5).astype(type_a)
+        y = np.random.randn(3, 4, 5).astype(type_a) + 1
+    expected = (x / y).astype(type_a)
+    result = onp.divide(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    expect(expected, (onp.array(x) / onp.array(y)).numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
+def test_divide_broadcast(type_a):
+    if is_integer(type_a):
+        x = np.random.randint(1, 10, size=(3, 4, 5)).astype(type_a)
+        y = np.random.randint(1, 10, size=(5)).astype(type_a)
+    else:
+        x = np.random.randn(3, 4, 5).astype(type_a)
+        y = np.random.randn(5).astype(type_a)
+    expected = (x / y).astype(type_a)
+    result = onp.divide(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
@@ -305,6 +399,8 @@ def test_multiply(type_a):
     expected = a * b
     result = onp.multiply(onp.array(a), onp.array(b))
     expect(expected, result.numpy())
+
+    expect(expected, (onp.array(a) * onp.array(b)).numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])

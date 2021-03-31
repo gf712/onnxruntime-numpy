@@ -177,13 +177,10 @@ def constant(*, sparse_value=None,
              value_string: str = None, value_strings=None) -> array.Array:
 
     def check_array_shape_and_type(
-            values, expected_ndims, expected_dtype, argname):
-        if isinstance(values, array.Array):
-            shape = values.shape
-            dtype = values.dtype
-        else:
-            shape = array.infer_shape_from_array(values)
-            dtype = array.infer_dtype_from_array(values)
+            values: "array.Array", expected_ndims: int, expected_dtype: np.dtype,
+            argname: str):
+        shape = values.shape
+        dtype = values.dtype
         if len(shape) != expected_ndims:
             raise ValueError(
                 f"Argument {argname} expects a {expected_ndims}D array, "
@@ -196,29 +193,35 @@ def constant(*, sparse_value=None,
     if sparse_value:
         raise NotImplementedError("Sparse matrices are currently not supported")
     if value:
-        return initializer_operator("Constant", value=value)
+        return initializer_operator("Constant", value=array.array(value))
     if value_float:
         # TODO: should this be strict? i.e. if not isinstance(value, float) throw?
         return initializer_operator("Constant", value_float=array.array(
             [float(value_float)]))
     if value_floats:
-        check_array_shape_and_type(value_floats, 1, np.float32, "value_floats")
-        return initializer_operator("Constant", value_floats=value_floats)
+        check_array_shape_and_type(
+            array.array(value_floats),
+            1, np.float32, "value_floats")
+        return initializer_operator(
+            "Constant", value_floats=array.array(value_floats))
     if value_int:
         # TODO: should this be strict? i.e. if not isinstance(value, int) throw?
         return initializer_operator(
             "Constant", value_int=array.array([int(value_int)]))
     if value_ints:
-        check_array_shape_and_type(value_ints, 1, np.int32, "value_ints")
-        return initializer_operator("Constant", value_ints=value_ints)
-    if value_string:
+        check_array_shape_and_type(
+            array.array(value_ints),
+            1, np.int32, "value_ints")
+        return initializer_operator(
+            "Constant", value_ints=array.array(value_ints))
+    if value_string:  # pragma: no cover
         raise NotImplementedError("Strings are currently not implemented")
         return initializer_operator("Constant", value_string=value_string)
-    if value_strings:
+    if value_strings:  # pragma: no cover
         raise NotImplementedError("Strings are currently not implemented")
         check_array_shape_and_type(value_strings, 1, np.STRING, "value_strings")
         return initializer_operator("Constant", value_strings=value_strings)
-    else:
+    else:  # pragma: no cover
         raise ValueError("?")
 
 

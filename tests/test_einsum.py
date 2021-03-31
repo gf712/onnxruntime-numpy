@@ -1,8 +1,59 @@
 import onnxruntime_numpy as onp
 from onnxruntime_numpy.types import float_types
+from onnxruntime_numpy.einsum_helper import einsum_parse_and_resolve_equation
 import numpy as np
 import pytest
 from .utils import expect
+
+
+def test_einsum_incorrect_format():
+
+    shapes = [(1, 2, 3)]
+    equation = "...ii <->...i"
+
+    with pytest.raises(ValueError):
+        _ = einsum_parse_and_resolve_equation(equation, shapes)
+
+
+def test_einsum_too_many_input_args():
+
+    shapes = [(1, 2, 3)]
+    equation = "bij, bjk -> bik"
+
+    with pytest.raises(ValueError):
+        _ = einsum_parse_and_resolve_equation(equation, shapes)
+
+
+def test_einsum_too_many_ellipsis():
+
+    shapes = [(1, 2, 3)]
+    equation = "...i...i ->...i"
+
+    with pytest.raises(ValueError):
+        _ = einsum_parse_and_resolve_equation(equation, shapes)
+
+
+def test_einsum_ellipses_do_not_match():
+
+    shapes = [(1, 2, 3)]
+    equation = "...ijkl ->...i"
+
+    with pytest.raises(ValueError):
+        _ = einsum_parse_and_resolve_equation(equation, shapes)
+
+
+def test_einsum_period_output_ellipsis():
+
+    shapes = [(1, 2, 3)]
+    equation = "....ii ->...i"
+
+    with pytest.raises(ValueError):
+        _ = einsum_parse_and_resolve_equation(equation, shapes)
+
+    equation = "...ii ->....i"
+
+    with pytest.raises(ValueError):
+        _ = einsum_parse_and_resolve_equation(equation, shapes)
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])

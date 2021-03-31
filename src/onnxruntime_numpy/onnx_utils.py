@@ -10,7 +10,9 @@ def make_onnx_tensor(name: str, array: "array.Array") -> onnx.TensorProto:
         name, data_type, dims, array.numpy().flatten())
 
 
-def make_onnx_tensor_value_info(array: "array.Array") -> onnx.ValueInfoProto:
+def make_onnx_tensor_value_info(
+        array: "array.Array") -> onnx.ValueInfoProto:  # pragma: no cover
+    # FIXME: is this needed?
     dims = array.shape
     data_type = numpy_to_onnx(array.dtype)
     return onnx.helper.make_tensor_value_info(
