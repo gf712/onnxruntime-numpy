@@ -43,6 +43,13 @@ all_types = [
 ]
 
 
+FloatType = Union[float]
+IntType = Union[int]
+BoolType = Union[bool]
+NumericType = Union[FloatType, IntType]
+AnyType = Union[NumericType, BoolType]
+
+
 def is_float(dtype: Union[np.dtype, type]) -> bool:
     return np.dtype(dtype) in float_types
 

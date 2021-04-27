@@ -1,6 +1,6 @@
 from .evaluator import LazyEvaluator
 from . import ops
-from .types import numpy_to_ort, python_to_numpy, ort_to_numpy
+from .types import numpy_to_ort, python_to_numpy, ort_to_numpy, all_types, AnyType
 from typing import Any, List, Tuple, Union, Optional
 from typing import Iterable as IterableType
 from collections.abc import Iterable
@@ -122,8 +122,20 @@ class Array:
     def __pow__(self, other: Union["Array", int]) -> "Array":
         return ops.power(self, array(other))
 
-    # def __repr__(self) -> str:
-    #     return self.numpy().__repr__()
+    def __abs__(self) -> "Array":
+        return ops.absolute(self)
+
+    def item(self) -> AnyType:
+        if len(
+                self.shape) == 0 or (
+                len(self.shape) == 1 and self.shape[0] == 1):
+            return self.ort_value().numpy().item()
+        else:
+            raise ValueError(
+                "can only convert an array of size 1 to a Python scalar")
+
+    def __repr__(self) -> str:
+        return self.numpy().__repr__()
 
     def __hash__(self):
         return hash(self._internal_name)
@@ -131,6 +143,10 @@ class Array:
     def __iter__(self) -> Any:
         self._eval()
         yield from self.numpy()
+
+
+def is_lazy(x: Array) -> bool:
+    return x._ort_value is None
 
 
 def merge_types(*types: IterableType[type]) -> type:
@@ -171,7 +187,10 @@ def array(values, dtype: np.dtype = None) -> Array:
             pass
 
     if not isinstance(values, Iterable) and dtype is None:
-        dtype = python_to_numpy(type(values))
+        if type(values) in all_types:
+            dtype = all_types[all_types.index(type(values))]
+        else:
+            dtype = python_to_numpy(type(values))
 
     if dtype is None:
         if isinstance(values, np.ndarray):

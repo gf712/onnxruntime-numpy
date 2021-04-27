@@ -1112,3 +1112,36 @@ def sum(
     return helper_sum(
         x, axes, keepdims=bool(keepdims),
         noop_with_empty_axes=bool(noop_with_empty_axes))
+
+
+def arange(start: "array.Array", limit: "array.Array", delta: "array.Array"):
+
+    if len(start.shape) != 0:
+        raise ValueError("Start value should be a scalar")
+    if len(limit.shape) != 0:
+        raise ValueError("Limit value should be a scalar")
+    if len(delta.shape) != 0:
+        raise ValueError("Delta value should be a scalar")
+
+    @allowed_types([*float_types, np.int16, np.int32, np.int64],
+                   [*float_types, np.int16, np.int32, np.int64],
+                   [*float_types, np.int16, np.int32, np.int64])
+    @not_implemented_types([np.int16], [np.int16], [np.int16])
+    @types_match_exactly
+    def arange_helper(start: "array.Array", limit: "array.Array",
+                      delta: "array.Array"):
+        result = nary_operator("Range", start, limit, delta)
+        # FIXME: use dynamic shape?
+        result._dtype = start.dtype
+        # here we convert to float32 since int division truncates
+        # abs(limit - start) / abs(delta)
+        # in onp (10 - 6) / 3 == 1, but we want 2 (rounded up from 1.33)
+        # so (10.0 - 6.0) / 3.0 == 1.33, then ceil(1.33) == 2.0
+        # and in the end convert to int (since dimensions are always int)
+        result._dims = (
+            int(ceil(
+                (abs(cast(limit, np.float32) - cast(start, np.float32)) /
+                 abs(cast(delta, np.float32)))).item()),)
+        return result
+
+    return arange_helper(start, limit, delta)
