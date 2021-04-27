@@ -221,8 +221,10 @@ class ExecutableGraph:
         for node_name in nx.ancestors(template_graph, output_name):
             node = template_graph.nodes[node_name]["node"]
             if isinstance(node, Input):
-                g.input.append(onnx.helper.make_tensor_value_info(
-                    node_name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
+                g.input.append(
+                    onnx.helper.make_tensor_value_info(
+                        node_name, numpy_to_onnx(np.dtype(node.dtype)),
+                        node.shape.tolist()))
             # elif "output" in node:
             #     node = node["output"]
             #     g.output.append(onnx.helper.make_tensor_value_info(
@@ -244,6 +246,6 @@ class ExecutableGraph:
         g.output.append(
             onnx.helper.make_tensor_value_info(
                 output_name, numpy_to_onnx(np.dtype(output_node.dtype)),
-                output_node.shape))
+                output_node.shape.tolist()))
 
         return g

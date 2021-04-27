@@ -3,7 +3,7 @@ from typing import List, Tuple, Dict
 import onnxruntime
 import numpy as np  # FIXME maybe
 from .types import numpy_to_ort, ort_to_numpy
-from .shapes import shapes_match
+from .shapes import weak_shape_comparisson, as_shape
 from .graph import Graph, ExecutableGraph
 from collections.abc import Iterable
 from . import array
@@ -68,11 +68,12 @@ class LazyEvaluator:
             if default_values.data_type() != numpy_to_ort(
                     np.dtype(dtype)):  # pragma: no cover
                 raise TypeError("Input type does not match input node")
-            if not shapes_match(
-                    default_values.shape(),
+            default_shape = as_shape(default_values.shape())
+            if not weak_shape_comparisson(
+                    default_shape,
                     dims):  # pragma: no cover
                 raise ValueError(
-                    f"Input tensor shape {default_values.shape()} does not match input "
+                    f"Input tensor shape {default_shape} does not match input "
                     f"node shape {dims}")
             self._input_values[name] = array
         else:

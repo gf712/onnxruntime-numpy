@@ -1,8 +1,10 @@
 from . import array
 from .ops_utils import (
     allowed_types, not_implemented_types, output_checks_and_inference,
-    allow_broadcasting, nary_operator, propagate_shape_pool)
+    allow_broadcasting, nary_operator, propagate_shape_pool,
+    force_evaluation)
 from .types import (float_types, signed_integer_types)
+from .shapes import ShapeLike, as_shape
 import numpy as np
 from typing import Union, Optional, List
 
@@ -209,13 +211,17 @@ def maxroipool(
 
 def maxunpool(
         x: "array.Array", indices: "array.Array", kernel_shape: List[int],
-        output_shape: Optional["array.Array"] = None, pads: Optional[List[int]] = None,
-        strides: Optional[List[int]] = None):
+        output_shape: Optional[ShapeLike] = None, pads: Optional[List[int]] = None,
+        strides: Optional[List[int]] = None, allow_evaluation: bool = False):
 
     # TODO: check this is still correct
     if output_shape is None:
         raise NotImplementedError(
             "Currently onnxruntime requires output_shape to be specified")
+
+    output_shape = force_evaluation(
+        as_shape(output_shape).asarray(),
+        "output_shape", allow_evaluation)
 
     @allowed_types(float_types, [np.int64], [np.int64])
     @not_implemented_types([np.float64])
@@ -229,7 +235,7 @@ def maxunpool(
             "MaxUnpool", x, indices, output_shape, kernel_shape=kernel_shape,
             pads=pads, strides=strides)
         if output_shape is not None:
-            result._dims = tuple(output_shape.values())
+            result._dims = as_shape(output_shape)
         return result
 
     return helper_maxunpool(

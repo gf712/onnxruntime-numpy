@@ -1,11 +1,11 @@
 from . import array
 from . import evaluator
+from .shapes import DynamicShape, DynamicDimension, Shape
 from .einsum_helper import einsum_parse_and_resolve_equation
 import functools
-from typing import Tuple, Union, List
+from typing import Union, List
 import numpy as np
-from functools import reduce
-import operator
+
 
 STRICT_MODE = True
 
@@ -65,7 +65,7 @@ def binary_operator(
 
 
 def initializer_operator(
-        op_name: str, array_shape: Tuple[int],
+        op_name: str, array_shape: Shape,
         array_dtype: np.dtype, **attributes):
     attribute, value = next(iter(attributes.items()))
     new_evaluator = evaluator.LazyEvaluator()
@@ -286,21 +286,21 @@ def propagate_shape_matmul():
                 raise ValueError(
                     "Matrix multiplication is not valid with scalars")
             else:
-                b_shape = (*b_shape, 1)
+                b_shape = DynamicShape(*b_shape, 1)
         if len(a_shape) == 2 and len(b_shape) == 2:
             # (n,k),(k,m)->(n,m)
             n, ka = a_shape
             kb, m = b_shape
-            return_array._dims = (n, m)
+            return_array._dims = DynamicShape(n, m)
         else:
             n, ka = a_shape[-2:]
             kb, m = b_shape[-2:]
-            return_array._dims = (*a_shape[:-2], n, m)
+            return_array._dims = DynamicShape(*a_shape[:-2], n, m)
 
         if A.ndims == 1:
             shape = list(return_array._dims)
             shape.pop(-2)
-            return_array._dims = (*shape,)
+            return_array._dims = DynamicShape(*shape,)
 
         if B.ndims == 1:
             return_array._dims = return_array._dims[:-1]
@@ -328,16 +328,17 @@ def concatenate_shapes(axis_kwarg):
             else:
                 axis = len(input_arrays_and_args[0].shape) - 1
 
-        new_shape = ()
+        new_shape = DynamicShape()
         shapes = [a.shape for a in input_arrays_and_args]
         for shape_idx, shapes_at_idx in enumerate(zip(*shapes)):
             if shape_idx == axis:
                 # concatenation axis
-                new_shape = (*new_shape, sum(shapes_at_idx))
+                new_shape = DynamicShape(*new_shape, sum(int(s)
+                                         for s in shapes_at_idx))
             elif any(map(lambda s: s != shapes_at_idx[0], shapes_at_idx)):
                 raise ValueError("Dimension mismatch on axis {shape_idx}")
             else:
-                new_shape = (*new_shape, shapes_at_idx[0])
+                new_shape = DynamicShape(*new_shape, shapes_at_idx[0])
         return_array._dims = new_shape
     return wrapper_concatenate_shapes
 
@@ -374,14 +375,14 @@ def output_shape_from_einsum(equation_kwarg: str):
         input_axis_labels, output_axis_labels = einsum_parse_and_resolve_equation(
             equation, input_shapes)
 
-        output_shape = ()
+        output_shape = DynamicShape()
 
         for output_axis_label in output_axis_labels:
             for input_axis_label, input_shape in zip(
                     input_axis_labels, input_shapes):
                 pos = input_axis_label.find(output_axis_label)
                 if pos != -1:
-                    output_shape = (*output_shape, input_shape[pos])
+                    output_shape = DynamicShape(*output_shape, input_shape[pos])
                     break
 
         return_array._dims = output_shape
@@ -413,16 +414,16 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
                         f"Broadcasting not possible with shapes {array_shapes}")
                 else:
                     s_set.add(s)
-            shape = (*shape, max(s_set))
+            shape = DynamicShape(*shape, max(s_set))
     else:
         # The tensors that have too few dimensions can have their shapes
         # prepended with a dimension of length 1 to satisfy property 2.
         max_array_shape = max(map(lambda a: len(a), array_shapes))
-        def prepend_ones_to_shape(s, n): return (*(1,)*n, *s)
+        def prepend_ones_to_shape(s, n): return DynamicShape(*(1,)*n, *s)
         array_shapes = [
             prepend_ones_to_shape(a, max_array_shape - len(a))
             if len(a) < max_array_shape else a for a in array_shapes]
-        shape = ()
+        shape = DynamicShape()
         for idx, dims_at_idx in enumerate(zip(*array_shapes)):
             s0 = dims_at_idx[0]
             s_set = set()
@@ -432,7 +433,7 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
                         f"Broadcasting not possible with shapes {array_shapes}")
                 else:
                     s_set.add(s)
-            shape = (*shape, max(s_set))
+            shape = DynamicShape(*shape, max(s_set))
 
     return_array._dims = shape
 
@@ -440,31 +441,31 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
 def determinant_output_shape(return_array, *input_arrays_and_args, **kwargs):
     input_shape = input_arrays_and_args[0].shape
     if len(input_shape) == 2:
-        return_array._dims = ()
+        return_array._dims = DynamicShape()
     else:
         # we know at this point that the array is valid
         return_array._dims = input_shape[:-2]
 
 
-def broadcast_to(shape_: Tuple[int]):
+def broadcast_to(shape_: Shape):
     def wrapper_broadcast_to(return_array, *input_arrays_and_args, **kwargs):
         input_array_shape = input_arrays_and_args[0].shape
         if len(input_array_shape) < len(shape_):
             pad = len(shape_) - len(input_array_shape)
-            input_array_shape = (*(1,)*pad, *input_array_shape)
+            input_array_shape = DynamicShape(*(1,)*pad, *input_array_shape)
             shape = shape_
         elif len(input_array_shape) > len(shape_):
             pad = len(input_array_shape) - len(shape_)
-            shape = (*(1,)*pad, *shape_)
+            shape = DynamicShape(*(1,)*pad, *shape_)
         else:
             shape = shape_
-        output_shape = ()
+        output_shape = DynamicShape()
         for s1, s2 in zip(reversed(input_array_shape), reversed(shape)):
-            if s1 != s2 and (1 not in [s1, s2]):
+            if s1 != s2 and (DynamicDimension(1) not in [s1, s2]):
                 raise ValueError(
                     f"Cannot broadcast array with shape {input_array_shape} to "
                     f"{shape}")
-            output_shape = (max(s1, s2), *output_shape)
+            output_shape = DynamicShape(max(s1, s2), *output_shape)
 
         return_array._dims = output_shape
 
@@ -479,15 +480,13 @@ def flatten_shape(axis: int):
                 f"Axis must be in the range [-{len(array_shape)}, "
                 f"{len(array_shape)-1}]")
 
-        def merge_axis(s): return reduce(operator.mul, s, 1)
-
         if axis == 0:
-            output_shape = (1, merge_axis(array_shape))
+            output_shape = DynamicShape(1, array_shape.size())
         else:
             a = len(array_shape) + axis if axis < 0 else axis
-            output_shape = (
-                merge_axis(array_shape[: a]),
-                merge_axis(array_shape[a:]))
+            output_shape = DynamicShape(
+                array_shape[: a].size(),
+                array_shape[a:].size())
 
         return_array._dims = output_shape
 
@@ -513,7 +512,9 @@ def gather_check(axis_: int):
             # it would be possible to force evaluation, but it might not be worth it?
             pass
 
-        output_shape = (*x_shape[:axis], *indices.shape, *x_shape[axis+1:])
+        output_shape = DynamicShape(
+            *x_shape[: axis],
+            *indices.shape, *x_shape[axis + 1:])
 
         return_array._dims = output_shape
 
@@ -524,17 +525,17 @@ def propagate_shape_gemm(return_array, *input_arrays_and_args, **kwargs):
     A, B, C = input_arrays_and_args
     transA = kwargs["transA"]
     transB = kwargs["transB"]
-    a_shape = tuple(reversed(A.shape)) if transA else A.shape
-    b_shape = tuple(reversed(B.shape)) if transB else B.shape
+    a_shape = DynamicShape(*reversed(A.shape)) if transA else A.shape
+    b_shape = DynamicShape(*reversed(B.shape)) if transB else B.shape
     # (n,k),(k,m)->(n,m)
     n, _ = a_shape
     _, m = b_shape
-    return_array._dims = (n, m)
+    return_array._dims = DynamicShape(n, m)
 
 
 def propagate_shape_pool(return_array, *input_arrays_and_args, **kwargs):
     N, C, H, W = input_arrays_and_args[0].shape
-    return_array._dims = (N, C, 1, 1)
+    return_array._dims = DynamicShape(N, C, 1, 1)
 
 
 def reduce_axis(axes: Union[List[int], "array.Array", None], keepdims: bool):
@@ -567,8 +568,8 @@ def reduce_axis(axes: Union[List[int], "array.Array", None], keepdims: bool):
             for axis in reduction_axes:
                 output_shape[axis] = None
 
-        return_array._dims = tuple(
-            filter(lambda s: s is not None, output_shape))
+        return_array._dims = DynamicShape(*tuple(
+            filter(lambda s: s is not None, output_shape)))
 
     return output_reduce_axis
 
@@ -584,3 +585,13 @@ def output_checks_and_inference(*output_checks):
             return return_array
         return wrapper_output_checks_and_inference
     return decorator
+
+
+def force_evaluation(a: "array.Array", name: str, allow_evaluation: bool):
+    if array.is_lazy(a):
+        if allow_evaluation:
+            return array.array(a.numpy())
+        else:
+            raise ValueError(
+                f"{name} has to be evaluated, but `allow_evaluation` is False")
+    return a

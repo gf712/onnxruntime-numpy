@@ -3,7 +3,8 @@ from . import array
 from .ops_utils import (allowed_types, not_implemented_types,
                         nary_operator, initializer_operator)
 from .types import numpy_to_onnx, float_types
-from typing import Optional, List
+from .shapes import DynamicShape, ShapeLike, as_shape
+from typing import Optional
 
 
 def multinomial(
@@ -32,14 +33,14 @@ def multinomial(
             "Multinomial", x, dtype=numpy_to_onnx(np.dtype(dtype)),
             sample_size=sample_size, seed=seed)
         result._dtype = dtype
-        result._dims = (batch_size, 1)  # type: ignore
+        result._dims = DynamicShape(batch_size, 1)
         return result
     return multinomial_helper(
         x, dtype=dtype, sample_size=sample_size, seed=seed)
 
 
 def normal(
-        shape: List[int],
+        shape: ShapeLike,
         mean: float = 0.0, scale: float = 1.0, dtype: np.dtype = np.float32,
         seed: Optional[float] = None):
     if seed is not None:
@@ -47,12 +48,10 @@ def normal(
 
     @allowed_types(float_types)
     def normal_helper(
-            shape: List[int],
+            shape: ShapeLike,
             mean: float, scale: float, dtype: np.dtype, seed: Optional[float]):
         return initializer_operator(
-            # mypy issue below: incompatible type "Tuple[<nothing>, ...]";
-            # expected "Tuple[int]"
-            "RandomNormal", array_shape=(*shape,),  # type: ignore
+            "RandomNormal", array_shape=as_shape(shape),
             array_dtype=np.dtype(dtype),
             shape=shape, dtype=numpy_to_onnx(np.dtype(dtype)),
             mean=mean, scale=scale, seed=seed)
@@ -83,7 +82,7 @@ def normal_like(x="array.Array", mean: float = 0.0, scale: float = 1.0,
 
 
 def uniform(
-        shape: List[int],
+        shape: ShapeLike,
         low: float = 0.0, high: float = 1.0, dtype: np.dtype = np.float32,
         seed: Optional[float] = None):
     if seed is not None:
@@ -91,12 +90,10 @@ def uniform(
 
     @allowed_types(float_types)
     def uniform_helper(
-            shape: List[int],
+            shape: ShapeLike,
             low: float, high: float, dtype: np.dtype, seed: Optional[float]):
         return initializer_operator(
-            # mypy issue below: incompatible type "Tuple[<nothing>, ...]";
-            # expected "Tuple[int]"
-            "RandomUniform", array_shape=(*shape,),  # type: ignore
+            "RandomUniform", array_shape=as_shape(shape),
             array_dtype=np.dtype(dtype),
             shape=shape, dtype=numpy_to_onnx(np.dtype(dtype)),
             low=low, high=high, seed=seed)

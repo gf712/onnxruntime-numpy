@@ -106,6 +106,16 @@ def test_arange_positive_delta(type_a):
     result = onp.arange(onp.array(start), onp.array(limit), onp.array(delta))
     expect(expected, result.numpy())
 
+    # test onp.arange with Python native scalar values
+    # cast is requured since .item() returns a Python object (int/float)
+    # and array() will always cast this to int32 and float32
+    result = onp.cast(
+        onp.arange(start.item(),
+                   limit.item(),
+                   delta.item()),
+        type_a)
+    expect(expected, result.numpy())
+
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 def test_arange_negative_delta(type_a):
@@ -115,4 +125,11 @@ def test_arange_negative_delta(type_a):
 
     expected = np.arange(start, limit, delta, dtype=type_a)
     result = onp.arange(onp.array(start), onp.array(limit), onp.array(delta))
+    expect(expected, result.numpy())
+
+    result = onp.cast(
+        onp.arange(start.item(),
+                   limit.item(),
+                   delta.item()),
+        type_a)
     expect(expected, result.numpy())

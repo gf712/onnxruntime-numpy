@@ -1,10 +1,10 @@
 from .evaluator import LazyEvaluator
 from . import ops
 from .types import numpy_to_ort, python_to_numpy, ort_to_numpy, all_types, AnyType
-from typing import Any, List, Tuple, Union, Optional
+from .shapes import as_shape, Shape, ShapeLike, DynamicShape
+from typing import Any, List, Union, Optional
 from typing import Iterable as IterableType
 from collections.abc import Iterable
-from functools import reduce
 import uuid
 import numpy as np
 import onnxruntime
@@ -12,13 +12,16 @@ import onnxruntime
 
 class Array:
     def __init__(self, ort_value: onnxruntime.OrtValue = None,
-                 dims: Optional[Tuple[int]] = None, dtype: np.dtype = None, *,
+                 dims: Optional[ShapeLike] = None, dtype: np.dtype = None, *,
                  evaluator: LazyEvaluator = None, internal_name: str = None):
-        self._internal_name = str(
+        self._internal_name: str = str(
             uuid.uuid4()) if internal_name is None else internal_name  # FIXME
-        self._ort_value = ort_value
-        self._dims = tuple(
-            ort_value.shape()) if ort_value is not None and dims is None else dims
+        self._ort_value: onnxruntime.OrtValue = ort_value
+        if dims is None:
+            self._dims = as_shape(tuple(ort_value.shape())
+                                  ) if ort_value is not None else DynamicShape()
+        else:
+            self._dims = as_shape(dims)
         self._dtype = ort_to_numpy(ort_value.data_type(
         )) if ort_value is not None and dtype is None else dtype
         self._evaluator = evaluator if evaluator is not None else LazyEvaluator()
@@ -54,7 +57,7 @@ class Array:
         return self._ort_value.numpy().tolist()
 
     @ property
-    def shape(self) -> Tuple[int]:
+    def shape(self) -> Shape:
         if self._dims is None:
             raise ValueError("Unevaluated shape.. This is a bug!")
         return self._dims  # type: ignore
@@ -68,7 +71,7 @@ class Array:
         return len(self.shape)
 
     def __len__(self) -> int:
-        return reduce(lambda lhs, rhs: lhs * rhs, self.shape, 1)
+        return self.shape.size()
 
     def __getitem__(self, index) -> Any:
         return self.numpy()[index]

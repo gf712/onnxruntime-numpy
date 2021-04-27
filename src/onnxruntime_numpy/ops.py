@@ -6,10 +6,12 @@ from .ops_utils import (
     concatenate_shapes, types_match_exactly, initializer_operator, reduce_axis,
     output_shape_from_einsum, output_type, allow_broadcasting,
     array_is_square_matrix, determinant_output_shape, broadcast_to,
-    flatten_shape, gather_check, check_input_shape_gemm, propagate_shape_gemm)
+    flatten_shape, gather_check, check_input_shape_gemm, propagate_shape_gemm,
+    force_evaluation)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
-                    unsigned_integer_types)
+                    unsigned_integer_types, NumericType)
+from .shapes import ShapeLike, as_shape, Shape, DynamicDimension, DynamicShape
 from . import array
 from typing import List, Any, Union, Optional
 from typing import Iterable as IterableType
@@ -228,16 +230,46 @@ def constant(*, sparse_value=None,
         raise ValueError("?")
 
 
-def constant_of_shape(shape: IterableType[int], value=0.0) -> array.Array:
+def constant_of_shape(shape: ShapeLike, value=0.0,
+                      allow_shape_evaluation: bool = False) -> array.Array:
+    """
+    Generate a tensor with given value and shape.
+
+    Args:
+        shape (ShapeLike): The shape of the tensor.
+        value (float, optional): The value of all elements of tensor. Defaults to 0.0.
+        allow_shape_evaluation (bool, optional): Whether to explicitly evaluate
+            shape if not explicitly known. A shape may not be known at runtime if it is
+            the result of a previous operation. This can result in a potentially
+            expensive computation to determine the values of shape. Defaults to False.
+
+    Raises:
+        ValueError: The shape is not a 1D tensor
+        ValueError: The caller did not enable shape evaluation and the shape cannot be
+            determined without explicit evaluation
+
+    Returns:
+        array.Array: Output tensor of shape specified by shape. If `value` is specified,
+            the value and datatype of the output tensor is taken from `value`.
+            If attribute `value` is not specified, the value in the output defaults to
+            0, and the datatype defaults to `float32`.
+    """
     if not isinstance(value, Iterable):
         value = array.array([value])
     if len(value) != 1:
         raise ValueError("Value must be a one-dim tensor with a single element")
-    shape = array.array(shape, dtype=np.int64)
-    output = nary_operator("ConstantOfShape", shape, value=value)
+    shape_ = as_shape(shape)
+    if shape_.can_be_static():
+        shape_array = array.array(shape_.to_static().tolist(), dtype=np.int64)
+    elif allow_shape_evaluation:
+        shape_array = force_evaluation(
+            shape_.asarray(),
+            "shape", allow_shape_evaluation)
+    else:
+        raise ValueError("Could not determine shape")
+    output = nary_operator("ConstantOfShape", shape_array, value=value)
     output._dtype = value.dtype
-    # FIXME: how could we get the shape without evaluating the shape Array?
-    output._dims = tuple(shape.values())
+    output._dims = DynamicShape(*shape_array.values())
     return output
 
 
@@ -314,15 +346,13 @@ def exp(x):
     return exp_helper(x)
 
 
-def expand(x, shape):
+def expand(x, shape: ShapeLike):
     # we have to evaluate the graph here (if necessary)
-    numpy_array_shape = shape.numpy()
-    if (len(numpy_array_shape.shape) != 1):
-        raise ValueError("Shape must be a 1D tensor")
+    array_shape = as_shape(shape)
 
     @allowed_types(all_types, [np.int64])
     @output_checks_and_inference(
-        broadcast_to(tuple(int(el) for el in numpy_array_shape))
+        broadcast_to(array_shape)
     )
     def expand_helper(x, shape):
         return nary_operator("Expand", x, shape)
@@ -611,8 +641,8 @@ def matmul_integer(A: "array.Array", B: "array.Array",
     elif len(A.shape) == 1:
         A_cols = A.shape[0]
     else:
-        A_cols = 0
-    B_rows = B.shape[0] if len(B.shape) > 0 else 0
+        A_cols = DynamicDimension(0)
+    B_rows = B.shape[0] if len(B.shape) > 0 else DynamicDimension(0)
 
     if a_zero_point is None:
         a_zero_point = array.array(0, dtype=A.dtype)
@@ -850,11 +880,11 @@ def pad(x: "array.Array", pads: "array.Array",
 
 
 def power(x: "array.Array", y: "array.Array"):
-    @ allowed_types([*float_types, np.int32, np.int64], numeric_types)
-    @ not_implemented_types([],
-                            [np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
-                             np.int16])
-    @ output_checks_and_inference(
+    @allowed_types([*float_types, np.int32, np.int64], numeric_types)
+    @not_implemented_types([],
+                           [np.uint8, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
+    @output_checks_and_inference(
         allow_broadcasting
     )
     def helper_power(x: "array.Array", y: "array.Array"):
@@ -884,6 +914,15 @@ def prod(
 
     return helper_prod(
         x, axes, keepdims=bool(keepdims))
+
+
+def reshape(x: "array.Array", shape: ShapeLike, allowzero: bool = False):
+    def helper_shape(x: "array.Array", shape: Shape, allowzero: int):
+        result = nary_operator("Reshape", shape, allowzero=allowzero)
+        result._dims = shape
+        return result
+
+    return helper_shape(x, as_shape(shape), int(allowzero))
 
 
 def sum(
@@ -944,7 +983,17 @@ def sum_square(
         x, axes, keepdims=bool(keepdims))
 
 
-def arange(start: "array.Array", limit: "array.Array", delta: "array.Array"):
+def arange(start: Union[NumericType, "array.Array"],
+           limit: Union[NumericType, "array.Array"],
+           delta: Union[NumericType, "array.Array"],
+           allow_evaluation: bool = False):
+
+    if not isinstance(start, array.Array):
+        start = array.array(start)
+    if not isinstance(limit, array.Array):
+        limit = array.array(limit)
+    if not isinstance(delta, array.Array):
+        delta = array.array(delta)
 
     if len(start.shape) != 0:
         raise ValueError("Start value should be a scalar")
@@ -952,6 +1001,10 @@ def arange(start: "array.Array", limit: "array.Array", delta: "array.Array"):
         raise ValueError("Limit value should be a scalar")
     if len(delta.shape) != 0:
         raise ValueError("Delta value should be a scalar")
+
+    start = force_evaluation(start, "start", allow_evaluation)
+    limit = force_evaluation(limit, "limit", allow_evaluation)
+    delta = force_evaluation(delta, "delta", allow_evaluation)
 
     @allowed_types([*float_types, np.int16, np.int32, np.int64],
                    [*float_types, np.int16, np.int32, np.int64],
@@ -968,7 +1021,7 @@ def arange(start: "array.Array", limit: "array.Array", delta: "array.Array"):
         # in onp (10 - 6) / 3 == 1, but we want 2 (rounded up from 1.33)
         # so (10.0 - 6.0) / 3.0 == 1.33, then ceil(1.33) == 2.0
         # and in the end convert to int (since dimensions are always int)
-        result._dims = (
+        result._dims = DynamicShape(
             int(ceil(
                 (abs(cast(limit, np.float32) - cast(start, np.float32)) /
                  abs(cast(delta, np.float32)))).item()),)

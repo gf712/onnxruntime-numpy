@@ -45,7 +45,7 @@ def test_global_average_pool(type_a):
         expected = np.expand_dims(expected, -1)
 
     result = onp.nn.global_average_pool(onp.array(x, dtype=type_a))
-    expect(expected, result)
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -60,7 +60,7 @@ def test_global_average_pool_precomputed(type_a):
 
     result = onp.nn.global_average_pool(onp.array(x, dtype=type_a))
 
-    expect(expected, result)
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -75,7 +75,7 @@ def test_global_lp2_pool_precomputed(type_a):
 
     result = onp.nn.global_lp_pool(onp.array(x, dtype=type_a))
 
-    expect(expected, result)
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -90,7 +90,7 @@ def test_global_lp1_pool_precomputed(type_a):
 
     result = onp.nn.global_lp_pool(onp.array(x, dtype=type_a), p=1)
 
-    expect(expected, result)
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -106,7 +106,7 @@ def test_global_lp_large_pool_precomputed(type_a):
 
     result = onp.nn.global_lp_pool(onp.array(x, dtype=type_a), p=40)
 
-    expect(expected, result, atol=0.1)
+    expect(expected, result.numpy(), atol=0.1)
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -119,7 +119,7 @@ def test_global_max_pool(type_a):
 
     result = onp.nn.global_max_pool(onp.array(x, dtype=type_a))
 
-    expect(expected, result)
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -134,7 +134,7 @@ def test_global_max_pool_precomputed(type_a):
 
     result = onp.nn.global_max_pool(onp.array(x, dtype=type_a))
 
-    expect(expected, result)
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
