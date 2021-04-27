@@ -418,3 +418,17 @@ def test_not(type_a):
     expected = np.logical_not(x)
     result = onp.not_(onp.array(x))
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types])
+def test_reciprocal(type_a):
+    x = np.array([-4, 2]).astype(type_a)
+
+    expected = np.reciprocal(x)
+    result = onp.reciprocal(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.rand(3, 4, 5).astype(type_a) + 0.5
+    expected = np.reciprocal(x)
+    result = onp.reciprocal(onp.array(x))
+    expect(expected, result.numpy())

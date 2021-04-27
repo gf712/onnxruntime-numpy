@@ -654,6 +654,29 @@ def matmul_integer(A: "array.Array", B: "array.Array",
     return matmul_integer_helper(A, B, a_zero_point, b_zero_point)
 
 
+def max(
+        x: "array.Array", axes: Optional[Union[int, List[int], "array.Array"]] = None,
+        keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_max(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceMax", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_max(
+        x, axes, keepdims=bool(keepdims))
+
+
 def maximum(*arrays):
     @allowed_types(numeric_types)
     @not_implemented_types([np.uint8, np.uint16, np.int8, np.int16])
@@ -698,6 +721,29 @@ def minimum(*arrays: "array.Array"):
         return nary_operator("Min", *arrays)
 
     return helper_minimum(*arrays)
+
+
+def min(
+        x: "array.Array", axes: Optional[Union[int, List[int], "array.Array"]] = None,
+        keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_min(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceMin", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_min(
+        x, axes, keepdims=bool(keepdims))
 
 
 def mod(x: "array.Array", y: "array.Array", fmod: bool = False):
@@ -817,6 +863,29 @@ def power(x: "array.Array", y: "array.Array"):
     return helper_power(x, y)
 
 
+def prod(
+        x: "array.Array", axes: Optional[Union[int, List[int], "array.Array"]] = None,
+        keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_prod(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceProd", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_prod(
+        x, axes, keepdims=bool(keepdims))
+
+
 def sum(
         x: "array.Array", axes: Optional[Union[int, "array.Array"]] = None,
         keepdims: bool = True, noop_with_empty_axes: bool = False):
@@ -852,6 +921,29 @@ def sum(
         noop_with_empty_axes=bool(noop_with_empty_axes))
 
 
+def sum_square(
+        x: "array.Array", axes: Optional[Union[int, List[int], "array.Array"]] = None,
+        keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_sum_square(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceSumSquare", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_sum_square(
+        x, axes, keepdims=bool(keepdims))
+
+
 def arange(start: "array.Array", limit: "array.Array", delta: "array.Array"):
 
     if len(start.shape) != 0:
@@ -883,3 +975,102 @@ def arange(start: "array.Array", limit: "array.Array", delta: "array.Array"):
         return result
 
     return arange_helper(start, limit, delta)
+
+
+def reciprocal(x):
+    @allowed_types(float_types)
+    def reciprocal_helper(x):
+        return unary_operator(x, "Reciprocal")
+    return reciprocal_helper(x)
+
+
+def l1_norm(
+        x: "array.Array", axes: Optional[Union[int, List[int], "array.Array"]] = None,
+        keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_l1_norm(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceL1", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_l1_norm(
+        x, axes, keepdims=bool(keepdims))
+
+
+def l2_norm(
+        x: "array.Array", axes: Optional[Union[int, List[int], "array.Array"]] = None,
+        keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_l2_norm(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceL2", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_l2_norm(
+        x, axes, keepdims=bool(keepdims))
+
+
+def log_sum(
+        x: "array.Array", axes: Optional[Union[int, List[int], "array.Array"]] = None,
+        keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_log_sum(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceLogSum", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_log_sum(
+        x, axes, keepdims=bool(keepdims))
+
+
+def log_sum_exp(
+        x: "array.Array", axes: Optional[Union[int, List[int], "array.Array"]] = None,
+        keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_log_sum_exp(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceLogSumExp", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_log_sum_exp(
+        x, axes, keepdims=bool(keepdims))
