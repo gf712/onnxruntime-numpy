@@ -64,17 +64,14 @@ def binary_operator(
     return nary_operator(op_name, lhs, rhs, **attributes)
 
 
-def initializer_operator(op_name: str, **attributes):
-    if len(attributes) != 1:
-        raise NotImplementedError("TODO")
-
+def initializer_operator(
+        op_name: str, array_shape: Tuple[int],
+        array_dtype: np.dtype, **attributes):
     attribute, value = next(iter(attributes.items()))
     new_evaluator = evaluator.LazyEvaluator()
     new_array = array.Array(evaluator=new_evaluator)
-    value._internal_name = new_array._internal_name
-    attributes[attribute] = value
-    new_array._dtype = value.dtype
-    new_array._dims = value.shape
+    new_array._dtype = array_dtype
+    new_array._dims = array_shape
 
     add_node(new_evaluator, op_name, [], [new_array], **attributes)
     return new_array

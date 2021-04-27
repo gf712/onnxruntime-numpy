@@ -1,9 +1,12 @@
 # flake8: noqa
 
-from . import array
+from .array import Array
+from .evaluator import merge_array_evaluators
 from . import ops
 from .graph import Graph, Input, Node, Output
+from .tracer import OpTracerContext
 from typing import List
+from .graph import ExecutableGraph
 
 
 global_gradient_registry = {}
@@ -50,7 +53,7 @@ def add_outgrads(prev_g, g):
     return prev_g + g
 
 
-def backward_pass(g, graph):
+def backward_pass(g, graph) -> Array:
 
     it = graph.reversed_toposort()
     next(it)
@@ -73,16 +76,20 @@ def backward_pass(g, graph):
 
         grad_funcs = global_gradient_registry.get(node.op_type)
         if grad_funcs is None:
-            raise NotImplementedError(f"Gradient for {node.op_type} not implemented")
+            raise NotImplementedError(
+                f"Gradient for {node.op_type} not implemented")
 
         if len(node.inputs) != len(grad_funcs):
             raise NotImplementedError()
 
         value = node.outputs[0]
 
-        for idx, (output_array, grad_fn) in enumerate(zip(node.inputs, grad_funcs)):
-            parent_node = [parent_node for (parent_node, this_node, data) in graph._graph.in_edges(
-                node_name, data=True) if data["index"] == idx]
+        for idx, (output_array, grad_fn) in enumerate(
+                zip(node.inputs, grad_funcs)):
+            parent_node = [
+                parent_node
+                for(parent_node, this_node, data) in graph._graph.in_edges(
+                    node_name, data=True) if data["index"] == idx]
             if len(parent_node) != 1:
                 raise ValueError("Internal error. Ambiguous node input.")
             parent_grad = grad_fn(output_grad, value, output_array)
@@ -92,17 +99,30 @@ def backward_pass(g, graph):
     return output_grad
 
 
-def grad(x: "array.Array", with_respect_to: List["array.Array"]):
-    grad_graph = x._evaluator._graph  # .copy()
+def grad(func, argnum):
 
-    inputs, output_name = grad_graph._build_graph_with_inputs_outputs(
-        with_respect_to, x, x._evaluator._parent_node)
+    def grad_helper(*array_objs, **array_obj_kwargs):
 
-    g = ops.constant_of_shape(x.shape, 1.0)
-    # g._requires_grad = False
+        with_respect_to = [array_objs[argnum]]
 
-    grad_result = backward_pass(g, grad_graph)
+        grad_graph = Graph()
 
-    grad_graph._remove_graph_inputs_outputs(inputs, output_name)
+        with OpTracerContext(grad_graph, *array_objs, **array_obj_kwargs) as tracker:
+            result_array = tracker.trace_function_call(func)
 
-    return grad_result
+        grad_graph = ExecutableGraph(
+            grad_graph, with_respect_to,
+            {result_array._evaluator._parent_node: result_array})._graph
+        
+        g = ops.constant_of_shape(result_array.shape, 1.0)
+
+        grad_result = backward_pass(g, grad_graph)
+
+        other_evaluators = [
+            a._evaluator for a in array_objs] + [a._evaluator for a in array_obj_kwargs.values()]
+
+        merge_array_evaluators(grad_result._evaluator, *other_evaluators)
+
+        return grad_result
+
+    return grad_helper

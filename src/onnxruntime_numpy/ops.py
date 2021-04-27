@@ -189,38 +189,44 @@ def constant(*, sparse_value=None,
             raise ValueError(
                 f"Argument {argname} expects an array of type {expected_dtype}, "
                 f"but got type {dtype}")
+        return shape, dtype
 
     if sparse_value:
         raise NotImplementedError("Sparse matrices are currently not supported")
     if value:
-        return initializer_operator("Constant", value=array.array(value))
+        a = array.array(value)
+        return initializer_operator("Constant", a.shape, a.dtype, value=a)
     if value_float:
         # TODO: should this be strict? i.e. if not isinstance(value, float) throw?
-        return initializer_operator("Constant", value_float=array.array(
-            [float(value_float)]))
+        a = array.array([float(value_float)])
+        return initializer_operator("Constant", a.shape, a.dtype, value_float=a)
     if value_floats:
-        check_array_shape_and_type(
+        shape, dtype = check_array_shape_and_type(
             array.array(value_floats),
             1, np.float32, "value_floats")
         return initializer_operator(
-            "Constant", value_floats=array.array(value_floats))
+            "Constant", shape, dtype, value_floats=array.array(value_floats))
     if value_int:
         # TODO: should this be strict? i.e. if not isinstance(value, int) throw?
-        return initializer_operator(
-            "Constant", value_int=array.array([int(value_int)]))
+        a = array.array([int(value_int)])
+        return initializer_operator("Constant", a.shape, a.dtype, value_int=a)
     if value_ints:
-        check_array_shape_and_type(
+        shape, dtype = check_array_shape_and_type(
             array.array(value_ints),
             1, np.int32, "value_ints")
         return initializer_operator(
-            "Constant", value_ints=array.array(value_ints))
+            "Constant", shape, dtype, value_ints=array.array(value_ints))
     if value_string:  # pragma: no cover
         raise NotImplementedError("Strings are currently not implemented")
-        return initializer_operator("Constant", value_string=value_string)
+        return initializer_operator(
+            "Constant", len(value_string),
+            np.string, value_string=value_string)
     if value_strings:  # pragma: no cover
         raise NotImplementedError("Strings are currently not implemented")
-        check_array_shape_and_type(value_strings, 1, np.STRING, "value_strings")
-        return initializer_operator("Constant", value_strings=value_strings)
+        shape, dtype = check_array_shape_and_type(
+            value_strings, 1, np.STRING, "value_strings")
+        return initializer_operator(
+            "Constant", shape, dtype, value_strings=value_strings)
     else:  # pragma: no cover
         raise ValueError("?")
 
@@ -955,38 +961,6 @@ def multiply(x: "array.Array", y: "array.Array"):
     return multiply_helper(x, y)
 
 
-def multinomial(
-        x: "array.Array", dtype: np.dtype = np.int32, sample_size: int = 1,
-        seed: Optional[float] = None):
-
-    if dtype not in [np.int32, np.int64]:
-        raise TypeError(
-            f"Expected output type to be either int32 or int64, but got {dtype}")
-
-    if x.ndims != 2:
-        raise ValueError(
-            f"Expected input array to have two dimensions, but got {x.ndims} "
-            "dimensions")
-
-    batch_size, _ = x.shape  # type: ignore
-
-    @allowed_types(float_types)
-    @not_implemented_types([np.float64])
-    def multinomial_helper(
-            x: "array.Array", dtype: np.dtype, sample_size: int,
-            seed: Optional[float]):
-        if seed is not None:
-            seed = float(seed)
-        result = unary_operator(
-            x, "Multinomial", dtype=numpy_to_onnx(np.dtype(dtype)),
-            sample_size=sample_size, seed=seed)
-        result._dtype = dtype
-        result._dims = (batch_size, 1)  # type: ignore
-        return result
-    return multinomial_helper(
-        x, dtype=dtype, sample_size=sample_size, seed=seed)
-
-
 def negative(x: "array.Array"):
     @allowed_types([*float_types, *signed_integer_types])
     @not_implemented_types([np.int16])
@@ -1053,21 +1027,6 @@ def logical_or(x, y):
     return logical_or_helper(x, y)
 
 
-def prelu(x: "array.Array", slope: Union["array.Array", float]):
-    if isinstance(slope, float):
-        slope = array.array([slope], dtype=x.dtype)
-
-    @allowed_types([*float_types, np.uint32, np.uint64, np.int32, np.int64])
-    @not_implemented_types([np.float64, np.uint32, np.uint64, np.int32, np.int64])
-    @output_checks_and_inference(
-        allow_broadcasting
-    )
-    def prelu_helper(x: "array.Array", slope: "array.Array"):
-        return nary_operator("PRelu", x, slope)
-
-    return prelu_helper(x, slope)
-
-
 def pad(x: "array.Array", pads: "array.Array",
         constant_value: Union["array.Array", str, int, bool] = 0):
 
@@ -1103,6 +1062,21 @@ def power(x: "array.Array", y: "array.Array"):
         return binary_operator(x, y, "Pow")
 
     return helper_power(x, y)
+
+
+def prelu(x: "array.Array", slope: Union["array.Array", float]):
+    if isinstance(slope, float):
+        slope = array.array([slope], dtype=x.dtype)
+
+    @allowed_types([*float_types, np.uint32, np.uint64, np.int32, np.int64])
+    @not_implemented_types([np.float64, np.uint32, np.uint64, np.int32, np.int64])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def prelu_helper(x: "array.Array", slope: "array.Array"):
+        return nary_operator("PRelu", x, slope)
+
+    return prelu_helper(x, slope)
 
 
 def sum(

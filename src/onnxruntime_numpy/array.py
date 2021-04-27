@@ -122,8 +122,8 @@ class Array:
     def __pow__(self, other: Union["Array", int]) -> "Array":
         return ops.power(self, array(other))
 
-    def __repr__(self) -> str:
-        return self.numpy().__repr__()
+    # def __repr__(self) -> str:
+    #     return self.numpy().__repr__()
 
     def __hash__(self):
         return hash(self._internal_name)
