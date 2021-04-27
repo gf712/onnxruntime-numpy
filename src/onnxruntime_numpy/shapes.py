@@ -175,8 +175,7 @@ class DynamicShape(Shape):
         return DynamicShape.from_shape(self)
 
     def __repr__(self):
-        return "DynamicShape("
-        f"{', '.join(['?' if s==DynamicShape(-1) else str(s) for s in self._shape])})"
+        return f"DynamicShape({', '.join(str(x) for x in self._shape)})"
 
 
 ShapeLike = Union[Shape, Collection[int], "array.Array"]

@@ -432,3 +432,105 @@ def test_reciprocal(type_a):
     expected = np.reciprocal(x)
     result = onp.reciprocal(onp.array(x))
     expect(expected, result.numpy())
+
+
+def reshape_reference_implementation(data, shape, allowzero=0):
+    # replace zeros with corresponding dim size
+    # we need to do this because np.reshape doesn't support 0 by default unless
+    # 'allowzero' is set
+    new_shape = np.copy(shape)
+    if allowzero == 0:
+        zeros_index = np.where(shape == 0)
+        new_shape[zeros_index] = np.array(data.shape)[zeros_index]
+    reshaped = np.reshape(data, new_shape)
+    return reshaped
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_reshape_reordered_all_dims(type_a):
+    original_shape = [2, 3, 4]
+    expected_shape = [4, 2, 3]
+    x = np.random.uniform(size=original_shape).astype(type_a)
+
+    expected = reshape_reference_implementation(x, expected_shape)
+    result = onp.array(x).reshape(expected_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_reshape_reordered_last_dims(type_a):
+    original_shape = [2, 3, 4]
+    expected_shape = [2, 4, 3]
+    x = np.random.uniform(size=original_shape).astype(type_a)
+
+    expected = reshape_reference_implementation(x, expected_shape)
+    result = onp.array(x).reshape(expected_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_reshape_reduced_dims(type_a):
+    original_shape = [2, 3, 4]
+    expected_shape = [2, 12]
+    x = np.random.uniform(size=original_shape).astype(type_a)
+
+    expected = reshape_reference_implementation(x, expected_shape)
+    result = onp.array(x).reshape(expected_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_reshape_extended_dims(type_a):
+    original_shape = [2, 3, 4]
+    expected_shape = [2, 3, 2, 2]
+    x = np.random.uniform(size=original_shape).astype(type_a)
+
+    expected = reshape_reference_implementation(x, expected_shape)
+    result = onp.array(x).reshape(expected_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_reshape_one_dim(type_a):
+    original_shape = [2, 3, 4]
+    expected_shape = [24]
+    x = np.random.uniform(size=original_shape).astype(type_a)
+
+    expected = reshape_reference_implementation(x, expected_shape)
+    result = onp.array(x).reshape(expected_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_reshape_negative_dim(type_a):
+    original_shape = [2, 3, 4]
+    expected_shape = [2, -1, 2]
+    x = np.random.uniform(size=original_shape).astype(type_a)
+
+    expected = reshape_reference_implementation(x, expected_shape)
+    result = onp.array(x).reshape(expected_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_reshape_negative_extended_dims(type_a):
+    original_shape = [2, 3, 4]
+    expected_shape = [-1, 2, 3, 4]
+    x = np.random.uniform(size=original_shape).astype(type_a)
+
+    expected = reshape_reference_implementation(x, expected_shape)
+    result = onp.array(x).reshape(expected_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_round(type_a):
+    x = np.array([0.1, 0.5, 0.9, 1.2, 1.5,
+                  1.8, 2.3, 2.5, 2.7, -1.1,
+                  -1.5, -1.9, -2.2, -2.5, -2.8]).astype(type_a)
+
+    expected = np.array([0., 0., 1., 1., 2.,
+                         2., 2., 2., 3., -1.,
+                         -2., -2., -2., -2., -3.]).astype(type_a)
+    result = onp.round(onp.array(x))
+    expect(expected, result.numpy())

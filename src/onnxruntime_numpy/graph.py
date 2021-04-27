@@ -6,7 +6,8 @@ import numpy as np
 import networkx as nx
 import onnx
 
-from collections import namedtuple, Hashable
+from collections import namedtuple
+from collections.abc import Hashable
 from typing import Tuple, List, Set, Dict
 from typing import Iterable as IterableType
 

@@ -574,6 +574,40 @@ def reduce_axis(axes: Union[List[int], "array.Array", None], keepdims: bool):
     return output_reduce_axis
 
 
+def reshape_check(requested_shape: Shape):
+    def reshape_check_wrapper(return_array, *input_arrays_and_args, **kwargs):
+        input_shape = input_arrays_and_args[0].shape
+        unknown_dim = -1
+        size = 1
+        for idx, s in enumerate(requested_shape):
+            if int(s) < -1:
+                raise ValueError(f"Dimension cannot be less than -1, got {s}")
+            elif int(s) == -1:
+                if unknown_dim != -1:
+                    raise ValueError("At most one dimension can be -1")
+                unknown_dim = idx
+            else:
+                size *= int(s)
+        if unknown_dim != -1:
+            if size != 0 and input_shape.size() % size == 0:
+                output_shape_list = requested_shape.tolist()
+                output_shape_list[unknown_dim] = input_shape.size() / size
+                output_shape = DynamicShape(*output_shape_list)
+            else:
+                raise ValueError(
+                    "The input tensor cannot be reshaped to the "
+                    f"requested shape. Input shape: {input_shape}, requested shape: "
+                    f"{requested_shape}")
+        elif requested_shape.to_static().size() != input_shape.to_static().size():
+            raise ValueError(
+                f"Incompatible shapes for reshape: {input_shape} and {requested_shape}")
+        else:
+            output_shape = requested_shape
+        return_array._dims = output_shape
+
+    return reshape_check_wrapper
+
+
 def output_checks_and_inference(*output_checks):
     def decorator(func):
         @ functools.wraps(func)

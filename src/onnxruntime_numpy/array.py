@@ -147,6 +147,9 @@ class Array:
         self._eval()
         yield from self.numpy()
 
+    def reshape(self, shape: ShapeLike) -> "Array":
+        return ops.reshape(self, shape)
+
 
 def is_lazy(x: Array) -> bool:
     return x._ort_value is None

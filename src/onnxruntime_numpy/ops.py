@@ -7,7 +7,7 @@ from .ops_utils import (
     output_shape_from_einsum, output_type, allow_broadcasting,
     array_is_square_matrix, determinant_output_shape, broadcast_to,
     flatten_shape, gather_check, check_input_shape_gemm, propagate_shape_gemm,
-    force_evaluation)
+    force_evaluation, reshape_check)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
                     unsigned_integer_types, NumericType)
@@ -917,12 +917,24 @@ def prod(
 
 
 def reshape(x: "array.Array", shape: ShapeLike, allowzero: bool = False):
-    def helper_shape(x: "array.Array", shape: Shape, allowzero: int):
-        result = nary_operator("Reshape", shape, allowzero=allowzero)
+
+    @allowed_types(all_types)
+    @output_checks_and_inference(
+        reshape_check(as_shape(shape))
+    )
+    def helper_reshape(x: "array.Array", shape: Shape, allowzero: int):
+
+        if allowzero == 1:
+            import warnings
+            warnings.warn("Ignoring currently not supported `allowzero`")
+
+        # TODO: fixme when upgrading to opset 14
+        # result = nary_operator("Reshape", x, shape.asarray(), allowzero=allowzero)
+        result = nary_operator("Reshape", x, shape.asarray())
         result._dims = shape
         return result
 
-    return helper_shape(x, as_shape(shape), int(allowzero))
+    return helper_reshape(x, as_shape(shape), int(allowzero))
 
 
 def sum(
@@ -1127,3 +1139,10 @@ def log_sum_exp(
 
     return helper_log_sum_exp(
         x, axes, keepdims=bool(keepdims))
+
+
+def round(x: "array.Array"):
+    @allowed_types(float_types)
+    def round_helper(x: "array.Array"):
+        return nary_operator("Round", x)
+    return round_helper(x)
