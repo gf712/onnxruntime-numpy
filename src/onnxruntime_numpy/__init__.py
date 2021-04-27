@@ -17,6 +17,7 @@ finally:
 
 from .ops import *  # noqa
 from . import random # noqa
+from . import nn # noqa
 from .array import array  # type: ignore # noqa
 from .jit import jit  # type: ignore # noqa
 from .grad import grad  # noqa

@@ -10,7 +10,7 @@ import math
 def test_elu(type_a):
     a = onp.array([-1, 0, 1], dtype=type_a)
     expected = onp.array([-1.2642411, 0., 1.], dtype=type_a)
-    result = onp.elu(a, alpha=2.0)
+    result = onp.nn.elu(a, alpha=2.0)
 
     expect(result.numpy(), expected.numpy())
 
@@ -19,7 +19,7 @@ def test_elu(type_a):
 def test_elu_default(type_a):
     a = onp.array([-1, 0, 1], dtype=type_a)
     expected = onp.array([-0.63212055, 0., 1.], dtype=type_a)
-    result = onp.elu(a)
+    result = onp.nn.elu(a)
 
     expect(result.numpy(), expected.numpy())
 
@@ -30,7 +30,7 @@ def test_relu(type_a):
                    [-1, 0,  10.]], dtype=type_a)
     expected = onp.array([[1, 2, 0],
                           [0, 0, 10]], dtype=type_a)
-    result = onp.relu(a)
+    result = onp.nn.relu(a)
 
     expect(result.numpy(), expected.numpy())
 
@@ -44,7 +44,7 @@ def test_global_average_pool(type_a):
     for _ in range(spatial_shape):
         expected = np.expand_dims(expected, -1)
 
-    result = onp.global_average_pool(onp.array(x, dtype=type_a))
+    result = onp.nn.global_average_pool(onp.array(x, dtype=type_a))
     expect(expected, result)
 
 
@@ -58,7 +58,7 @@ def test_global_average_pool_precomputed(type_a):
 
     expected = np.array([[[[5]]]]).astype(type_a)
 
-    result = onp.global_average_pool(onp.array(x, dtype=type_a))
+    result = onp.nn.global_average_pool(onp.array(x, dtype=type_a))
 
     expect(expected, result)
 
@@ -73,7 +73,7 @@ def test_global_lp2_pool_precomputed(type_a):
 
     expected = np.array([[[[16.881943]]]]).astype(type_a)
 
-    result = onp.global_lp_pool(onp.array(x, dtype=type_a))
+    result = onp.nn.global_lp_pool(onp.array(x, dtype=type_a))
 
     expect(expected, result)
 
@@ -88,7 +88,7 @@ def test_global_lp1_pool_precomputed(type_a):
 
     expected = np.array([[[[45]]]]).astype(type_a)
 
-    result = onp.global_lp_pool(onp.array(x, dtype=type_a), p=1)
+    result = onp.nn.global_lp_pool(onp.array(x, dtype=type_a), p=1)
 
     expect(expected, result)
 
@@ -104,7 +104,7 @@ def test_global_lp_large_pool_precomputed(type_a):
 
     expected = np.array([[[[9]]]]).astype(type_a)
 
-    result = onp.global_lp_pool(onp.array(x, dtype=type_a), p=40)
+    result = onp.nn.global_lp_pool(onp.array(x, dtype=type_a), p=40)
 
     expect(expected, result, atol=0.1)
 
@@ -117,7 +117,7 @@ def test_global_max_pool(type_a):
     for _ in range(spatial_shape):
         expected = np.expand_dims(expected, -1)
 
-    result = onp.global_max_pool(onp.array(x, dtype=type_a))
+    result = onp.nn.global_max_pool(onp.array(x, dtype=type_a))
 
     expect(expected, result)
 
@@ -132,7 +132,7 @@ def test_global_max_pool_precomputed(type_a):
 
     expected = np.array([[[[9]]]]).astype(type_a)
 
-    result = onp.global_max_pool(onp.array(x, dtype=type_a))
+    result = onp.nn.global_max_pool(onp.array(x, dtype=type_a))
 
     expect(expected, result)
 
@@ -141,7 +141,7 @@ def test_global_max_pool_precomputed(type_a):
 def test_hard_sigmoid(type_a):
     a = onp.array([-1, 0, 1], dtype=type_a)
     expected = onp.array([0.1, 0.6, 1.], dtype=type_a)
-    result = onp.hard_sigmoid(a, alpha=0.5, beta=0.6)
+    result = onp.nn.hard_sigmoid(a, alpha=0.5, beta=0.6)
 
     expect(result.numpy(), expected.numpy())
 
@@ -152,7 +152,7 @@ def test_hard_sigmoid_default(type_a):
     default_beta = 0.5
     x = np.random.randn(3, 4, 5).astype(type_a)
     expected = np.clip(x * default_alpha + default_beta, 0, 1)
-    result = onp.hard_sigmoid(onp.array(x))
+    result = onp.nn.hard_sigmoid(onp.array(x))
 
     expect(result.numpy(), expected)
 
@@ -168,15 +168,15 @@ def test_hardmax(type_a):
 
     x = np.random.randn(3, 4, 5).astype(type_a)
     expected = hardmax(x, axis=0)
-    result = onp.hardmax(onp.array(x), axis=0)
+    result = onp.nn.hardmax(onp.array(x), axis=0)
     expect(result.numpy(), expected)
 
     expected = hardmax(x, axis=1)
-    result = onp.hardmax(onp.array(x), axis=1)
+    result = onp.nn.hardmax(onp.array(x), axis=1)
     expect(result.numpy(), expected)
 
     expected = hardmax(x)
-    result = onp.hardmax(onp.array(x))
+    result = onp.nn.hardmax(onp.array(x))
     expect(result.numpy(), expected)
 
 
@@ -198,7 +198,7 @@ def test_instancenorm(type_a):
     bias = np.array([0, 1]).astype(type_a)
     expected = instancenorm_test_mode(x, s, bias).astype(type_a)
 
-    expect(expected, onp.instance_normalization(
+    expect(expected, onp.nn.instance_normalization(
         onp.array(x), onp.array(s), onp.array(bias)))
 
     x = np.random.randn(2, 3, 4, 5).astype(type_a)
@@ -208,7 +208,7 @@ def test_instancenorm(type_a):
     expected = instancenorm_test_mode(x, s, bias, epsilon).astype(type_a)
 
     expect(
-        expected, onp.instance_normalization(
+        expected, onp.nn.instance_normalization(
             onp.array(x),
             onp.array(s),
             onp.array(bias),
@@ -233,7 +233,7 @@ def test_lrn_default(type_a):
              h, w] ** 2)
     expected = x / ((bias + (alpha / nsize) * square_sum) ** beta)
 
-    expect(expected, onp.lrn(onp.array(x), size=nsize))
+    expect(expected, onp.nn.lrn(onp.array(x), size=nsize))
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -254,7 +254,7 @@ def test_lrn(type_a):
     expected = x / ((bias + (alpha / nsize) * square_sum) ** beta)
 
     expect(
-        expected, onp.lrn(
+        expected, onp.nn.lrn(
             onp.array(x),
             size=nsize, alpha=alpha, beta=beta, bias=bias))
 
@@ -263,12 +263,12 @@ def test_lrn(type_a):
 def test_leakyrelu(type_a):
     x = np.array([-1, 0, 1], dtype=type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * 0.1
-    result = onp.leakyrelu(onp.array(x), alpha=0.1)
+    result = onp.nn.leakyrelu(onp.array(x), alpha=0.1)
     expect(expected, result.numpy())
 
     x = np.random.randn(3, 4, 5).astype(type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * 0.1
-    result = onp.leakyrelu(onp.array(x), alpha=0.1)
+    result = onp.nn.leakyrelu(onp.array(x), alpha=0.1)
     expect(expected, result.numpy())
 
 
@@ -276,7 +276,7 @@ def test_leakyrelu(type_a):
 def test_leakyrelu_default(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * 0.01
-    result = onp.leakyrelu(onp.array(x))
+    result = onp.nn.leakyrelu(onp.array(x))
     expect(expected, result.numpy())
 
 
@@ -284,7 +284,7 @@ def test_leakyrelu_default(type_a):
 def test_logsoftmax(type_a):
     x = np.array([[-1, 0, 1]]).astype(type_a)
     expected = np.array([[-2.4076061, -1.407606, -0.407606]]).astype(type_a)
-    result = onp.logsoftmax(onp.array(x))
+    result = onp.nn.logsoftmax(onp.array(x))
     expect(expected, result.numpy())
 
 
@@ -300,20 +300,20 @@ def test_logsoftmax_axis(type_a):
     x = np.array([[0, 1, 2, 3], [10000, 10001, 10002, 10003]]
                  ).astype(type_a)
     expected = logsoftmax(x)
-    result = onp.logsoftmax(onp.array(x))
+    result = onp.nn.logsoftmax(onp.array(x))
     expect(expected, result.numpy())
 
     x = np.abs(np.random.randn(3, 4, 5).astype(type_a))
     expected = logsoftmax(x, axis=0)
-    result = onp.logsoftmax(onp.array(x), axis=0)
+    result = onp.nn.logsoftmax(onp.array(x), axis=0)
     expect(expected, result.numpy())
 
     expected = logsoftmax(x, axis=1)
-    result = onp.logsoftmax(onp.array(x), axis=1)
+    result = onp.nn.logsoftmax(onp.array(x), axis=1)
     expect(expected, result.numpy())
 
     expected = logsoftmax(x, axis=2)
-    result = onp.logsoftmax(onp.array(x), axis=2)
+    result = onp.nn.logsoftmax(onp.array(x), axis=2)
     expect(expected, result.numpy())
 
 
@@ -336,10 +336,10 @@ def test_maxunpool_with_output_shape(type_a):
                            [0., 0., 0., 7., 0.],
                            [8., 0., 0., 0., 0.],
                            [0., 0., 0., 0., 0.]]]], dtype=type_a)
-    result = onp.maxunpool(onp.array(xT), onp.array(xI),
-                           kernel_shape=[2, 2],
-                           output_shape=onp.array(output_shape),
-                           strides=[2, 2])
+    result = onp.nn.maxunpool(onp.array(xT), onp.array(xI),
+                              kernel_shape=[2, 2],
+                              output_shape=onp.array(output_shape),
+                              strides=[2, 2])
     expect(expected, result.numpy())
 
 
@@ -362,7 +362,7 @@ def test_prelu(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(3, 4, 5).astype(type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * slope
-    result = onp.prelu(onp.array(x), onp.array(slope))
+    result = onp.nn.prelu(onp.array(x), onp.array(slope))
     expect(expected, result.numpy())
 
 
@@ -371,7 +371,7 @@ def test_prelu_broadcast(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(5).astype(type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * slope
-    result = onp.prelu(onp.array(x), onp.array(slope))
+    result = onp.nn.prelu(onp.array(x), onp.array(slope))
     expect(expected, result.numpy())
 
 
@@ -380,8 +380,8 @@ def test_prelu_broadcast_scalar(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(1).astype(type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * slope
-    result = onp.prelu(onp.array(x), onp.array(slope))
+    result = onp.nn.prelu(onp.array(x), onp.array(slope))
     expect(expected, result.numpy())
 
-    result = onp.prelu(onp.array(x), float(slope))
+    result = onp.nn.prelu(onp.array(x), float(slope))
     expect(expected, result.numpy())
