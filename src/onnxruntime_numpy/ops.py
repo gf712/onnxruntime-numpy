@@ -19,53 +19,6 @@ from collections.abc import Iterable
 import numpy as np
 
 
-def add(x, y):
-    @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
-    @allowed_types([*float_types, np.int32, np.int64],
-                   [*float_types, np.int32, np.int64])
-    @output_checks_and_inference(
-        allow_broadcasting
-    )
-    def add_helper(x, y):
-        return binary_operator(x, y, "Add")
-
-    return add_helper(x, y)
-
-
-def logical_and(x, y):
-    @allowed_types(bool_types, bool_types)
-    @output_checks_and_inference(
-        allow_broadcasting
-    )
-    def logical_and_helper(x, y):
-        return binary_operator(x, y, "And")
-    return logical_and_helper(x, y)
-
-
-def subtract(x, y):
-    @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
-    @allowed_types([*float_types, np.int32, np.int64],
-                   [*float_types, np.int32, np.int64])
-    @output_checks_and_inference(
-        allow_broadcasting
-    )
-    def subtract_helper(x, y):
-        return binary_operator(x, y, "Sub")
-    return subtract_helper(x, y)
-
-
-def divide(x, y):
-    @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
-    @allowed_types([*float_types, np.int32, np.int64],
-                   [*float_types, np.int32, np.int64])
-    @output_checks_and_inference(
-        allow_broadcasting
-    )
-    def divide_helper(x, y):
-        return binary_operator(x, y, "Div")
-    return divide_helper(x, y)
-
-
 def absolute(x):
     @allowed_types([*float_types, *integer_types])
     def absolute_helper(x):
@@ -87,6 +40,29 @@ def acosh(x):
     def helper_acos(x):
         return unary_operator(x, "Acosh")
     return helper_acos(x)
+
+
+def add(x, y):
+    @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
+    @allowed_types([*float_types, np.int32, np.int64],
+                   [*float_types, np.int32, np.int64])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def add_helper(x, y):
+        return binary_operator(x, y, "Add")
+
+    return add_helper(x, y)
+
+
+def logical_and(x, y):
+    @allowed_types(bool_types, bool_types)
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def logical_and_helper(x, y):
+        return binary_operator(x, y, "And")
+    return logical_and_helper(x, y)
 
 
 def asin(x):
@@ -121,6 +97,17 @@ def atanh(x):
     return atanh_helper(x)
 
 
+def cast(array: "array.Array", to: type):
+    @allowed_types([*all_types])
+    @output_checks_and_inference(
+        output_type_is_argn_position(1)
+    )
+    def cast_helper(array: "array.Array", to: type):  # type: ignore
+        return unary_operator(array, "Cast", to=numpy_to_onnx(np.dtype(to)))
+
+    return cast_helper(array, to)
+
+
 def ceil(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -137,17 +124,6 @@ def clip(input, minimum=None, maximum=None):
     return clip_helper(
         input, array.array(minimum, input.dtype),
         array.array(maximum, input.dtype))
-
-
-def cast(array: "array.Array", to: type):
-    @allowed_types([*all_types])
-    @output_checks_and_inference(
-        output_type_is_argn_position(1)
-    )
-    def cast_helper(array: "array.Array", to: type):  # type: ignore
-        return unary_operator(array, "Cast", to=numpy_to_onnx(np.dtype(to)))
-
-    return cast_helper(array, to)
 
 
 def compress(array, condition, axis=None):
@@ -312,6 +288,18 @@ def det(x: "array.Array"):
     return det_helper(x)
 
 
+def divide(x, y):
+    @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
+    @allowed_types([*float_types, np.int32, np.int64],
+                   [*float_types, np.int32, np.int64])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def divide_helper(x, y):
+        return binary_operator(x, y, "Div")
+    return divide_helper(x, y)
+
+
 def einsum(*inputs, equation):
     @not_implemented_types([*unsigned_integer_types, np.int8, np.int16])
     @allowed_types([*float_types, *integer_types])
@@ -336,6 +324,15 @@ def equal(x, y):
         return binary_operator(x, y, "Equal")
 
     return equal_helper(x, y)
+
+
+def erf(x):
+    @not_implemented_types([*integer_types, np.float64])
+    @allowed_types(numeric_types)
+    def erf_helper(x):
+        return nary_operator("Erf", x)
+
+    return erf_helper(x)
 
 
 def exp(x):
@@ -506,15 +503,6 @@ def greater_equal(a: "array.Array", b: "array.Array"):
     def helper_greater_equal(a: "array.Array", b: "array.Array"):
         return binary_operator(a, b, "GreaterOrEqual")
     return helper_greater_equal(a, b)
-
-
-def erf(x):
-    @not_implemented_types([*integer_types, np.float64])
-    @allowed_types(numeric_types)
-    def erf_helper(x):
-        return nary_operator("Erf", x)
-
-    return erf_helper(x)
 
 
 def identity(x: "array.Array"):
@@ -917,6 +905,13 @@ def prod(
         x, axes, keepdims=bool(keepdims))
 
 
+def reciprocal(x):
+    @allowed_types(float_types)
+    def reciprocal_helper(x):
+        return unary_operator(x, "Reciprocal")
+    return reciprocal_helper(x)
+
+
 def reshape(x: "array.Array", shape: ShapeLike, allowzero: bool = False):
 
     @allowed_types(all_types)
@@ -1041,13 +1036,6 @@ def arange(start: Union[NumericType, "array.Array"],
         return result
 
     return arange_helper(start, limit, delta)
-
-
-def reciprocal(x):
-    @allowed_types(float_types)
-    def reciprocal_helper(x):
-        return unary_operator(x, "Reciprocal")
-    return reciprocal_helper(x)
 
 
 def l1_norm(
@@ -1212,3 +1200,15 @@ def size(x: "array.Array") -> "array.Array":
         return result
 
     return size_helper(x)
+
+
+def subtract(x, y):
+    @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
+    @allowed_types([*float_types, np.int32, np.int64],
+                   [*float_types, np.int32, np.int64])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def subtract_helper(x, y):
+        return binary_operator(x, y, "Sub")
+    return subtract_helper(x, y)

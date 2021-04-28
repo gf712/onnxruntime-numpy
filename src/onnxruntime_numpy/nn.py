@@ -14,14 +14,6 @@ def conv():
     raise NotImplementedError()
 
 
-def relu(x):
-    @not_implemented_types([np.float64, *signed_integer_types])
-    @allowed_types([*float_types, *signed_integer_types])
-    def relu_helper(x):
-        return nary_operator("Relu", x)
-    return relu_helper(x)
-
-
 def elu(x, alpha=1.0):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -66,7 +58,7 @@ def global_lp_pool(x: Array, p: int = 2):
             f"Expected tensor to have 4 dimensions (N,C,H,W), but got {x.ndims}")
 
     @allowed_types(float_types)
-    # @not_implemented_types([np.float64])
+    # TODO: @not_implemented_types([np.float64])
     @output_checks_and_inference(
         propagate_shape_pool
     )
@@ -83,7 +75,7 @@ def global_max_pool(x: Array):
             f"Expected tensor to have 4 dimensions (N,C,H,W), but got {x.ndims}")
 
     @allowed_types(float_types)
-    # @not_implemented_types([np.float64])
+    # TODO: @not_implemented_types([np.float64])
     @output_checks_and_inference(
         propagate_shape_pool
     )
@@ -268,6 +260,14 @@ def prelu(x: Array, slope: Union[Array, float]):
         return nary_operator("PRelu", x, slope)
 
     return prelu_helper(x, slope)
+
+
+def relu(x):
+    @not_implemented_types([np.float64, *signed_integer_types])
+    @allowed_types([*float_types, *signed_integer_types])
+    def relu_helper(x):
+        return nary_operator("Relu", x)
+    return relu_helper(x)
 
 
 def scatter(
