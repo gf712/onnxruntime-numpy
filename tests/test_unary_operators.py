@@ -534,3 +534,65 @@ def test_round(type_a):
                          -2., -2., -2., -2., -3.]).astype(type_a)
     result = onp.round(onp.array(x))
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_shape(type_a):
+    x = np.array([
+        [1, 2, 3],
+        [4, 5, 6],
+    ]).astype(type_a)
+    expected = np.array([
+        2, 3,
+    ]).astype(np.int64)
+
+    result = onp.shape(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.array(x.shape).astype(np.int64)
+    result = onp.shape(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_sin(type_a):
+    x = np.array([-1, 0, 1]).astype(type_a)
+    expected = np.sin(x)
+    result = onp.sin(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.sin(x)
+    result = onp.sin(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_sinh(type_a):
+    x = np.array([-1, 0, 1]).astype(type_a)
+    expected = np.sinh(x)
+    result = onp.sinh(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.sinh(x)
+    result = onp.sinh(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_size(type_a):
+    x = np.array([
+        [1, 2, 3],
+        [4, 5, 6],
+    ]).astype(type_a)
+    expected = np.array(6).astype(np.int64)
+
+    result = onp.size(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.array(x.size).astype(np.int64)
+    result = onp.size(onp.array(x))
+    expect(expected, result.numpy())

@@ -1,6 +1,6 @@
 import pytest
 import onnxruntime_numpy as onp
-from onnxruntime_numpy.types import float_types
+from onnxruntime_numpy.types import float_types, all_types
 import numpy as np
 from .utils import expect
 import math
@@ -384,4 +384,201 @@ def test_prelu_broadcast_scalar(type_a):
     expect(expected, result.numpy())
 
     result = onp.nn.prelu(onp.array(x), float(slope))
+    expect(expected, result.numpy())
+
+
+def scatter_elements(data, indices, updates, axis=0):  # type: ignore
+    # taken from
+    # https://github.com/onnx/onnx/blob/7e70e3dea265a958912b997a3fc8e8882d1e25c8/onnx/backend/test/case/node/scatterelements.py#L16
+    if axis < 0:
+        axis = data.ndim + axis
+
+    idx_xsection_shape = indices.shape[:axis] + indices.shape[axis + 1:]
+
+    def make_slice(arr, axis, i):  # type: ignore
+        slc = [slice(None)] * arr.ndim
+        slc[axis] = i
+        return slc
+
+    def unpack(packed):  # type: ignore
+        unpacked = packed[0]
+        for i in range(1, len(packed)):
+            unpacked = unpacked, packed[i]
+        return unpacked
+
+    # We use indices and axis parameters to create idx
+    # idx is in a form that can be used as a NumPy advanced indices for scattering of updates param. in data
+    idx = [[
+        unpack(
+            np.indices(idx_xsection_shape).reshape(
+                indices.ndim - 1, -1)),
+        indices[tuple(make_slice(indices, axis, i))].reshape(1, -1)[0]]
+        for i in range(indices.shape[axis])]
+    idx = list(np.concatenate(idx, axis=1))
+    idx.insert(axis, idx.pop())
+
+    # updates_idx is a NumPy advanced indices for indexing of elements in the updates
+    updates_idx = list(idx)
+    updates_idx.pop(axis)
+    updates_idx.insert(
+        axis, np.repeat(
+            np.arange(indices.shape[axis]),
+            np.prod(idx_xsection_shape)))
+
+    scattered = np.copy(data)
+    scattered[tuple(idx)] = updates[tuple(updates_idx)]
+    return scattered
+
+
+@pytest.mark.parametrize("type_a", all_types)
+@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+def test_scatter_elements_with_axis(type_a, type_b):
+    axis = 1
+    x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0]], dtype=type_a)
+    indices = np.array([[1, 3]], dtype=type_b)
+    updates = np.array([[1.1, 2.1]], dtype=type_a)
+
+    expected = scatter_elements(x, indices, updates, axis)
+    result = onp.nn.scatter(
+        onp.array(x),
+        onp.array(indices),
+        onp.array(updates),
+        axis)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+def test_scatter_elements_with_negative_indices(type_a, type_b):
+    axis = 1
+    x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0]], dtype=type_a)
+    indices = np.array([[1, -3]], dtype=type_b)
+    updates = np.array([[1.1, 2.1]], dtype=type_a)
+
+    expected = scatter_elements(x, indices, updates, axis)
+    result = onp.nn.scatter(
+        onp.array(x),
+        onp.array(indices),
+        onp.array(updates),
+        axis)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+def test_scatter_elements_without_axis(type_a, type_b):
+    x = np.zeros((3, 3), dtype=type_a)
+    indices = np.array([[1, 0, 2], [0, 2, 1]], dtype=type_b)
+    updates = np.array([[1.0, 1.1, 1.2], [2.0, 2.1, 2.2]], dtype=type_a)
+
+    expected = scatter_elements(x, indices, updates)
+    result = onp.nn.scatter(
+        onp.array(x),
+        onp.array(indices),
+        onp.array(updates))
+    expect(expected, result.numpy())
+
+
+def scatter_nd_impl(data, indices, updates):
+    # taken from https://github.com/onnx/onnx/blob/7e70e3dea265a958912b997a3fc8e8882d1e25c8/onnx/backend/test/case/node/scatternd.py#L15
+
+    # Check tensor shapes
+    assert indices.shape[-1] <= len(data.shape)
+    assert updates.shape == indices.shape[:-1] + data.shape[indices.shape[-1]:]
+
+    # Compute output
+    output = np.copy(data)
+    for i in np.ndindex(indices.shape[:-1]):
+        # NOTE: The order of iteration in this loop is not specified.
+        # In particular, indices should not have duplicate entries: that is, if idx1 != idx2, then indices[idx1] != indices[idx2].
+        # This ensures that the output value does not depend on the iteration order.
+        output[indices[i]] = updates[i]
+    return output
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_scatter_nd(type_a):
+    x = np.array(
+        [[[1, 2, 3, 4], [5, 6, 7, 8], [8, 7, 6, 5], [4, 3, 2, 1]],
+         [[1, 2, 3, 4], [5, 6, 7, 8], [8, 7, 6, 5], [4, 3, 2, 1]],
+         [[8, 7, 6, 5], [4, 3, 2, 1], [1, 2, 3, 4], [5, 6, 7, 8]],
+         [[8, 7, 6, 5], [4, 3, 2, 1], [1, 2, 3, 4], [5, 6, 7, 8]]], dtype=type_a)
+    indices = np.array([[0], [2]], dtype=np.int64)
+    updates = np.array(
+        [[[5, 5, 5, 5], [6, 6, 6, 6], [7, 7, 7, 7], [8, 8, 8, 8]],
+         [[1, 1, 1, 1], [2, 2, 2, 2], [3, 3, 3, 3], [4, 4, 4, 4]]], dtype=type_a)
+
+    expected = scatter_nd_impl(x, indices, updates)
+    result = onp.nn.scatter_nd(
+        onp.array(x),
+        onp.array(indices),
+        onp.array(updates))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_selu(type_a):
+    alpha = 2.0
+    gamma = 3.0
+
+    x = np.array([-1, 0, 1]).astype(type_a)
+
+    expected = np.clip(
+        x, 0, np.inf) * 3.0 + (np.exp(np.clip(x, -np.inf, 0)) - 1) * 2.0 * 3.0
+    result = onp.nn.selu(onp.array(x), alpha, gamma)
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.clip(
+        x, 0, np.inf) * 3.0 + (np.exp(np.clip(x, -np.inf, 0)) - 1) * 2.0 * 3.0
+    result = onp.nn.selu(onp.array(x), alpha, gamma)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_selu_default(type_a):
+    default_alpha = 1.67326319217681884765625
+    default_gamma = 1.05070102214813232421875
+
+    x = np.array([-1, 0, 1]).astype(type_a)
+
+    expected = np.clip(x, 0, np.inf) * default_gamma + (
+        np.exp(np.clip(x, -np.inf, 0)) - 1) * default_alpha * default_gamma
+    result = onp.nn.selu(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.clip(x, 0, np.inf) * default_gamma + (
+        np.exp(np.clip(x, -np.inf, 0)) - 1) * default_alpha * default_gamma
+    result = onp.nn.selu(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_softplus(type_a):
+
+    x = np.array([-1, 0, 1]).astype(type_a)
+
+    expected = np.log(np.exp(x) + 1)
+    result = onp.nn.softplus(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.log(np.exp(x) + 1)
+    result = onp.nn.softplus(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_softsign(type_a):
+
+    x = np.array([-1, 0, 1]).astype(type_a)
+
+    expected = x / (1 + np.abs(x))
+    result = onp.nn.softsign(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = x / (1 + np.abs(x))
+    result = onp.nn.softsign(onp.array(x))
     expect(expected, result.numpy())

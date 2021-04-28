@@ -348,6 +348,7 @@ def exp(x):
 
 def expand(x, shape: ShapeLike):
     # we have to evaluate the graph here (if necessary)
+    # TODO: do we?
     array_shape = as_shape(shape)
 
     @allowed_types(all_types, [np.int64])
@@ -1146,3 +1147,68 @@ def round(x: "array.Array"):
     def round_helper(x: "array.Array"):
         return nary_operator("Round", x)
     return round_helper(x)
+
+
+def shape(x: "array.Array") -> "array.Array":
+    """Takes a tensor as input and outputs an 1D int64 tensor containing the shape of
+    the input tensor.
+
+    Note that Array.shape is more efficient (and should give the same result).
+    The difference is that this `shape` free function adds the `Shape` node to the
+    `ONNX` graph, which could improve runtime if the output is used in subsequent
+    operations.
+
+    Args:
+        x (array.Array): Input tensor
+
+    Returns:
+        array.Array: Shape of the input tensor
+    """
+    @allowed_types(all_types)
+    def shape_helper(x: "array.Array"):
+        result = nary_operator("Shape", x)
+        result._dims = DynamicShape(len(x.shape),)
+        result._dtype = np.int64
+        return result
+
+    return shape_helper(x)
+
+
+def sin(x):
+    @allowed_types([*float_types])
+    def helper_sin(x):
+        return unary_operator(x, "Sin")
+    return helper_sin(x)
+
+
+def sinh(x):
+    @allowed_types([*float_types])
+    @not_implemented_types([np.float64])
+    def helper_sin(x):
+        return unary_operator(x, "Sinh")
+    return helper_sin(x)
+
+
+def size(x: "array.Array") -> "array.Array":
+    """Takes a tensor as input and outputs a int64 scalar that equals to the total
+    number of elements of the input tensor.
+
+    Note that len(Array) is more efficient (and should give the same result).
+    The difference is that this `size` free function adds the `Size` node to the
+    `ONNX` graph, which could improve runtime if the output is used in subsequent
+    operations.
+
+    Args:
+        x (array.Array): Input tensor
+
+    Returns:
+        array.Array: Size of the input tensor
+    """
+    @allowed_types(all_types)
+    def size_helper(x: "array.Array"):
+        result = nary_operator("Size", x)
+        result._dims = DynamicShape()
+        result._dtype = np.int64
+        return result
+
+    return size_helper(x)
