@@ -2,7 +2,7 @@ import numpy as np
 from . import array
 from .ops_utils import (allowed_types, not_implemented_types,
                         nary_operator, initializer_operator)
-from .types import numpy_to_onnx, float_types
+from .types import numpy_to_onnx, float_types, all_types
 from .shapes import DynamicShape, ShapeLike, as_shape
 from typing import Optional
 
@@ -46,7 +46,6 @@ def normal(
     if seed is not None:
         seed = float(seed)
 
-    @allowed_types(float_types)
     def normal_helper(
             shape: ShapeLike,
             mean: float, scale: float, dtype: np.dtype, seed: Optional[float]):
@@ -65,7 +64,16 @@ def normal_like(x="array.Array", mean: float = 0.0, scale: float = 1.0,
     if seed is not None:
         seed = float(seed)
 
-    @allowed_types(float_types)
+    if dtype is None:
+        if x.dtype not in float_types:
+            raise ValueError("Output tensor type must be a floating type")
+        else:
+            # the input tensor dtype is a valid output tensor dtype
+            dtype = x.dtype
+    elif dtype is not None and dtype not in float_types:
+        raise ValueError("Output tensor type must be a floating type")
+
+    @allowed_types(all_types)
     def normal_like_helper(
             x: "array.Array",
             mean: float, scale: float,
@@ -88,7 +96,6 @@ def uniform(
     if seed is not None:
         seed = float(seed)
 
-    @allowed_types(float_types)
     def uniform_helper(
             shape: ShapeLike,
             low: float, high: float, dtype: np.dtype, seed: Optional[float]):
@@ -107,7 +114,16 @@ def uniform_like(x="array.Array", low: float = 0.0, high: float = 1.0,
     if seed is not None:
         seed = float(seed)
 
-    @allowed_types(float_types)
+    if dtype is None:
+        if x.dtype not in float_types:
+            raise ValueError("Output tensor type must be a floating type")
+        else:
+            # the input tensor dtype is a valid output tensor dtype
+            dtype = x.dtype
+    elif dtype is not None and dtype not in float_types:
+        raise ValueError("Output tensor type must be a floating type")
+
+    @allowed_types(all_types)
     def uniform_like_helper(
             x: "array.Array",
             low: float, high: float,
