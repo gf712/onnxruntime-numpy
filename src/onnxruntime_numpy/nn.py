@@ -2,7 +2,7 @@ from .array import Array, array, is_lazy
 from .ops_utils import (
     allowed_types, not_implemented_types, output_checks_and_inference,
     allow_broadcasting, nary_operator, propagate_shape_pool,
-    force_evaluation, reduce_axis)
+    force_evaluation)
 from .types import (float_types, signed_integer_types, all_types)
 from .shapes import ShapeLike, as_shape
 import numpy as np

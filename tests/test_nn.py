@@ -407,7 +407,8 @@ def scatter_elements(data, indices, updates, axis=0):  # type: ignore
         return unpacked
 
     # We use indices and axis parameters to create idx
-    # idx is in a form that can be used as a NumPy advanced indices for scattering of updates param. in data
+    # idx is in a form that can be used as a NumPy advanced indices for scattering of
+    # updates param. in data
     idx = [[
         unpack(
             np.indices(idx_xsection_shape).reshape(
@@ -480,7 +481,7 @@ def test_scatter_elements_without_axis(type_a, type_b):
 
 
 def scatter_nd_impl(data, indices, updates):
-    # taken from https://github.com/onnx/onnx/blob/7e70e3dea265a958912b997a3fc8e8882d1e25c8/onnx/backend/test/case/node/scatternd.py#L15
+    # taken from https://github.com/onnx/onnx/blob/7e70e3dea265a958912b997a3fc8e8882d1e25c8/onnx/backend/test/case/node/scatternd.py#L15  # noqa
 
     # Check tensor shapes
     assert indices.shape[-1] <= len(data.shape)
@@ -490,7 +491,8 @@ def scatter_nd_impl(data, indices, updates):
     output = np.copy(data)
     for i in np.ndindex(indices.shape[:-1]):
         # NOTE: The order of iteration in this loop is not specified.
-        # In particular, indices should not have duplicate entries: that is, if idx1 != idx2, then indices[idx1] != indices[idx2].
+        # In particular, indices should not have duplicate entries:
+        # that is, if idx1 != idx2, then indices[idx1] != indices[idx2].
         # This ensures that the output value does not depend on the iteration order.
         output[indices[i]] = updates[i]
     return output
