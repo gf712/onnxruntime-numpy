@@ -12,9 +12,9 @@ from typing import Tuple, List, Set, Dict
 from typing import Iterable as IterableType
 
 
-class Node(namedtuple("Node", "inputs outputs op_type attributes")):
+class Node(namedtuple("Node", "op_type inputs outputs op_name attributes")):
     def __repr__(self):
-        return f'Node({self.op_type})'
+        return f'Node({self.op_name})'
 
 
 class Input(namedtuple("Input", "dtype shape")):
@@ -123,13 +123,14 @@ class Graph:
         return reversed(list(self.toposort()))
 
     def add_node(
-            self, op_type: str, inputs: List["array.Array"],
+            self, op_name: str, inputs: List["array.Array"],
             outputs: List["array.Array"],
             **attributes):
         new_node = Node(
+            None,  # op_type is added by register decorator
             inputs,
             outputs,
-            op_type,
+            op_name,
             HashableAttributes(**attributes))
 
         node_name = str(hash(new_node))
@@ -231,7 +232,7 @@ class ExecutableGraph:
             #     g.output.append(onnx.helper.make_tensor_value_info(
             #         node_name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
             elif isinstance(node, Node):
-                n = onnx.helper.make_node(node.op_type,
+                n = onnx.helper.make_node(node.op_name,
                                           [n._internal_name
                                            if n is not None else ""
                                            for n in node.inputs],

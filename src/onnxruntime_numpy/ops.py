@@ -7,7 +7,7 @@ from .ops_utils import (
     output_shape_from_einsum, output_type, allow_broadcasting,
     array_is_square_matrix, determinant_output_shape, broadcast_to,
     flatten_shape, gather_check, check_input_shape_gemm, propagate_shape_gemm,
-    force_evaluation, reshape_check)
+    force_evaluation, reshape_check, register)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
                     unsigned_integer_types, NumericType)
@@ -249,6 +249,7 @@ def constant_of_shape(shape: ShapeLike, value=0.0,
     return output
 
 
+@register
 def cos(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -257,6 +258,7 @@ def cos(x):
     return cos_helper(x)
 
 
+@register
 def cosh(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -335,6 +337,7 @@ def erf(x):
     return erf_helper(x)
 
 
+@register
 def exp(x):
     @allowed_types(float_types)
     def exp_helper(x):
@@ -576,6 +579,7 @@ def less_equal(a: "array.Array", b: "array.Array"):
     return helper_less_equal(a, b)
 
 
+@register
 def log(x: "array.Array"):
     @allowed_types(float_types)
     def helper_log(x: "array.Array"):
@@ -1162,6 +1166,7 @@ def shape(x: "array.Array") -> "array.Array":
     return shape_helper(x)
 
 
+@register
 def sin(x):
     @allowed_types([*float_types])
     def helper_sin(x):
@@ -1169,6 +1174,7 @@ def sin(x):
     return helper_sin(x)
 
 
+@register
 def sinh(x):
     @allowed_types([*float_types])
     @not_implemented_types([np.float64])

@@ -31,7 +31,7 @@ class LazyEvaluator:
 
         return evaluator
 
-    def add_node(self, op_type, inputs, outputs, **attributes):
+    def add_node(self, op_name, inputs, outputs, **attributes):
 
         if self._graph is None:
             self._graph = Graph()
@@ -48,7 +48,7 @@ class LazyEvaluator:
 
         # if node_name not in self._node_names:
         self._parent_node = self._graph.add_node(
-            op_type, inputs, outputs, **attributes)
+            op_name, inputs, outputs, **attributes)
         # self._node_names.add(node_name)
 
     def add_initializer(

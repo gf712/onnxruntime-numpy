@@ -6,16 +6,25 @@ from .ops_utils import nary_operator
 from . import ops
 from .graph import Graph, Input, Node, Output
 from .tracer import OpTracerContext
-from typing import List
+from typing import List, Dict, Tuple, Callable
 from .graph import ExecutableGraph
 from .config import HAS_ONNXRUNTIME_TRAINING
 
+global_gradient_registry: Dict[str, Tuple[Callable, ...]] = {}
 
-global_gradient_registry = {}
+
+def gradient_factory(op):
+    return global_gradient_registry.get(op)
 
 
-def register_gradient(opname, *grad_funcs):
-    global_gradient_registry[opname] = tuple(grad_funcs)
+def add_outgrads(prev_g, g):
+    if prev_g is None:
+        return g
+    return prev_g + g
+
+
+def register_gradient(op, *grad_funcs):
+    global_gradient_registry[op.__qualname__] = tuple(grad_funcs)
 
 
 def exp_grad(grad, output, x):
@@ -30,7 +39,11 @@ def sin_grad(grad, output, x):
     if HAS_ONNXRUNTIME_TRAINING:
         return nary_operator("SinGrad", grad, x)
     else:
-        raise NotImplementedError("sin gradient not implemented")
+        return grad * ops.cos(x)
+
+
+def cos_grad(grad, output, x):
+    return grad * ops.sin(x)
 
 
 def cosh_grad(grad, output, x):
@@ -45,22 +58,13 @@ def log_grad(grad, output, x):
     return grad / x
 
 
-register_gradient("Exp", exp_grad)
-register_gradient("Sinh", sinh_grad)
-register_gradient("Cosh", cosh_grad)
-register_gradient("Tanh", tanh_grad)
-register_gradient("Log", log_grad)
-register_gradient("Sin", sin_grad)
-
-
-def gradient_factory(op):
-    return global_gradient_registry[op]
-
-
-def add_outgrads(prev_g, g):
-    if prev_g is None:
-        return g
-    return prev_g + g
+register_gradient(ops.exp,  exp_grad)
+register_gradient(ops.sinh, sinh_grad)
+register_gradient(ops.cosh, cosh_grad)
+# register_gradient(ops.tanh, tanh_grad)
+register_gradient(ops.log,  log_grad)
+register_gradient(ops.sin,  sin_grad)
+register_gradient(ops.cos,  cos_grad)
 
 
 def backward_pass(g, graph) -> Array:
@@ -81,13 +85,10 @@ def backward_pass(g, graph) -> Array:
         if isinstance(node, Input):
             continue
 
-        # if not output_grad._requires_grad:
-        #     continue
-
-        grad_funcs = global_gradient_registry.get(node.op_type)
+        grad_funcs = gradient_factory(node.op_type)
         if grad_funcs is None:
             raise NotImplementedError(
-                f"Gradient for {node.op_type} not implemented")
+                f"Gradient for {node.op_name} not implemented")
 
         if len(node.inputs) != len(grad_funcs):
             raise NotImplementedError()

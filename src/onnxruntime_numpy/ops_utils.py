@@ -10,9 +10,10 @@ import numpy as np
 STRICT_MODE = True
 
 
-def add_node(evaluator, op_type, input_arrays, output_arrays, **attributes):
+def add_node(
+        evaluator, op_name, input_arrays, output_arrays, **attributes):
     attributes = {k: v for k, v in attributes.items() if v is not None}
-    evaluator.add_node(op_type,
+    evaluator.add_node(op_name,
                        input_arrays,
                        output_arrays,
                        **attributes)
@@ -629,3 +630,16 @@ def force_evaluation(a: "array.Array", name: str, allow_evaluation: bool):
             raise ValueError(
                 f"{name} has to be evaluated, but `allow_evaluation` is False")
     return a
+
+
+def register(function):
+    @functools.wraps(function)
+    def register_wrapper(*args, **kwargs):
+        # FIXME: this is total foobar
+        result = function(*args, **kwargs)
+        node_name = result._evaluator._parent_node
+        node = result._evaluator._graph._graph.nodes[node_name]["node"]
+        result._evaluator._graph._graph.nodes[node_name]["node"] = node._replace(
+            op_type=function.__qualname__)
+        return result
+    return register_wrapper

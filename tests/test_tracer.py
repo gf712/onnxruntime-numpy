@@ -20,7 +20,7 @@ def test_optracer_new_inputs():
     assert len(g.nodes) == 1
 
     node_name = list(g.nodes)[0]
-    assert g.nodes[node_name]["node"].op_type == "Add"
+    assert g.nodes[node_name]["node"].op_name == "Add"
 
     assert len(g._input_edges) == 2
     assert g._input_edges[a._internal_name] == node_name
@@ -47,7 +47,7 @@ def test_optracer_inputs_with_history():
     assert len(g.nodes) == 1
 
     node_name = list(g.nodes)[0]
-    assert g.nodes[node_name]["node"].op_type == "Add"
+    assert g.nodes[node_name]["node"].op_name == "Add"
 
     assert len(g._input_edges) == 2
     assert g._input_edges[a._internal_name] == node_name
