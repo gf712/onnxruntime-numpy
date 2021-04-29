@@ -25,6 +25,8 @@ This means that the operations with `onp` do not perform any computation, and th
 
 Currently it is only possible to build (some) neural networks to perform inference, but there are plans to enable neural network training using a `grad` function (and some additional helper functions).
 
+The current implementation progress of the ONNX operators can be found [here](Implementation_Progress.md).
+
 
 ## Roadmap
 

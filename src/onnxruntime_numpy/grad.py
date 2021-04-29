@@ -2,11 +2,13 @@
 
 from .array import Array
 from .evaluator import merge_array_evaluators
+from .ops_utils import nary_operator
 from . import ops
 from .graph import Graph, Input, Node, Output
 from .tracer import OpTracerContext
 from typing import List
 from .graph import ExecutableGraph
+from .config import HAS_ONNXRUNTIME_TRAINING
 
 
 global_gradient_registry = {}
@@ -22,6 +24,13 @@ def exp_grad(grad, output, x):
 
 def sinh_grad(grad, output, x):
     return grad * ops.cosh(x)
+
+
+def sin_grad(grad, output, x):
+    if HAS_ONNXRUNTIME_TRAINING:
+        return nary_operator("SinGrad", grad, x)
+    else:
+        raise NotImplementedError("sin gradient not implemented")
 
 
 def cosh_grad(grad, output, x):
@@ -41,6 +50,7 @@ register_gradient("Sinh", sinh_grad)
 register_gradient("Cosh", cosh_grad)
 register_gradient("Tanh", tanh_grad)
 register_gradient("Log", log_grad)
+register_gradient("Sin", sin_grad)
 
 
 def gradient_factory(op):
@@ -113,13 +123,13 @@ def grad(func, argnum):
         grad_graph = ExecutableGraph(
             grad_graph, with_respect_to,
             {result_array._evaluator._parent_node: result_array})._graph
-        
+
         g = ops.constant_of_shape(result_array.shape, 1.0)
 
         grad_result = backward_pass(g, grad_graph)
 
-        other_evaluators = [
-            a._evaluator for a in array_objs] + [a._evaluator for a in array_obj_kwargs.values()]
+        other_evaluators = [a._evaluator for a in array_objs] + [a._evaluator
+                                                                 for a in array_obj_kwargs.values()]
 
         merge_array_evaluators(grad_result._evaluator, *other_evaluators)
 

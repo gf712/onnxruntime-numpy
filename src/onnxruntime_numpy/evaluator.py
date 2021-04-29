@@ -5,6 +5,7 @@ import numpy as np  # FIXME maybe
 from .types import numpy_to_ort, ort_to_numpy
 from .shapes import weak_shape_comparisson, as_shape
 from .graph import Graph, ExecutableGraph
+from .config import PROVIDERS
 from collections.abc import Iterable
 from . import array
 
@@ -121,7 +122,7 @@ class LazyEvaluator:
         try:
             # TODO: maybe disable optimisations when graph has already been optimised
             # with jit?
-            session = onnxruntime.InferenceSession(buffer)
+            session = onnxruntime.InferenceSession(buffer, providers=PROVIDERS)
         except Exception:  # pragma: no cover
             # dump failed model for debugging purposes
             onnx.save_model(m, "failed_model.onnx")
