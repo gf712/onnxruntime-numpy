@@ -5,6 +5,7 @@ from onnxruntime_numpy.types import (
 import pytest
 import numpy as np
 from .utils import expect
+import itertools
 
 
 @pytest.mark.parametrize("type_a", [*float_types, *integer_types])
@@ -595,4 +596,26 @@ def test_size(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     expected = np.array(x.size).astype(np.int64)
     result = onp.size(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_transpose_all_permutations(type_a):
+    shape = (2, 3, 4)
+    x = np.random.uniform(0, 1, size=shape).astype(type_a)
+    permutations = list(itertools.permutations(np.arange(len(shape))))
+
+    for i in range(len(permutations)):
+        expected = np.transpose(x, permutations[i])
+        result = onp.transpose(onp.array(x), permutations[i])
+        expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_transpose_default(type_a):
+    shape = (2, 3, 4)
+    x = np.random.uniform(0, 1, size=shape).astype(type_a)
+
+    expected = x.T
+    result = onp.array(x).T
     expect(expected, result.numpy())

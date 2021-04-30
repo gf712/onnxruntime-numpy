@@ -614,6 +614,7 @@ def lp_pool(
     raise NotImplementedError()
 
 
+@register
 def matmul(x: "array.Array", y: "array.Array"):
     @allowed_types([*float_types, np.int32, np.int64, np.uint32, np.uint64],
                    [*float_types, np.int32, np.int64, np.uint32, np.uint64])
@@ -1218,3 +1219,16 @@ def subtract(x, y):
     def subtract_helper(x, y):
         return binary_operator(x, y, "Sub")
     return subtract_helper(x, y)
+
+
+def transpose(x: "array.Array", perm: Optional[List[int]] = None):
+    if perm is None:
+        perm = list(reversed(range(len(x.shape))))
+
+    @allowed_types(all_types)
+    def transpose_helper(x: "array.Array", perm: List[int]):
+        result = nary_operator("Transpose", x, perm=perm)
+        result._dims = DynamicShape(*map(lambda idx: x.shape[idx], perm))
+        return result
+
+    return transpose_helper(x, perm)

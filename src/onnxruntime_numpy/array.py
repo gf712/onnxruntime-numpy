@@ -56,19 +56,23 @@ class Array:
             return []
         return self._ort_value.numpy().tolist()
 
-    @ property
+    @property
     def shape(self) -> Shape:
         if self._dims is None:
             raise ValueError("Unevaluated shape.. This is a bug!")
         return self._dims  # type: ignore
 
-    @ property
+    @property
     def dtype(self) -> np.dtype:
         return self._dtype
 
-    @ property
+    @property
     def ndims(self) -> int:
         return len(self.shape)
+
+    @property
+    def T(self) -> "Array":
+        return ops.transpose(self)
 
     def __len__(self) -> int:
         return self.shape.size()

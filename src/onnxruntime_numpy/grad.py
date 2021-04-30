@@ -58,6 +58,20 @@ def log_grad(grad, output, x):
     return grad / x
 
 
+def matmul_grad_wrtA(grad, output, A, B):
+    if len(A.shape) == 2 and len(B.shape) == 2:
+        return ops.gemm(grad, B, transB=True)
+    return ops.matmul(grad, B.T)
+
+
+def matmul_grad_wrtB(grad, output, A, B):
+    # dispatch matmul of matrices to gemm
+    if len(A.shape) == 2 and len(B.shape) == 2:
+        return ops.gemm(A, grad, transA=True)
+    # other tensor shapes are dispatched to matmul
+    return ops.matmul(A.T, grad)
+
+
 register_gradient(ops.exp,  exp_grad)
 register_gradient(ops.sinh, sinh_grad)
 register_gradient(ops.cosh, cosh_grad)
@@ -65,6 +79,7 @@ register_gradient(ops.cosh, cosh_grad)
 register_gradient(ops.log,  log_grad)
 register_gradient(ops.sin,  sin_grad)
 register_gradient(ops.cos,  cos_grad)
+register_gradient(ops.matmul,  matmul_grad_wrtA, matmul_grad_wrtB)
 
 
 def backward_pass(g, graph) -> Array:
@@ -93,7 +108,7 @@ def backward_pass(g, graph) -> Array:
         if len(node.inputs) != len(grad_funcs):
             raise NotImplementedError()
 
-        value = node.outputs[0]
+        node_output = node.outputs[0]
 
         for idx, (output_array, grad_fn) in enumerate(
                 zip(node.inputs, grad_funcs)):
@@ -103,7 +118,8 @@ def backward_pass(g, graph) -> Array:
                     node_name, data=True) if data["index"] == idx]
             if len(parent_node) != 1:
                 raise ValueError("Internal error. Ambiguous node input.")
-            parent_grad = grad_fn(output_grad, value, output_array)
+            parent_grad = grad_fn(output_grad, node_output,
+                                  *node.inputs, **node.attributes)
             parent = graph.nodes[parent_node[0]]["node"]
             outgrads[parent] = add_outgrads(outgrads.get(parent), parent_grad)
 

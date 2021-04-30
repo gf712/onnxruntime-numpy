@@ -151,7 +151,7 @@
 |ThresholdedRelu | :x: | | :x: |
 |Tile | :x: | | :x: |
 |TopK | :x: | | :x: |
-|Transpose | :x: | | :x: |
+|Transpose | :heavy_check_mark: | `transpose` | :x: |
 |Trilu | :x: | | :x: |
 |Unique | :x: | | :x: |
 |Unsqueeze | :x: | | :x: |
