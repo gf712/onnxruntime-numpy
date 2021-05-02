@@ -26,8 +26,11 @@ steps:
 - script: pip install tox
   displayName: 'Install Tox'
 
-- script: tox -e py -- --junitxml=junit/test-results.xml --cov onnxruntime_numpy --cov-report=xml --cov-report=html
-  displayName: 'Run tests'
+- script: tox -e py -- -m "not integration" --junitxml=junit/test-results.xml --cov onnxruntime_numpy --cov-report=xml --cov-report=html
+  displayName: 'Run unittests'
+
+- script: tox -e py -- -m "integration"
+  displayName: 'Run integration tests'
 
 - script: tox -e flake8
   displayName: 'Check code style'
