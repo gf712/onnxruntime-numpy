@@ -8,6 +8,38 @@ from .utils import expect
 import itertools
 
 
+def argmax_use_numpy(data, axis=0, keepdims=1):
+    result = np.argmax(data, axis=axis)
+    if (keepdims == 1):
+        result = np.expand_dims(result, axis)
+    return result.astype(np.int64)
+
+
+def argmax_use_numpy_select_last_index(data, axis=0, keepdims=True):
+    data = np.flip(data, axis)
+    result = np.argmax(data, axis=axis)
+    result = data.shape[axis] - result - 1
+    if keepdims:
+        result = np.expand_dims(result, axis)
+    return result.astype(np.int64)
+
+
+def argmin_use_numpy(data, axis=0, keepdims=1):
+    result = np.argmin(data, axis=axis)
+    if (keepdims == 1):
+        result = np.expand_dims(result, axis)
+    return result.astype(np.int64)
+
+
+def argmin_use_numpy_select_last_index(data, axis=0, keepdims=True):
+    data = np.flip(data, axis)
+    result = np.argmin(data, axis=axis)
+    result = data.shape[axis] - result - 1
+    if keepdims:
+        result = np.expand_dims(result, axis)
+    return result.astype(np.int64)
+
+
 @pytest.mark.parametrize("type_a", [*float_types, *integer_types])
 def test_abs(type_a):
     if is_unsigned_int(type_a):
@@ -34,6 +66,192 @@ def test_acosh(type_a):
     expected = onp.array([0., 1.3169579, 1.76274717], dtype=type_a)
     result = onp.acosh(a)
     expect(expected.numpy(), result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmax_default_axes_keepdims(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    keepdims = True
+    expected = argmax_use_numpy(x, keepdims=keepdims)
+    result = onp.argmax(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmax_default_axes_keepdims_select_last_index(type_a):
+    x = np.array([[2, 2], [3, 10]], dtype=type_a)
+    keepdims = True
+    expected = argmax_use_numpy_select_last_index(x, keepdims=keepdims)
+    result = onp.argmax(onp.array(x), select_last_index=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmax_keepdims(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = 1
+    keepdims = True
+    expected = argmax_use_numpy(x, axis=axis, keepdims=keepdims)
+    result = onp.argmax(onp.array(x), axis=axis, keepdims=keepdims)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmax_keepdims_select_last_index(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = 1
+    keepdims = True
+    expected = argmax_use_numpy_select_last_index(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmax(
+        onp.array(x),
+        axis=axis, keepdims=keepdims, select_last_index=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmax_negative_axis_keepdims(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = -1
+    keepdims = True
+    expected = argmax_use_numpy(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmax(
+        onp.array(x),
+        axis=axis, keepdims=keepdims)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmax_negative_axis_keepdims_select_last_index(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = -1
+    keepdims = True
+    expected = argmax_use_numpy_select_last_index(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmax(
+        onp.array(x),
+        axis=axis, keepdims=keepdims, select_last_index=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmax_no_keepdims(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = 1
+    keepdims = False
+    expected = argmax_use_numpy(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmax(
+        onp.array(x),
+        axis=axis, keepdims=keepdims)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmax_no_keepdims_select_last_index(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = 1
+    keepdims = False
+    expected = argmax_use_numpy_select_last_index(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmax(
+        onp.array(x),
+        axis=axis, keepdims=keepdims, select_last_index=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmin_default_axes_keepdims(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    keepdims = True
+    expected = argmin_use_numpy(x, keepdims=keepdims)
+    result = onp.argmin(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmin_default_axes_keepdims_select_last_index(type_a):
+    x = np.array([[2, 2], [3, 10]], dtype=type_a)
+    keepdims = True
+    expected = argmin_use_numpy_select_last_index(x, keepdims=keepdims)
+    result = onp.argmin(onp.array(x), select_last_index=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmin_keepdims(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = 1
+    keepdims = True
+    expected = argmin_use_numpy(x, axis=axis, keepdims=keepdims)
+    result = onp.argmin(onp.array(x), axis=axis, keepdims=keepdims)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmin_keepdims_select_last_index(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = 1
+    keepdims = True
+    expected = argmin_use_numpy_select_last_index(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmin(
+        onp.array(x),
+        axis=axis, keepdims=keepdims, select_last_index=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmin_negative_axis_keepdims(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = -1
+    keepdims = True
+    expected = argmin_use_numpy(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmin(
+        onp.array(x),
+        axis=axis, keepdims=keepdims)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmin_negative_axis_keepdims_select_last_index(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = -1
+    keepdims = True
+    expected = argmin_use_numpy_select_last_index(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmin(
+        onp.array(x),
+        axis=axis, keepdims=keepdims, select_last_index=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmin_no_keepdims(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = 1
+    keepdims = False
+    expected = argmin_use_numpy(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmin(
+        onp.array(x),
+        axis=axis, keepdims=keepdims)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32])
+def test_argmin_no_keepdims_select_last_index(type_a):
+    x = np.array([[2, 1], [3, 10]], dtype=type_a)
+    axis = 1
+    keepdims = False
+    expected = argmin_use_numpy_select_last_index(
+        x, axis=axis, keepdims=keepdims)
+    result = onp.argmin(
+        onp.array(x),
+        axis=axis, keepdims=keepdims, select_last_index=True)
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [np.float32])

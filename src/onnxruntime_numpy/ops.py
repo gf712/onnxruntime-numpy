@@ -65,6 +65,44 @@ def logical_and(x, y):
     return logical_and_helper(x, y)
 
 
+def argmax(x: "array.Array", axis: int = 0, keepdims: bool = True,
+           select_last_index: bool = False):
+    @allowed_types(numeric_types)
+    @not_implemented_types(
+        [np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16,
+         np.int64])
+    @output_checks_and_inference(
+        reduce_axis([axis], bool(keepdims))
+    )
+    def argmax_helper(x: "array.Array", axis: int, keepdims: int,
+                      select_last_index: int):
+        result = nary_operator(
+            "ArgMax", x, axis=axis, keepdims=keepdims,
+            select_last_index=select_last_index)
+        result._dtype = np.int64
+        return result
+    return argmax_helper(x, axis, int(keepdims), int(select_last_index))
+
+
+def argmin(x: "array.Array", axis: int = 0, keepdims: bool = True,
+           select_last_index: bool = False):
+    @allowed_types(numeric_types)
+    @not_implemented_types(
+        [np.uint8, np.uint16, np.uint32, np.uint64, np.int8, np.int16,
+         np.int64])
+    @output_checks_and_inference(
+        reduce_axis([axis], bool(keepdims))
+    )
+    def argmin_helper(x: "array.Array", axis: int, keepdims: int,
+                      select_last_index: int):
+        result = nary_operator(
+            "ArgMin", x, axis=axis, keepdims=keepdims,
+            select_last_index=select_last_index)
+        result._dtype = np.int64
+        return result
+    return argmin_helper(x, axis, int(keepdims), int(select_last_index))
+
+
 def asin(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])

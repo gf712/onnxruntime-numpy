@@ -5,8 +5,8 @@
 |Acosh | :heavy_check_mark: | `acosh` | :x: |
 |Add | :heavy_check_mark: | `add` | :x: |
 |And | :heavy_check_mark: | `logical_and` | :x: |
-|ArgMax | :x: | | :x: |
-|ArgMin | :x: | | :x: | 
+|ArgMax | :heavy_check_mark: | `argmax` | :x: |
+|ArgMin | :heavy_check_mark: | `argmin` | :x: | 
 |Asin | :heavy_check_mark: | `asin` | :x: |
 |Asinh | :heavy_check_mark: | `asinh` | :x: |
 |Atan | :heavy_check_mark: | `atan` | :x: |
