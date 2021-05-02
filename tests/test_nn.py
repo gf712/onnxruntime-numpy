@@ -556,6 +556,20 @@ def test_selu_default(type_a):
     expect(expected, result.numpy())
 
 
+@pytest.mark.parametrize("type_a", [np.float32, np.float64])
+def test_sigmoid(type_a):
+
+    x = np.array([-1, 0, 1]).astype(type_a)
+    expected = 1.0 / (1.0 + np.exp(np.negative(x)))
+    result = onp.nn.sigmoid(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = 1.0 / (1.0 + np.exp(np.negative(x)))
+    result = onp.nn.sigmoid(onp.array(x))
+    expect(expected, result.numpy())
+
+
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_softplus(type_a):
 

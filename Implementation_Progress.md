@@ -129,8 +129,8 @@
 |SequenceLength | :x: | | :x: |
 |Shape | :heavy_check_mark: | `shape` | :x: |
 |Shrink | :x: | | :x: |
-|Sigmoid | :x: |  | :x: |
-|Sign | :x: | | :x: |
+|Sigmoid | :heavy_check_mark: | `nn.sigmoid` | :x: |
+|Sign | :heavy_check_mark: | `sign` | :x: |
 |Sin | :heavy_check_mark: | `sin` | :x: |
 |Sinh | :heavy_check_mark: | `sinh` | :x: |
 |Size | :heavy_check_mark: | `size` | :x: |

@@ -1226,10 +1226,11 @@ def size(x: "array.Array") -> "array.Array":
     """Takes a tensor as input and outputs a int64 scalar that equals to the total
     number of elements of the input tensor.
 
-    Note that len(Array) is more efficient (and should give the same result).
+    Note that len(x) is more efficient (and should give the same result).
     The difference is that this `size` free function adds the `Size` node to the
     `ONNX` graph, which could improve runtime if the output is used in subsequent
-    operations.
+    operations. It will also know the tensor size at runtime (which may not be
+    known when the graph is declared, i.e. when using len(x)).
 
     Args:
         x (array.Array): Input tensor
@@ -1245,6 +1246,13 @@ def size(x: "array.Array") -> "array.Array":
         return result
 
     return size_helper(x)
+
+
+def sign(x: "array.Array") -> "array.Array":
+    @allowed_types(numeric_types)
+    def sign_helper(x: "array.Array") -> "array.Array":
+        return nary_operator("Sign", x)
+    return sign_helper(x)
 
 
 def subtract(x, y):

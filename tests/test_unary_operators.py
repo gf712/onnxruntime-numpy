@@ -774,6 +774,14 @@ def test_shape(type_a):
     expect(expected, result.numpy())
 
 
+@pytest.mark.parametrize("type_a", numeric_types)
+def test_sign(type_a):
+    x = np.array(range(-5, 6)).astype(type_a)
+    expected = np.sign(x)
+    result = onp.sign(onp.array(x))
+    expect(expected, result.numpy())
+
+
 @pytest.mark.parametrize("type_a", float_types)
 def test_sin(type_a):
     x = np.array([-1, 0, 1]).astype(type_a)

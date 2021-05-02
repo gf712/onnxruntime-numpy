@@ -252,7 +252,8 @@ def prelu(x: Array, slope: Union[Array, float]):
         slope = array([slope], dtype=x.dtype)
 
     @allowed_types([*float_types, np.uint32, np.uint64, np.int32, np.int64])
-    @not_implemented_types([np.float64, np.uint32, np.uint64, np.int32, np.int64])
+    @not_implemented_types(
+        [np.float64, np.uint32, np.uint64, np.int32, np.int64])
     @output_checks_and_inference(
         allow_broadcasting
     )
@@ -332,6 +333,14 @@ def selu(
         return nary_operator("Selu", x, alpha=alpha, gamma=gamma)
 
     return selu_helper(x, alpha, gamma)
+
+
+def sigmoid(x: Array):
+    @allowed_types(float_types)
+    def helper_sigmoid(x: Array):
+        return nary_operator("Sigmoid", x)
+
+    return helper_sigmoid(x)
 
 
 def softplus(x: Array):
