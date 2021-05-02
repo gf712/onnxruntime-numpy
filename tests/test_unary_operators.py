@@ -825,6 +825,19 @@ def test_size(type_a):
     expect(expected, result.numpy())
 
 
+@pytest.mark.parametrize("type_a", float_types)
+def test_sqrt(type_a):
+    x = np.array([1, 4, 9]).astype(type_a)
+    expected = np.sqrt(x)
+    result = onp.sqrt(onp.array(x))
+    expect(expected, result.numpy())
+
+    x = np.abs(np.random.randn(3, 4, 5).astype(type_a))
+    expected = np.sqrt(x)
+    result = onp.sqrt(onp.array(x))
+    expect(expected, result.numpy())
+
+
 @pytest.mark.parametrize("type_a", all_types)
 def test_transpose_all_permutations(type_a):
     shape = (2, 3, 4)

@@ -140,7 +140,7 @@
 |SpaceToDepth | :x: | | :x: |
 |Split | :x: | | :x: |
 |SplitToSequence | :x:| | :x: |
-|Sqrt | :heavy_check_mark: | | :x: |
+|Sqrt | :heavy_check_mark: | `sqrt` | :x: |
 |Squeeze | :x: | | :x: |
 |StringNormalizer | :x: | | :x: |
 |Sub | :heavy_check_mark: | `subtract` | :x: |

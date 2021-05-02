@@ -1267,6 +1267,13 @@ def subtract(x, y):
     return subtract_helper(x, y)
 
 
+def sqrt(x: "array.Array") -> "array.Array":
+    @allowed_types(float_types)
+    def sqrt_helper(x: "array.Array") -> "array.Array":
+        return nary_operator("Sqrt", x)
+    return sqrt_helper(x)
+
+
 def transpose(x: "array.Array", perm: Optional[List[int]] = None):
     if perm is None:
         perm = list(reversed(range(len(x.shape))))
