@@ -37,6 +37,34 @@ def average_pool(
         int(count_include_pad))
 
 
+def batch_normalization(
+        x: Array, scale: Array, bias: Array, input_mean: Array,
+        input_var: Array, epsilon: float = 1e-5, momentum: float = 0.9,
+        training_mode: bool = False):
+
+    if x.dtype != scale.dtype or x.dtype != bias.dtype or x.dtype != input_var \
+            or x.dtype != input_mean:
+        raise ValueError(
+            "Types of `x`, `scale` and `bias`, `input_mean` and `input_var` must match")
+
+    @allowed_types(float_types, float_types, float_types)
+    def batch_normalization_helper(
+            x: Array, scale: Array, bias: Array, input_mean: Array,
+            input_var: Array, epsilon: float, momentum: float,
+            training_mode: int):
+        if training_mode == 0:
+            # eval mode
+            return nary_operator(
+                "BatchNormalization", x, scale, bias, input_mean, input_var,
+                epsilon=epsilon, momentum=momentum)
+        else:
+            raise NotImplementedError()
+
+    return batch_normalization_helper(
+        x, scale, bias, input_mean, input_var, epsilon=epsilon,
+        momentum=momentum, training_mode=int(training_mode))
+
+
 def conv():
     # TODO
     raise NotImplementedError()

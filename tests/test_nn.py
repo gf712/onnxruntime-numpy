@@ -92,6 +92,16 @@ def pool_reference(padded,
     return y.astype(np.float32)
 
 
+def reference_batchnorm_test_mode(x, s, bias, mean, var, epsilon=1e-5):  # type: ignore
+    dims_x = len(x.shape)
+    dim_ones = (1,) * (dims_x - 2)
+    s = s.reshape(-1, *dim_ones)
+    bias = bias.reshape(-1, *dim_ones)
+    mean = mean.reshape(-1, *dim_ones)
+    var = var.reshape(-1, *dim_ones)
+    return s * (x - mean) / np.sqrt(var + epsilon) + bias
+
+
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_average_pool_1d_default(type_a):
     x = np.random.randn(1, 3, 32).astype(type_a)
@@ -304,6 +314,24 @@ def test_average_pool_3d_default(type_a):
         onp.array(x), kernel_shape=kernel_shape)
 
     expect(expected, result.numpy(), rtol=1.e-2)
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_batch_normalization_eval(type_a):
+    x = np.random.randn(2, 3, 4, 5).astype(type_a)
+    s = np.random.randn(3).astype(type_a)
+    bias = np.random.randn(3).astype(type_a)
+    mean = np.random.randn(3).astype(type_a)
+    var = np.random.rand(3).astype(type_a)
+    expected = reference_batchnorm_test_mode(
+        x, s, bias, mean, var).astype(type_a)
+    result = onp.nn.batch_normalization(
+        onp.array(x),
+        onp.array(s),
+        onp.array(bias),
+        onp.array(mean),
+        onp.array(var))
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
