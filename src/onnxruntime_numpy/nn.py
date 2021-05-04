@@ -2,7 +2,7 @@ from .array import Array, array, is_lazy
 from .ops_utils import (
     allowed_types, not_implemented_types, output_checks_and_inference,
     allow_broadcasting, nary_operator, propagate_shape_global_pool,
-    force_evaluation, propagate_pool_shape)
+    force_evaluation, propagate_pool_shape, propagate_conv_shape)
 from .types import (float_types, signed_integer_types, all_types)
 from .shapes import ShapeLike, as_shape
 import numpy as np
@@ -65,9 +65,32 @@ def batch_normalization(
         momentum=momentum, training_mode=int(training_mode))
 
 
-def conv():
-    # TODO
-    raise NotImplementedError()
+def conv(
+        x: Array, w: Array, bias: Optional[Array] = None,
+        kernel_shape: Optional[List[int]] = None, pads: Optional[List[int]] = None,
+        strides: List[int] = None, group: int = 1,
+        dilations: Optional[List[int]] = None, auto_pad: str = "NOTSET"):
+
+    if kernel_shape is None:
+        kernel_shape = w.shape[2:].tolist()
+
+    @allowed_types(float_types, float_types, float_types)
+    @not_implemented_types([np.float64], [np.float64], [np.float64])
+    @output_checks_and_inference(
+        propagate_conv_shape(
+            kernel_shape, pads, strides, group, dilations, auto_pad))
+    def conv_helper(x: Array, w: Array, bias: Optional[Array],
+                    kernel_shape: Optional[List[int]],
+                    pads: Optional[int], strides: List[int], group: int,
+                    dilations: Optional[List[int]], auto_pad: str):
+        return nary_operator(
+            "Conv", x, w, bias, kernel_shape=kernel_shape, pads=pads,
+            strides=strides, group=group, dilations=dilations,
+            auto_pad=auto_pad)
+
+    return conv_helper(x, w, bias, kernel_shape=kernel_shape, pads=pads,
+                       strides=strides, group=group, dilations=dilations,
+                       auto_pad=auto_pad)
 
 
 def elu(x, alpha=1.0):

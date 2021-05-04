@@ -22,7 +22,7 @@
 |ConcatFromSequence | :x: | | :x: |
 |Constant | :heavy_check_mark: | `constant` | :x: |
 |ConstantOfShape | :heavy_check_mark: | `constant_of_shape` | :x: |
-|Conv | :x: |  | :x: |
+|Conv | :heavy_check_mark: | `nn.conv` | :x: |
 |ConvInteger | :x: | | :x: |
 |ConvTranspose | :x: | | :x: |
 |Cos | :heavy_check_mark: | `cos` | :x: |

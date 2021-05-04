@@ -222,7 +222,7 @@ def test_average_pool_2d_pads_count_include_pad(type_a):
         kernel_shape=kernel_shape, pads=[2, 2, 2, 2],
         count_include_pad=True)
 
-    expect(expected, result.numpy(), rtol=1.e-3)
+    expect(expected, result.numpy(), rtol=1.e-2)
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -275,7 +275,7 @@ def test_average_pool_2d_same_lower(type_a):
     result = onp.nn.average_pool(
         onp.array(x), kernel_shape=kernel_shape, auto_pad="SAME_LOWER")
 
-    expect(expected, result.numpy())
+    expect(expected, result.numpy(), rtol=1e-03)
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
@@ -331,6 +331,170 @@ def test_batch_normalization_eval(type_a):
         onp.array(bias),
         onp.array(mean),
         onp.array(var))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_conv(type_a):
+    x = np.array([[[[0., 1., 2., 3., 4.],  # (1, 1, 5, 5) input tensor
+                    [5., 6., 7., 8., 9.],
+                    [10., 11., 12., 13., 14.],
+                    [15., 16., 17., 18., 19.],
+                    [20., 21., 22., 23., 24.]]]]).astype(type_a)
+
+    W = np.array([[[[1., 1., 1.],  # (1, 1, 3, 3) tensor for convolution weights
+                    [1., 1., 1.],
+                    [1., 1., 1.]]]]).astype(type_a)
+
+    expected = np.array([[[[12., 21., 27., 33., 24.],
+                           [33., 54., 63., 72., 51.],
+                           [63., 99., 108., 117., 81.],
+                           [93., 144., 153., 162., 111.],
+                           [72., 111., 117., 123., 84.]]]]).astype(type_a)
+
+    result = onp.nn.conv(
+        onp.array(x),
+        onp.array(W),
+        kernel_shape=(3, 3),
+        pads=(1, 1, 1, 1))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_conv_without_padding(type_a):
+    x = np.array([[[[0., 1., 2., 3., 4.],  # (1, 1, 5, 5) input tensor
+                    [5., 6., 7., 8., 9.],
+                    [10., 11., 12., 13., 14.],
+                    [15., 16., 17., 18., 19.],
+                    [20., 21., 22., 23., 24.]]]]).astype(type_a)
+
+    W = np.array([[[[1., 1., 1.],  # (1, 1, 3, 3) tensor for convolution weights
+                    [1., 1., 1.],
+                    [1., 1., 1.]]]]).astype(type_a)
+
+    expected = np.array([[[[54., 63., 72.],
+                           [99., 108., 117.],
+                           [144., 153., 162.]]]]).astype(type_a)
+
+    result = onp.nn.conv(
+        onp.array(x),
+        onp.array(W),
+        kernel_shape=(3, 3),
+        pads=(0, 0, 0, 0))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_conv_with_autopad_same(type_a):
+    x = np.array([[[[0., 1., 2., 3., 4.],  # (1, 1, 5, 5) input tensor
+                    [5., 6., 7., 8., 9.],
+                    [10., 11., 12., 13., 14.],
+                    [15., 16., 17., 18., 19.],
+                    [20., 21., 22., 23., 24.]]]]).astype(type_a)
+
+    W = np.array([[[[1., 1., 1.],  # (1, 1, 3, 3) tensor for convolution weights
+                    [1., 1., 1.],
+                    [1., 1., 1.]]]]).astype(type_a)
+
+    expected = np.array([[[[12., 27., 24.],
+                           [63., 108., 81.],
+                           [72., 117., 84.]]]]).astype(type_a)
+
+    result = onp.nn.conv(
+        onp.array(x),
+        onp.array(W),
+        kernel_shape=(3, 3),
+        strides=(2, 2),
+        auto_pad="SAME_LOWER")
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_conv_with_strides(type_a):
+    x = np.array([[[[0., 1., 2., 3., 4.],  # (1, 1, 7, 5) input tensor
+                    [5., 6., 7., 8., 9.],
+                    [10., 11., 12., 13., 14.],
+                    [15., 16., 17., 18., 19.],
+                    [20., 21., 22., 23., 24.],
+                    [25., 26., 27., 28., 29.],
+                    [30., 31., 32., 33., 34.]]]]).astype(type_a)
+
+    W = np.array([[[[1., 1., 1.],  # (1, 1, 3, 3) tensor for convolution weights
+                    [1., 1., 1.],
+                    [1., 1., 1.]]]]).astype(type_a)
+
+    expected = np.array([[[[12., 27., 24.],
+                           [63., 108., 81.],
+                           [123., 198., 141.],
+                           [112., 177., 124.]]]]).astype(type_a)
+
+    result = onp.nn.conv(
+        onp.array(x),
+        onp.array(W),
+        kernel_shape=(3, 3),
+        strides=(2, 2),
+        pads=(1, 1, 1, 1))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_conv_with_strides_no_padding(type_a):
+    x = np.array([[[[0., 1., 2., 3., 4.],  # (1, 1, 7, 5) input tensor
+                    [5., 6., 7., 8., 9.],
+                    [10., 11., 12., 13., 14.],
+                    [15., 16., 17., 18., 19.],
+                    [20., 21., 22., 23., 24.],
+                    [25., 26., 27., 28., 29.],
+                    [30., 31., 32., 33., 34.]]]]).astype(type_a)
+
+    W = np.array([[[[1., 1., 1.],  # (1, 1, 3, 3) tensor for convolution weights
+                    [1., 1., 1.],
+                    [1., 1., 1.]]]]).astype(type_a)
+
+    expected = np.array([[[[54., 72.],
+                           [144., 162.],
+                           [234., 252.]]]]).astype(type_a)
+
+    result = onp.nn.conv(
+        onp.array(x),
+        onp.array(W),
+        kernel_shape=(3, 3),
+        strides=(2, 2),
+        pads=(0, 0, 0, 0))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_conv_with_strides_and_asymmetric_padding(type_a):
+    x = np.array([[[[0., 1., 2., 3., 4.],  # (1, 1, 7, 5) input tensor
+                    [5., 6., 7., 8., 9.],
+                    [10., 11., 12., 13., 14.],
+                    [15., 16., 17., 18., 19.],
+                    [20., 21., 22., 23., 24.],
+                    [25., 26., 27., 28., 29.],
+                    [30., 31., 32., 33., 34.]]]]).astype(type_a)
+
+    W = np.array([[[[1., 1., 1.],  # (1, 1, 3, 3) tensor for convolution weights
+                    [1., 1., 1.],
+                    [1., 1., 1.]]]]).astype(type_a)
+
+    expected = np.array([[[[21., 33.],
+                           [99., 117.],
+                           [189., 207.],
+                           [171., 183.]]]]).astype(type_a)
+
+    result = onp.nn.conv(
+        onp.array(x),
+        onp.array(W),
+        kernel_shape=(3, 3),
+        strides=(2, 2),
+        pads=(1, 0, 1, 0))
+
     expect(expected, result.numpy())
 
 
