@@ -2,7 +2,7 @@ import onnxruntime_numpy as onp
 import numpy as np
 import pytest
 from onnxruntime_numpy.types import (
-    float_types, numeric_types, bool_types, is_integer)
+    float_types, numeric_types, bool_types, is_integer, all_types)
 from .utils import expect
 
 
@@ -86,6 +86,52 @@ def test_right_shift(type_a):
     expected = x >> y  # expected output [8, 1, 0]
     result = onp.array(x) >> onp.array(y)
     expect(expected, result)
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_compress_axis_0(type_a):
+    x = np.array([[1, 2], [3, 4], [5, 6]]).astype(type_a)
+    condition = np.array([0, 1, 1])
+    expected = np.compress(condition, x, axis=0)
+    result = onp.compress(
+        onp.array(x),
+        onp.array(condition.astype(np.bool_)),
+        axis=0)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_compress_axis_1(type_a):
+    x = np.array([[1, 2], [3, 4], [5, 6]]).astype(type_a)
+    condition = np.array([0, 1])
+    expected = np.compress(condition, x, axis=1)
+    result = onp.compress(
+        onp.array(x),
+        onp.array(condition.astype(np.bool_)),
+        axis=1)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_compress_default_axis(type_a):
+    x = np.array([[1, 2], [3, 4], [5, 6]]).astype(type_a)
+    condition = np.array([0, 1, 0, 0, 1])
+    expected = np.compress(condition, x)
+    result = onp.compress(
+        onp.array(x),
+        onp.array(condition.astype(np.bool_)))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_compress_negative_axis(type_a):
+    x = np.array([[1, 2], [3, 4], [5, 6]]).astype(type_a)
+    condition = np.array([0, 1])
+    expected = np.compress(condition, x, axis=-1)
+    result = onp.compress(
+        onp.array(x),
+        onp.array(condition.astype(np.bool_)), axis=-1)
+    expect(expected, result.numpy())
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])

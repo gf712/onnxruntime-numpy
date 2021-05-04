@@ -17,7 +17,7 @@
 |Cast | :heavy_check_mark: | `cast` | :x: |
 |Ceil | :heavy_check_mark: | `ceil` | :x: |
 |Clip | :heavy_check_mark: | `clip` | :x: |
-|Compress | :x: | | :x: |
+|Compress | :heavy_check_mark: | `compress` | :x: |
 |Concat | :heavy_check_mark: | `concat` | :x: |
 |ConcatFromSequence | :x: | | :x: |
 |Constant | :heavy_check_mark: | `constant` | :x: |

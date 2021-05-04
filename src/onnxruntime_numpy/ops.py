@@ -188,9 +188,50 @@ def clip(input, minimum=None, maximum=None):
         array.array(maximum, input.dtype))
 
 
-def compress(array, condition, axis=None):
-    # TODO
-    raise NotImplementedError()
+def compress(
+        x: "array.Array", condition: "array.Array", axis: Optional[int] = None):
+
+    if axis is not None and (axis < - x.ndims or axis >= x.ndims):
+        raise ValueError()
+
+    if x.ndims < 1:
+        raise ValueError("Expected Array of rank >= 1")
+    if condition.ndims != 1:
+        raise ValueError("Expected condition Array to be 1D")
+    if condition.shape.can_be_static():
+        if axis:
+            input_dim = x.shape[axis]
+            if input_dim.is_static():
+                # check shape length is less than the input length along axis
+                if int(condition.shape[0]) > int(input_dim):
+                    raise ValueError(
+                        f"condition array shape {condition.shape} is greater "
+                        f"than input shape {x.shape} along axis {axis}")
+        else:
+            # check shape length is less than the flattened input size if axis is not
+            # specified
+            if x.shape.can_be_static():
+                input_flat_size = x.shape.size()
+                if int(condition.shape[0]) > input_flat_size:
+                    raise ValueError(
+                        f"condition array shape {condition.shape} is greater "
+                        f"than input size {input_flat_size}")
+
+    @allowed_types(all_types, bool_types)
+    def compress_helper(
+            x: "array.Array", condition: "array.Array", axis: Optional[int]):
+        result = nary_operator("Compress", x, condition, axis=axis)
+        # we don't know how many inputs will meet condition
+        # so need to add a dynamic dimension where relevant
+        if axis is not None:
+            input_shape = x.shape.tolist()
+            input_shape[axis] = -1
+            result._dims = DynamicShape(*input_shape)
+        else:
+            result._dims = DynamicShape(-1)
+        return result
+
+    return compress_helper(x, condition, axis=axis)
 
 
 def concat(arrays: List[array.Array], axis: int = -1) -> array.Array:
