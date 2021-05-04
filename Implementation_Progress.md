@@ -13,7 +13,7 @@
 |Atanh | :heavy_check_mark: | `atanh` | :x: |
 |AveragePool | :heavy_check_mark: | `nn.average_pool` | :x: |
 |BatchNormalization | :x: | | :x: |
-|BitShift | :x: | | :x: |
+|BitShift | :heavy_check_mark: | `bitshift`, `right_shift`, `left_shift` | :x: |
 |Cast | :heavy_check_mark: | `cast` | :x: |
 |Ceil | :heavy_check_mark: | `ceil` | :x: |
 |Clip | :heavy_check_mark: | `clip` | :x: |

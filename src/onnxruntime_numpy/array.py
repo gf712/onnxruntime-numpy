@@ -130,6 +130,12 @@ class Array:
     def __pow__(self, other: Union["Array", int]) -> "Array":
         return ops.power(self, array(other))
 
+    def __lshift__(self, other: "Array") -> "Array":
+        return ops.left_shift(self, other)
+
+    def __rshift__(self, other: "Array") -> "Array":
+        return ops.right_shift(self, other)
+
     def __abs__(self) -> "Array":
         return ops.absolute(self)
 

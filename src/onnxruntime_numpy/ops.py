@@ -135,6 +135,30 @@ def atanh(x):
     return atanh_helper(x)
 
 
+def bitshift(x: "array.Array", y: "array.Array", direction: str):
+
+    if direction.upper() not in ["RIGHT", "LEFT"]:
+        raise ValueError("Bitshift direction should be either RIGHT or LEFT")
+
+    @allowed_types(unsigned_integer_types, unsigned_integer_types)
+    @not_implemented_types([np.uint16], [np.uint16])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def helper_bitshift(x: "array.Array", y: "array.Array", direction: str):
+        return nary_operator("BitShift", x, y, direction=direction)
+
+    return helper_bitshift(x, y, direction=direction.upper())
+
+
+def right_shift(x: "array.Array", y: "array.Array"):
+    return bitshift(x, y, "RIGHT")
+
+
+def left_shift(x: "array.Array", y: "array.Array"):
+    return bitshift(x, y, "LEFT")
+
+
 def cast(array: "array.Array", to: type):
     @allowed_types([*all_types])
     @output_checks_and_inference(

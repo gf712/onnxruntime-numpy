@@ -1,7 +1,8 @@
 import onnxruntime_numpy as onp
 import numpy as np
 import pytest
-from onnxruntime_numpy.types import float_types, numeric_types, bool_types, is_integer
+from onnxruntime_numpy.types import (
+    float_types, numeric_types, bool_types, is_integer)
 from .utils import expect
 
 
@@ -67,6 +68,24 @@ def test_and_broadcast(type_a):
     expected = np.logical_and(x, y)
     result = onp.logical_and(onp.array(x), onp.array(y))
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.uint8, np.uint32, np.uint64])
+def test_left_shift(type_a):
+    x = np.array([16, 4, 1]).astype(type_a)
+    y = np.array([1, 2, 3]).astype(type_a)
+    expected = x << y  # expected output [32, 16, 8]
+    result = onp.array(x) << onp.array(y)
+    expect(expected, result)
+
+
+@pytest.mark.parametrize("type_a", [np.uint8, np.uint32, np.uint64])
+def test_right_shift(type_a):
+    x = np.array([16, 4, 1]).astype(type_a)
+    y = np.array([1, 2, 3]).astype(type_a)
+    expected = x >> y  # expected output [8, 1, 0]
+    result = onp.array(x) >> onp.array(y)
+    expect(expected, result)
 
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
