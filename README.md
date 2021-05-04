@@ -58,8 +58,7 @@ The current implementation progress of the ONNX operators can be found [here](Im
       return X @ w + b
     ```
 
--   Minimal (does not have to be efficient) [grad]{.title-ref} and
-    [jacobian]{.title-ref} support
+-   Minimal (does not have to be efficient) `grad` and `jacobian` support
 
 -   PRNG
 -   Have clear strategy on how to align with onnxruntime releases

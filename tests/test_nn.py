@@ -4,6 +4,306 @@ from onnxruntime_numpy.types import float_types, all_types
 import numpy as np
 from .utils import expect
 import math
+import itertools
+
+
+def get_pool_pad_shape(auto_pad,
+                       input_spatial_shape,
+                       kernel_spatial_shape,
+                       strides_spatial,
+                       output_spatial_shape):
+    pad_shape = [0] * len(input_spatial_shape)
+    if auto_pad in ('SAME_UPPER', 'SAME_LOWER'):
+        for i in range(len(input_spatial_shape)):
+            pad_shape[i] = (output_spatial_shape[i] - 1) * strides_spatial[i] + \
+                kernel_spatial_shape[i] - input_spatial_shape[i]
+    elif auto_pad == 'VALID':
+        pass
+    return pad_shape
+
+
+def get_pool_output_shape(auto_pad,
+                          input_spatial_shape,
+                          kernel_spatial_shape,
+                          strides_spatial):
+    out_shape = [0] * len(input_spatial_shape)
+    if auto_pad in ('SAME_UPPER', 'SAME_LOWER'):
+        for i in range(len(input_spatial_shape)):
+            out_shape[i] = int(
+                np.ceil(
+                    float(
+                        input_spatial_shape[i])
+                    / float(
+                        strides_spatial[i])))
+    elif auto_pad == 'VALID':
+        for i in range(len(input_spatial_shape)):
+            out_shape[i] = int(
+                np.ceil(
+                    float(
+                        input_spatial_shape[i] -
+                        (kernel_spatial_shape[i] - 1)) /
+                    float(strides_spatial[i])))
+    return out_shape
+
+
+def pool_reference(padded,
+                   x_shape,
+                   kernel_shape,
+                   strides_shape,
+                   out_shape,
+                   pad_shape,
+                   pooling_type,
+                   count_include_pad=0):
+    spatial_size = len(x_shape) - 2
+    y = np.zeros([x_shape[0], x_shape[1]] + list(out_shape))
+
+    for shape in itertools.product(
+        range(x_shape[0]),
+        range(x_shape[1]),
+        *[
+            range(
+                int(
+                 (x_shape[i + 2] + pad_shape[i] - kernel_shape[i]) /
+                    strides_shape[i] + 1)) for i in range(spatial_size)]):
+        window = padded[shape[0], shape[1]]
+        window_vals = np.array(
+            [window[i]
+             for i in list(
+                 itertools.product(
+                     *
+                     [
+                         range(
+                             strides_shape[i] * shape[i + 2],
+                             strides_shape[i] * shape[i + 2] + kernel_shape[i])
+                         for i in range(spatial_size)]))])
+        if pooling_type == 'AVG':
+            f = np.average
+        elif pooling_type == 'MAX':
+            f = np.max
+        else:
+            raise NotImplementedError(
+                'Pooling type {} does not support. Should be AVG, MAX'.format(
+                    pooling_type))
+
+        if count_include_pad == 1 and pooling_type == 'AVG':
+            y[shape] = f(window_vals)
+        else:
+            y[shape] = f(window_vals[np.where(~np.isnan(window_vals))])
+    return y.astype(np.float32)
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_1d_default(type_a):
+    x = np.random.randn(1, 3, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = [2]
+    strides = [1]
+    out_shape = get_pool_output_shape(
+        'VALID', x_shape[2:],
+        kernel_shape, strides)
+    padded = x
+
+    expected = pool_reference(
+        padded, x_shape, kernel_shape, strides, out_shape, [0],
+        'AVG').astype(type_a)
+    result = onp.nn.average_pool(onp.array(x), kernel_shape=kernel_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_2d_ceil(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4],
+        [5, 6, 7, 8],
+        [9, 10, 11, 12],
+        [13, 14, 15, 16],
+    ]]]).astype(type_a)
+    kernel_shape = [3, 3]
+    strides = [2, 2]
+    ceil_mode = True
+
+    expected = np.array([[[
+        [6, 7.5],
+        [12, 13.5]]]]).astype(type_a)
+    result = onp.nn.average_pool(
+        onp.array(x),
+        kernel_shape=kernel_shape, strides=strides, ceil_mode=ceil_mode)
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_2d_default(type_a):
+    x = np.random.randn(1, 3, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (2, 2)
+    strides = (1, 1)
+    out_shape = get_pool_output_shape(
+        'VALID', x_shape[2:],
+        kernel_shape, strides)
+    padded = x
+
+    expected = pool_reference(padded, x_shape, kernel_shape,
+                              strides, out_shape, (0, 0), 'AVG')
+
+    result = onp.nn.average_pool(
+        onp.array(x),
+        kernel_shape=kernel_shape)
+
+    expect(expected, result.numpy(), rtol=1.e-3)
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_2d_pads(type_a):
+    x = np.random.randn(1, 3, 28, 28).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (3, 3)
+    strides = (1, 1)
+    pad_bottom = 2
+    pad_top = 2
+    pad_right = 2
+    pad_left = 2
+    pad_shape = [pad_top + pad_bottom, pad_left + pad_right]
+    out_shape = get_pool_output_shape('VALID', np.add(
+        x_shape[2:], pad_shape), kernel_shape, strides)
+    padded = np.pad(
+        x, ((0, 0),
+            (0, 0),
+            (pad_top, pad_bottom),
+            (pad_left, pad_right)),
+        mode='constant', constant_values=np.nan)
+
+    expected = pool_reference(padded, x_shape, kernel_shape,
+                              strides, out_shape, pad_shape, 'AVG')
+
+    result = onp.nn.average_pool(
+        onp.array(x),
+        kernel_shape=kernel_shape, pads=[2, 2, 2, 2])
+
+    expect(expected, result.numpy(), rtol=1.e-3)
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_2d_pads_count_include_pad(type_a):
+    x = np.random.randn(1, 3, 28, 28).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (3, 3)
+    strides = (1, 1)
+    pad_bottom = 2
+    pad_top = 2
+    pad_right = 2
+    pad_left = 2
+    pad_shape = [pad_top + pad_bottom, pad_left + pad_right]
+    out_shape = get_pool_output_shape('VALID', np.add(
+        x_shape[2:], pad_shape), kernel_shape, strides)
+    padded = np.pad(
+        x, ((0, 0),
+            (0, 0),
+            (pad_top, pad_bottom),
+            (pad_left, pad_right)),
+        mode='constant', constant_values=0)
+
+    expected = pool_reference(
+        padded, x_shape, kernel_shape, strides, out_shape, pad_shape, 'AVG',
+        count_include_pad=1)
+
+    result = onp.nn.average_pool(
+        onp.array(x),
+        kernel_shape=kernel_shape, pads=[2, 2, 2, 2],
+        count_include_pad=True)
+
+    expect(expected, result.numpy(), rtol=1.e-3)
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_2d_same_upper(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20],
+        [21, 22, 23, 24, 25],
+    ]]]).astype(type_a)
+
+    expected = np.array([[[[4, 5.5, 7],
+                           [11.5, 13, 14.5],
+                           [19, 20.5, 22]]]]).astype(type_a)
+
+    result = onp.nn.average_pool(
+        onp.array(x),
+        kernel_shape=[3, 3], strides=[2, 2],
+        auto_pad="SAME_UPPER")
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_2d_same_lower(type_a):
+    x = np.random.randn(1, 3, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (2, 2)
+    strides = (1, 1)
+    out_shape = get_pool_output_shape(
+        'SAME_LOWER', x_shape[2:],
+        kernel_shape, strides)
+    pad_shape = get_pool_pad_shape(
+        'SAME_LOWER', x_shape[2:],
+        kernel_shape, strides, out_shape)
+    pad_bottom = pad_shape[0] // 2
+    pad_top = pad_shape[0] - pad_bottom
+    pad_right = pad_shape[1] // 2
+    pad_left = pad_shape[1] - pad_right
+    padded = np.pad(
+        x, ((0, 0),
+            (0, 0),
+            (pad_top, pad_bottom),
+            (pad_left, pad_right)),
+        mode='constant', constant_values=np.nan)
+    expected = pool_reference(padded, x_shape, kernel_shape,
+                              strides, out_shape, pad_shape, 'AVG')
+
+    result = onp.nn.average_pool(
+        onp.array(x), kernel_shape=kernel_shape, auto_pad="SAME_LOWER")
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_2d_strides(type_a):
+    x = np.random.randn(1, 3, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (5, 5)
+    strides = (3, 3)
+    out_shape = get_pool_output_shape(
+        'VALID', x_shape[2:],
+        kernel_shape, strides)
+    padded = x
+    expected = pool_reference(
+        padded, x_shape, kernel_shape, strides, out_shape, (0, 0), 'AVG')
+
+    result = onp.nn.average_pool(
+        onp.array(x), kernel_shape=kernel_shape, strides=strides)
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_average_pool_3d_default(type_a):
+    x = np.random.randn(1, 3, 32, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = [2, 2, 2]
+    strides = [1, 1, 1]
+    out_shape = get_pool_output_shape(
+        'VALID', x_shape[2:],
+        kernel_shape, strides)
+    padded = x
+    expected = pool_reference(
+        padded, x_shape, kernel_shape, strides, out_shape, (0, 0, 0), 'AVG')
+
+    result = onp.nn.average_pool(
+        onp.array(x), kernel_shape=kernel_shape)
+
+    expect(expected, result.numpy(), rtol=1.e-2)
 
 
 @pytest.mark.parametrize("type_a", [np.float32])

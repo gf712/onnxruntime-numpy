@@ -1,7 +1,7 @@
 from .evaluator import LazyEvaluator
 from . import ops
 from .types import numpy_to_ort, python_to_numpy, ort_to_numpy, all_types, AnyType
-from .shapes import as_shape, Shape, ShapeLike, DynamicShape
+from .shapes import as_shape, Shape, ShapeLike, DynamicShape, StaticShape
 from typing import Any, List, Union, Optional
 from typing import Iterable as IterableType
 from collections.abc import Iterable
@@ -39,6 +39,7 @@ class Array:
     def _eval(self):
         if self._ort_value is None:
             self._ort_value = self._evaluator.evaluate(self)
+            self._dims = StaticShape(*self._ort_value.shape())
             self._evaluator = LazyEvaluator()
             self._initialize()
 

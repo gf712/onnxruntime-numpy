@@ -11,7 +11,7 @@
 |Asinh | :heavy_check_mark: | `asinh` | :x: |
 |Atan | :heavy_check_mark: | `atan` | :x: |
 |Atanh | :heavy_check_mark: | `atanh` | :x: |
-|AveragePool | :x: |  | :x: |
+|AveragePool | :heavy_check_mark: | `nn.average_pool` | :x: |
 |BatchNormalization | :x: | | :x: |
 |BitShift | :x: | | :x: |
 |Cast | :heavy_check_mark: | `cast` | :x: |

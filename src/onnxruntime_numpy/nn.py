@@ -1,12 +1,40 @@
 from .array import Array, array, is_lazy
 from .ops_utils import (
     allowed_types, not_implemented_types, output_checks_and_inference,
-    allow_broadcasting, nary_operator, propagate_shape_pool,
-    force_evaluation)
+    allow_broadcasting, nary_operator, propagate_shape_global_pool,
+    force_evaluation, propagate_pool_shape)
 from .types import (float_types, signed_integer_types, all_types)
 from .shapes import ShapeLike, as_shape
 import numpy as np
 from typing import Union, Optional, List
+
+
+def average_pool(
+        x: Array, kernel_shape: List[int],
+        pads: Optional[List[int]] = None,
+        strides: Optional[List[int]] = None,
+        auto_pad: str = "NOTSET", ceil_mode: bool = False,
+        count_include_pad: bool = False):
+
+    @allowed_types(float_types)
+    @not_implemented_types([np.float64])
+    @output_checks_and_inference(
+        propagate_pool_shape(
+            kernel_shape, pads, strides, auto_pad,
+            ceil_mode, count_include_pad))
+    def average_pool_helper(x: Array, kernel_shape: List[int],
+                            pads: Optional[List[int]],
+                            strides: Optional[List[int]],
+                            auto_pad: str, ceil_mode: int,
+                            count_include_pad: int):
+        return nary_operator(
+            "AveragePool", x, kernel_shape=kernel_shape, pads=pads,
+            strides=strides, auto_pad=auto_pad, ceil_mode=ceil_mode,
+            count_include_pad=count_include_pad)
+
+    return average_pool_helper(
+        x, kernel_shape, pads, strides, auto_pad, int(ceil_mode),
+        int(count_include_pad))
 
 
 def conv():
@@ -43,7 +71,7 @@ def global_average_pool(x: Array):
     @allowed_types(float_types)
     @not_implemented_types([np.float64])
     @output_checks_and_inference(
-        propagate_shape_pool
+        propagate_shape_global_pool
     )
     def helper_global_average_pool(x: Array):
         return nary_operator("GlobalAveragePool", x)
@@ -60,7 +88,7 @@ def global_lp_pool(x: Array, p: int = 2):
     @allowed_types(float_types)
     # TODO: @not_implemented_types([np.float64])
     @output_checks_and_inference(
-        propagate_shape_pool
+        propagate_shape_global_pool
     )
     def helper_global_lp_pool(x: Array, p: int):
         return nary_operator("GlobalLpPool", x, p=p)
@@ -77,7 +105,7 @@ def global_max_pool(x: Array):
     @allowed_types(float_types)
     # TODO: @not_implemented_types([np.float64])
     @output_checks_and_inference(
-        propagate_shape_pool
+        propagate_shape_global_pool
     )
     def helper_global_max_pool(x: Array):
         return nary_operator("GlobalMaxPool", x)

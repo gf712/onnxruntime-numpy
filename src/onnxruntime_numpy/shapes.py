@@ -21,6 +21,9 @@ class Dimension(ABC):
     def hash(self) -> int:
         pass
 
+    def is_static(self) -> bool:
+        return self._dim != -1
+
     def __gt__(self, other) -> bool:
         return self._dim > other._dim
 

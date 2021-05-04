@@ -3,8 +3,9 @@ from . import evaluator
 from .shapes import DynamicShape, DynamicDimension, Shape
 from .einsum_helper import einsum_parse_and_resolve_equation
 import functools
-from typing import Union, List
+from typing import Union, List, Optional
 import numpy as np
+import math
 
 
 STRICT_MODE = True
@@ -534,9 +535,84 @@ def propagate_shape_gemm(return_array, *input_arrays_and_args, **kwargs):
     return_array._dims = DynamicShape(n, m)
 
 
-def propagate_shape_pool(return_array, *input_arrays_and_args, **kwargs):
+def propagate_shape_global_pool(return_array, *input_arrays_and_args, **kwargs):
     N, C, H, W = input_arrays_and_args[0].shape
     return_array._dims = DynamicShape(N, C, 1, 1)
+
+
+def propagate_pool_shape(kernel_shape: List[int],
+                         pads: Optional[List[int]],
+                         strides: Optional[List[int]],
+                         auto_pad: str, ceil_mode: int,
+                         count_include_pad: int):
+    AVAILABLE_AUTO_PADDING = ["NOTSET", "SAME_UPPER", "SAME_LOWER", "VALID"]
+
+    if auto_pad.upper() not in AVAILABLE_AUTO_PADDING:
+        raise ValueError(
+            f"auto_pad value must be one of {' ,'.join(AVAILABLE_AUTO_PADDING)}")
+
+    def propagate_shape_pool_wrapper(
+            return_array, *input_arrays_and_args, **kwargs):
+        nonlocal pads
+        nonlocal strides
+        input_array_shape = input_arrays_and_args[0].shape
+        n, c = input_array_shape[:2]
+        spatial_features = input_array_shape[2:]
+        output_shape = DynamicShape(n, c)
+        spatial_features = DynamicShape(*spatial_features)
+
+        if len(kernel_shape) != len(spatial_features):
+            raise ValueError(
+                f"Kernel shape ({kernel_shape}) must have the same "
+                f"dimensionaility as spatial features ({spatial_features}).")
+
+        if auto_pad.upper() != "NOTSET":
+            if pads is not None:
+                raise ValueError(
+                    "Padding behaviour ambiguous. Either set auto_pads or pads")
+        else:
+            pads = [0] * (len(spatial_features)
+                          * 2) if pads is None else pads
+
+        round_dim = math.ceil if ceil_mode else math.floor
+
+        if strides is None:
+            strides = [1] * len(spatial_features)
+        elif len(strides) != len(spatial_features):
+            raise ValueError(
+                f"Strides ({strides}) must have the same "
+                f"dimensionaility as spatial features ({spatial_features}).")
+
+        if pads and len(pads) != 2 * len(spatial_features):
+            raise ValueError(
+                "pads should have format "
+                "[x1_begin, x2_begin...x1_end, x2_end,...], "
+                f"but got size {len(pads)} for {len(spatial_features)} spatial "
+                "features")
+        for i in range(len(spatial_features)):
+            if not spatial_features[i].is_static():
+                # cannot determine shape at this point
+                new_dim = -1
+            elif auto_pad.upper() == "NOTSET":
+                x_begin, x_end = pads[i * 2: (i * 2) + 2]
+                new_dim = round_dim(
+                    float(
+                        int(spatial_features[i]) + x_begin +
+                        x_end - kernel_shape[i]) /
+                    float(strides[i]) + 1)
+            elif auto_pad.upper() == "VALID":
+                new_dim = math.ceil(
+                    float(int(spatial_features[i]) - kernel_shape[i] + 1) /
+                    float(strides[i]))
+            elif auto_pad.upper() in ["SAME_UPPER", "SAME_LOWER"]:
+                new_dim = math.ceil(
+                    float(int(spatial_features[i])) / float(strides[i]))
+
+            output_shape = DynamicShape(*output_shape, int(new_dim))
+
+        return_array._dims = output_shape
+
+    return propagate_shape_pool_wrapper
 
 
 def reduce_axis(axes: Union[List[int], "array.Array", None], keepdims: bool):
