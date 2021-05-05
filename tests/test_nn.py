@@ -935,7 +935,65 @@ def test_conv_transpose_pads(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@pytest.mark.parametrize("type_a", [np.int8, np.uint8, np.int32])
+def test_dequantize_linear(type_a):
+    x = np.array([[[[3, 89],
+                    [34, 200],
+                    [74, 59]],
+                   [[5, 24],
+                    [24, 87],
+                    [32, 13]],
+                   [[245, 99],
+                    [4, 142],
+                    [121, 102]]]], dtype=type_a)
+    x_scale = np.array([2, 4, 5], dtype=np.float32)
+    if type_a == np.int32:
+        expected = x.astype(np.float32) * x_scale.reshape(1, 3, 1, 1)
+        result = onp.nn.dequantize_linear(
+            onp.array(x),
+            onp.array(x_scale))
+    else:
+        x_zero_point = np.array([84, 24, 196], dtype=type_a)
+        expected = (x.astype(np.float32) - x_zero_point.reshape(1, 3, 1,
+                    1).astype(np.float32)) * x_scale.reshape(1, 3, 1, 1)
+        result = onp.nn.dequantize_linear(
+            onp.array(x),
+            onp.array(x_scale),
+            onp.array(x_zero_point))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.int8, np.uint8, np.int32])
+def test_dequantize_linear_scalar(type_a):
+    x = np.array([[[[3, 89],
+                    [34, 200],
+                    [74, 59]],
+                   [[5, 24],
+                    [24, 87],
+                    [32, 13]],
+                   [[245, 99],
+                    [4, 142],
+                    [121, 102]]]], dtype=type_a)
+    x_scale = np.array(2, dtype=np.float32)
+    if type_a == np.int32:
+        expected = x.astype(np.float32) * x_scale
+        result = onp.nn.dequantize_linear(
+            onp.array(x),
+            onp.array(x_scale))
+    else:
+        x_zero_point = np.array(84, dtype=type_a)
+        expected = (x.astype(np.float32) - x_zero_point.astype(np.float32)
+                    ) * x_scale
+        result = onp.nn.dequantize_linear(
+            onp.array(x),
+            onp.array(x_scale),
+            onp.array(x_zero_point))
+
+    expect(expected, result.numpy())
+
+
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_elu(type_a):
     a = onp.array([-1, 0, 1], dtype=type_a)
     expected = onp.array([-1.2642411, 0., 1.], dtype=type_a)
@@ -944,7 +1002,7 @@ def test_elu(type_a):
     expect(result.numpy(), expected.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_elu_default(type_a):
     a = onp.array([-1, 0, 1], dtype=type_a)
     expected = onp.array([-0.63212055, 0., 1.], dtype=type_a)
@@ -953,7 +1011,7 @@ def test_elu_default(type_a):
     expect(result.numpy(), expected.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_relu(type_a):
     a = onp.array([[1., 2., -3.],
                    [-1, 0,  10.]], dtype=type_a)
@@ -964,7 +1022,7 @@ def test_relu(type_a):
     expect(result.numpy(), expected.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_global_average_pool(type_a):
     x = np.random.randn(1, 3, 5, 5).astype(type_a)
     spatial_shape = np.ndim(x) - 2
@@ -977,7 +1035,7 @@ def test_global_average_pool(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_global_average_pool_precomputed(type_a):
     x = np.array([[[
         [1, 2, 3],
@@ -992,7 +1050,7 @@ def test_global_average_pool_precomputed(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_global_lp2_pool_precomputed(type_a):
     x = np.array([[[
         [1, 2, 3],
@@ -1007,7 +1065,7 @@ def test_global_lp2_pool_precomputed(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_global_lp1_pool_precomputed(type_a):
     x = np.array([[[
         [1, 2, 3],
@@ -1022,7 +1080,7 @@ def test_global_lp1_pool_precomputed(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_global_lp_large_pool_precomputed(type_a):
     # this essentially becomes max pooling
     x = np.array([[[
@@ -1038,7 +1096,7 @@ def test_global_lp_large_pool_precomputed(type_a):
     expect(expected, result.numpy(), atol=0.1)
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_global_max_pool(type_a):
     x = np.random.randn(1, 3, 5, 5).astype(type_a)
     spatial_shape = np.ndim(x) - 2
@@ -1051,7 +1109,7 @@ def test_global_max_pool(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_global_max_pool_precomputed(type_a):
     x = np.array([[[
         [1, 2, 3],
@@ -1066,7 +1124,7 @@ def test_global_max_pool_precomputed(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_hard_sigmoid(type_a):
     a = onp.array([-1, 0, 1], dtype=type_a)
     expected = onp.array([0.1, 0.6, 1.], dtype=type_a)
@@ -1075,7 +1133,7 @@ def test_hard_sigmoid(type_a):
     expect(result.numpy(), expected.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_hard_sigmoid_default(type_a):
     default_alpha = 0.2
     default_beta = 0.5
@@ -1086,7 +1144,7 @@ def test_hard_sigmoid_default(type_a):
     expect(result.numpy(), expected)
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_hardmax(type_a):
 
     def hardmax(x, axis=-1):
@@ -1109,7 +1167,7 @@ def test_hardmax(type_a):
     expect(result.numpy(), expected)
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_instancenorm(type_a):
 
     def instancenorm_test_mode(x, s, bias, epsilon=1e-5):
@@ -1145,7 +1203,7 @@ def test_instancenorm(type_a):
         rtol=1e-02)
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_lrn_default(type_a):
     alpha = 0.0001
     beta = 0.75
@@ -1165,7 +1223,7 @@ def test_lrn_default(type_a):
     expect(expected, onp.nn.lrn(onp.array(x), size=nsize))
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_lrn(type_a):
     alpha = 0.0002
     beta = 0.5
@@ -1188,7 +1246,7 @@ def test_lrn(type_a):
             size=nsize, alpha=alpha, beta=beta, bias=bias))
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_leakyrelu(type_a):
     x = np.array([-1, 0, 1], dtype=type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * 0.1
@@ -1201,7 +1259,7 @@ def test_leakyrelu(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_leakyrelu_default(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * 0.01
@@ -1209,7 +1267,7 @@ def test_leakyrelu_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", float_types)
+@ pytest.mark.parametrize("type_a", float_types)
 def test_logsoftmax(type_a):
     x = np.array([[-1, 0, 1]]).astype(type_a)
     expected = np.array([[-2.4076061, -1.407606, -0.407606]]).astype(type_a)
@@ -1217,7 +1275,7 @@ def test_logsoftmax(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", float_types)
+@ pytest.mark.parametrize("type_a", float_types)
 def test_logsoftmax_axis(type_a):
 
     def logsoftmax(x, axis=-1):
@@ -1246,12 +1304,12 @@ def test_logsoftmax_axis(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_maxunpool_with_output_shape(type_a):
     xT = np.array([[[[5, 6],
-                     [7, 8]]]], dtype=type_a)
+                   [7, 8]]]], dtype=type_a)
     xI = np.array([[[[5, 7],
-                     [13, 15]]]], dtype=np.int64)
+                   [13, 15]]]], dtype=np.int64)
     output_shape = np.array((1, 1, 5, 5), dtype=np.int64)
     # FIXME: result expected in ONNX operators.md
     # expected = np.array([[[[0, 0, 0, 0, 0],
@@ -1261,10 +1319,10 @@ def test_maxunpool_with_output_shape(type_a):
     #                        [0, 0, 0, 0, 0]]]], dtype=type_a)
     # result I am getting?
     expected = np.array([[[[0., 0., 0., 0., 0.],
-                           [5., 0., 6., 0., 0.],
-                           [0., 0., 0., 7., 0.],
-                           [8., 0., 0., 0., 0.],
-                           [0., 0., 0., 0., 0.]]]], dtype=type_a)
+                         [5., 0., 6., 0., 0.],
+                         [0., 0., 0., 7., 0.],
+                         [8., 0., 0., 0., 0.],
+                         [0., 0., 0., 0., 0.]]]], dtype=type_a)
     result = onp.nn.maxunpool(onp.array(xT), onp.array(xI),
                               kernel_shape=[2, 2],
                               output_shape=onp.array(output_shape),
@@ -1286,7 +1344,7 @@ def test_maxunpool_with_output_shape(type_a):
 #         xI), kernel_shape=[2, 2], strides=[2, 2])
 #     expect(expected, result.numpy())
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_prelu(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(3, 4, 5).astype(type_a)
@@ -1295,7 +1353,7 @@ def test_prelu(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_prelu_broadcast(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(5).astype(type_a)
@@ -1304,7 +1362,7 @@ def test_prelu_broadcast(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_prelu_broadcast_scalar(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(1).astype(type_a)
@@ -1360,8 +1418,8 @@ def scatter_elements(data, indices, updates, axis=0):  # type: ignore
     return scattered
 
 
-@pytest.mark.parametrize("type_a", all_types)
-@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+@ pytest.mark.parametrize("type_a", all_types)
+@ pytest.mark.parametrize("type_b", [np.int32, np.int64])
 def test_scatter_elements_with_axis(type_a, type_b):
     axis = 1
     x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0]], dtype=type_a)
@@ -1377,8 +1435,8 @@ def test_scatter_elements_with_axis(type_a, type_b):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", all_types)
-@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+@ pytest.mark.parametrize("type_a", all_types)
+@ pytest.mark.parametrize("type_b", [np.int32, np.int64])
 def test_scatter_elements_with_negative_indices(type_a, type_b):
     axis = 1
     x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0]], dtype=type_a)
@@ -1394,8 +1452,8 @@ def test_scatter_elements_with_negative_indices(type_a, type_b):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", all_types)
-@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+@ pytest.mark.parametrize("type_a", all_types)
+@ pytest.mark.parametrize("type_b", [np.int32, np.int64])
 def test_scatter_elements_without_axis(type_a, type_b):
     x = np.zeros((3, 3), dtype=type_a)
     indices = np.array([[1, 0, 2], [0, 2, 1]], dtype=type_b)
@@ -1427,7 +1485,7 @@ def scatter_nd_impl(data, indices, updates):
     return output
 
 
-@pytest.mark.parametrize("type_a", all_types)
+@ pytest.mark.parametrize("type_a", all_types)
 def test_scatter_nd(type_a):
     x = np.array(
         [[[1, 2, 3, 4], [5, 6, 7, 8], [8, 7, 6, 5], [4, 3, 2, 1]],
@@ -1447,7 +1505,7 @@ def test_scatter_nd(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_selu(type_a):
     alpha = 2.0
     gamma = 3.0
@@ -1466,7 +1524,7 @@ def test_selu(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_selu_default(type_a):
     default_alpha = 1.67326319217681884765625
     default_gamma = 1.05070102214813232421875
@@ -1485,7 +1543,7 @@ def test_selu_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32, np.float64])
+@ pytest.mark.parametrize("type_a", [np.float32, np.float64])
 def test_sigmoid(type_a):
 
     x = np.array([-1, 0, 1]).astype(type_a)
@@ -1499,7 +1557,7 @@ def test_sigmoid(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_softplus(type_a):
 
     x = np.array([-1, 0, 1]).astype(type_a)
@@ -1514,7 +1572,7 @@ def test_softplus(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_softsign(type_a):
 
     x = np.array([-1, 0, 1]).astype(type_a)

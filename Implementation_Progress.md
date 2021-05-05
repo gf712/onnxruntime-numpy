@@ -29,7 +29,7 @@
 |Cosh | :heavy_check_mark: | `cosh` | :x: |
 |CumSum | :heavy_check_mark: | `cumsum` | :x: |
 |DepthToSpace | :x: | | :x: |
-|DequantizeLinear | :x: | | :x: |
+|DequantizeLinear | :heavy_check_mark: | `nn.dequantize_linear` | :x: |
 |Det | :heavy_check_mark: | `det` | :x: |
 |Div | :heavy_check_mark: | `divide` | :x: |
 |Dropout | :x: | | :x: |

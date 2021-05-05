@@ -181,6 +181,58 @@ def conv_transpose(
         output_shape=output_shape, output_padding=output_padding)
 
 
+def dequantize_linear(x: Array, x_scale: Array,
+                      x_zero_point: Optional[Array] = None, axis: int = 1):
+
+    if x.dtype == np.int32 and x_zero_point is not None:
+        raise ValueError(
+            "x_zero_point cannot be set when using x with type int32")
+
+    # only check axis arg if one or both x_scale and x_zero_point aren't scalars
+    if (len(x_scale.shape) > 0 or
+            (x_zero_point is not None and len(x_zero_point.shape) > 0)) and \
+            (axis < -len(x.shape) or axis >= len(x.shape)):
+        raise ValueError(
+            f"Axis must be in the range [-{len(x.shape)}, {len(x.shape)-1}]")
+
+    if len(x_scale.shape) > 0:
+        if len(x_scale.shape) == 1 and x_scale.shape[0] != x.shape[axis]:
+            raise ValueError(
+                f"x_scale axis {axis} ({int(x_scale.shape[0])}) does not "
+                f"match x {axis} ({int(x.shape[axis])})")
+        if len(x_scale.shape) > 1:
+            raise ValueError(
+                "x_scale has to be a scalar or a 1D Array, but got "
+                f"{x_scale.ndims}D Array")
+
+    if x_zero_point is not None:
+        if x.dtype != x_zero_point.dtype:
+            raise ValueError("x and x_zero_point must have matching types")
+
+        if len(
+                x_zero_point.shape) == 1 and x_zero_point.shape[0] != x.shape[axis]:
+            raise ValueError(
+                f"x_zero_point axis {axis} ({int(x_zero_point.shape[0])}) does not "
+                f"match x {axis} ({int(x.shape[axis])})")
+        if len(x_zero_point.shape) > 1:
+            raise ValueError(
+                "x_zero_point has to be a scalar or a 1D Array, but got "
+                f"{x_zero_point.ndims}D Array")
+
+    @allowed_types([np.int8, np.uint8, np.int32],
+                   [np.float32],
+                   [np.int8, np.uint8, np.int32])
+    def dequantize_linear_helper(
+            x: Array, x_scale: Array, x_zero_point: Optional[Array] = None,
+            axis: int = 1):
+        result = nary_operator("DequantizeLinear", x,
+                               x_scale, x_zero_point, axis=axis)
+        result._dtype = np.float32
+        return result
+
+    return dequantize_linear_helper(x, x_scale, x_zero_point, axis=axis)
+
+
 def elu(x, alpha=1.0):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
