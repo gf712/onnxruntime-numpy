@@ -621,7 +621,10 @@ def propagate_conv_shape(
         pads: Optional[List[int]],
         strides: Optional[List[int]],
         group: int, dilations: Optional[List],
-        auto_pad: str):
+        auto_pad: str,
+        output_padding: Optional[List[int]] = None,
+        output_shape_: Optional[List[int]] = None,
+        transpose: bool = False):
 
     if auto_pad.upper() not in AVAILABLE_AUTO_PADDING:
         raise ValueError(
@@ -632,8 +635,16 @@ def propagate_conv_shape(
         nonlocal pads
         nonlocal strides
         nonlocal dilations
+        nonlocal output_padding
+        nonlocal output_shape_
         input_array_shape = input_arrays_and_args[0].shape
+        weight_shape = input_arrays_and_args[1].shape
         n, c = input_array_shape[:2]
+        if transpose:
+            if weight_shape[1].is_static():
+                c = int(weight_shape[1]) * group
+            else:
+                c = -1
         spatial_features = input_array_shape[2:]
         output_shape = DynamicShape(n, c)
         spatial_features = DynamicShape(*spatial_features)
@@ -670,28 +681,65 @@ def propagate_conv_shape(
                 "[x1_begin, x2_begin...x1_end, x2_end,...], "
                 f"but got size {len(pads)} for {len(spatial_features)} spatial "
                 "features")
-        for i in range(len(spatial_features)):
-            if not spatial_features[i].is_static():
-                # cannot determine shape at this point
-                new_dim = -1
-            elif auto_pad.upper() == "NOTSET":
-                x_begin = pads[i]
-                x_end = pads[i + len(spatial_features)]
-                dkernel = dilations[i] * (kernel_shape[i] - 1) + 1
-                new_dim = int(
-                    float(
-                        int(spatial_features[i]) + x_begin +
-                        x_end - dkernel) /
-                    float(strides[i]) + 1)
-            elif auto_pad.upper() == "VALID":
-                new_dim = math.ceil(
-                    float(int(spatial_features[i]) - kernel_shape[i] + 1) /
-                    float(strides[i]))
-            elif auto_pad.upper() in ["SAME_UPPER", "SAME_LOWER"]:
-                new_dim = math.ceil(
-                    float(int(spatial_features[i])) / float(strides[i]))
 
-            output_shape = DynamicShape(*output_shape, int(new_dim))
+        if transpose:
+
+            if output_padding is None:
+                output_padding = [0] * len(spatial_features)
+
+            if output_shape_ is not None and len(output_shape) != len(
+                    spatial_features):
+                raise ValueError(
+                    f"output_shape {output_shape_} must have length "
+                    "equal to the number "
+                    f"of spatial features {len(spatial_features)}")
+
+            for i in range(len(spatial_features)):
+                if not spatial_features[i].is_static():
+                    # cannot determine shape at this point
+                    new_dim = -1
+                else:
+                    if output_shape_ is None:
+                        if auto_pad.upper() == "NOTSET":
+                            x_begin = pads[i]
+                            x_end = pads[i + len(spatial_features)]
+                            new_dim = strides[i] * (int(spatial_features[i]) - 1) + \
+                                output_padding[i] + ((kernel_shape[i] - 1)
+                                                     * dilations[i] + 1) - x_begin - \
+                                x_end
+                        elif auto_pad.upper() == "VALID":
+                            new_dim = (
+                                int(spatial_features[i]) - kernel_shape[i] + 1) \
+                                * strides[i]
+                        elif auto_pad.upper() in ["SAME_UPPER", "SAME_LOWER"]:
+                            new_dim = int(spatial_features[i]) * strides[i]
+                    else:
+                        new_dim = output_shape_[i]
+
+                output_shape = DynamicShape(*output_shape, int(new_dim))
+        else:
+            for i in range(len(spatial_features)):
+                if not spatial_features[i].is_static():
+                    # cannot determine shape at this point
+                    new_dim = -1
+                elif auto_pad.upper() == "NOTSET":
+                    x_begin = pads[i]
+                    x_end = pads[i + len(spatial_features)]
+                    dkernel = dilations[i] * (kernel_shape[i] - 1) + 1
+                    new_dim = int(
+                        float(
+                            int(spatial_features[i]) + x_begin +
+                            x_end - dkernel) /
+                        float(strides[i]) + 1)
+                elif auto_pad.upper() == "VALID":
+                    new_dim = math.ceil(
+                        float(int(spatial_features[i]) - kernel_shape[i] + 1) /
+                        float(strides[i]))
+                elif auto_pad.upper() in ["SAME_UPPER", "SAME_LOWER"]:
+                    new_dim = math.ceil(
+                        float(int(spatial_features[i])) / float(strides[i]))
+
+                output_shape = DynamicShape(*output_shape, int(new_dim))
 
         return_array._dims = output_shape
 

@@ -23,8 +23,8 @@
 |Constant | :heavy_check_mark: | `constant` | :x: |
 |ConstantOfShape | :heavy_check_mark: | `constant_of_shape` | :x: |
 |Conv | :heavy_check_mark: | `nn.conv` | :x: |
-|ConvInteger | :x: | | :x: |
-|ConvTranspose | :x: | | :x: |
+|ConvInteger | :heavy_check_mark: (tests not working) | `nn.conv_integer` | :x: |
+|ConvTranspose | :heavy_check_mark: | `nn.conv_transpose` | :x: |
 |Cos | :heavy_check_mark: | `cos` | :x: |
 |Cosh | :heavy_check_mark: | `cosh` | :x: |
 |CumSum | :heavy_check_mark: | `cumsum` | :x: |

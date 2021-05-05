@@ -93,6 +93,94 @@ def conv(
                        auto_pad=auto_pad)
 
 
+def conv_integer(
+        x: Array, w: Array, x_zero_point: Optional[Array] = None,
+        w_zero_point: Optional[Array] = None,
+        kernel_shape: Optional[List[int]] = None, pads: Optional[List[int]] = None,
+        strides: List[int] = None, group: int = 1,
+        dilations: Optional[List[int]] = None, auto_pad: str = "NOTSET"):
+
+    if kernel_shape is None:
+        kernel_shape = w.shape[2:].tolist()
+
+    if x_zero_point is not None and x.dtype != x_zero_point.dtype:
+        raise ValueError(
+            f"type of x {x.dtype} does not match corresponding zero point "
+            f"{x_zero_point.dtype}")
+    if w_zero_point is not None and w.dtype != w_zero_point.dtype:
+        raise ValueError(
+            f"type of x {w.dtype} does not match corresponding zero point "
+            f"{w_zero_point.dtype}")
+
+    @allowed_types([np.int8, np.uint8],
+                   [np.int8, np.uint8],
+                   [np.int8, np.uint8],
+                   [np.int8, np.uint8])
+    @not_implemented_types([np.int8], [np.int8], [np.int8], [np.int8])
+    @output_checks_and_inference(
+        propagate_conv_shape(
+            kernel_shape, pads, strides, group, dilations, auto_pad))
+    def conv_integer_helper(x: Array, w: Array, x_zero_point: Optional[Array],
+                            w_zero_point: Optional[Array],
+                            kernel_shape: Optional[List[int]],
+                            pads: Optional[int], strides: List[int], group: int,
+                            dilations: Optional[List[int]], auto_pad: str):
+        result = nary_operator(
+            "ConvInteger", x, w, x_zero_point, w_zero_point,
+            kernel_shape=kernel_shape, pads=pads, strides=strides, group=group,
+            dilations=dilations, auto_pad=auto_pad)
+        result._dtype = np.int32
+        return result
+
+    return conv_integer_helper(
+        x, w, x_zero_point, w_zero_point, kernel_shape=kernel_shape, pads=pads,
+        strides=strides, group=group, dilations=dilations, auto_pad=auto_pad)
+
+
+def conv_transpose(
+        x: Array, w: Array, bias: Optional[Array] = None,
+        kernel_shape: Optional[List[int]] = None, pads: Optional[List[int]] = None,
+        strides: List[int] = None, group: int = 1,
+        output_padding: Optional[List[int]] = None,
+        output_shape: Optional[List[int]] = None,
+        dilations: Optional[List[int]] = None, auto_pad: str = "NOTSET"):
+
+    if kernel_shape is None:
+        kernel_shape = w.shape[2:].tolist()
+
+    # I think these are flipped in the onnxruntime v1.7.0 implementation
+    if auto_pad.upper() == "SAME_LOWER":
+        auto_pad = "SAME_UPPER"
+    elif auto_pad.upper() == "SAME_UPPER":
+        auto_pad = "SAME_LOWER"
+
+    @allowed_types(float_types, float_types, float_types)
+    @not_implemented_types([np.float64], [np.float64], [np.float64])
+    @output_checks_and_inference(
+        propagate_conv_shape(
+            kernel_shape, pads, strides, group, dilations, auto_pad,
+            output_padding, output_shape, transpose=True))
+    def conv_transpose_helper(
+            x: Array, w: Array, bias: Optional[Array],
+            kernel_shape: Optional[List[int]],
+            pads: Optional[int],
+            strides: List[int],
+            group: int, dilations: Optional[List[int]],
+            output_padding: Optional[List[int]],
+            output_shape: Optional[List[int]],
+            auto_pad: str):
+        return nary_operator(
+            "ConvTranspose", x, w, bias, kernel_shape=kernel_shape, pads=pads,
+            strides=strides, group=group, dilations=dilations,
+            auto_pad=auto_pad, output_shape=output_shape,
+            output_padding=output_padding)
+
+    return conv_transpose_helper(
+        x, w, bias, kernel_shape=kernel_shape, pads=pads, strides=strides,
+        group=group, dilations=dilations, auto_pad=auto_pad.upper(),
+        output_shape=output_shape, output_padding=output_padding)
+
+
 def elu(x, alpha=1.0):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
