@@ -911,13 +911,14 @@ def negative(x: "array.Array"):
 
 
 def nonzero(x: "array.Array"):
-    # TODO
-    raise NotImplementedError(
-        "nonzero not implemented. Currently cannot handle dynamic shapes")
-
     @allowed_types(all_types)
+    @not_implemented_types([np.float64, np.uint16, np.uint32, np.uint64, np.int8,
+                            np.int16])
     def nonzero_helper(x: "array.Array"):
-        return unary_operator(x, "NonZero")
+        result = unary_operator(x, "NonZero")
+        result._dtype = np.int64
+        result._dims = DynamicShape(x.ndims, -1)
+        return result
     return nonzero_helper(x)
 
 

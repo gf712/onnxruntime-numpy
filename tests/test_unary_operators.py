@@ -621,6 +621,14 @@ def test_negative(type_a):
     expect(expected, result.numpy())
 
 
+@pytest.mark.parametrize("type_a", [np.float32, np.uint8, np.int32, np.int64])
+def test_nonzero(type_a):
+    x = np.array([[1, 0], [1, 1]], dtype=type_a)
+    expected = np.array(np.nonzero(x), dtype=np.int64)
+    result = onp.nonzero(onp.array(x))
+    expect(expected, result.numpy())
+
+
 @pytest.mark.parametrize("type_a", [*bool_types])
 def test_not(type_a):
     x = (np.random.randn(3, 4) > 0).astype(type_a)

@@ -84,7 +84,7 @@
 |Neg | :heavy_check_mark: | `negative` | :x: |
 |NegativeLogLikelihoodLoss | :x: |  | :x: |
 |NonMaxSuppression | :x: | | :x: |
-|NonZero | :x: | | :x: |
+|NonZero | :heavy_check_mark: | `nonzero` | :x: |
 |Not | :heavy_check_mark: | `not_` | :x: |
 |OneHot | :x: | | :x: |
 |Or | :heavy_check_mark: | `logical_or` | :x: |
