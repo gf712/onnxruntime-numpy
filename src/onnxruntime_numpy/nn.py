@@ -2,9 +2,10 @@ from .array import Array, array, is_lazy
 from .ops_utils import (
     allowed_types, not_implemented_types, output_checks_and_inference,
     allow_broadcasting, nary_operator, propagate_shape_global_pool,
-    force_evaluation, propagate_pool_shape, propagate_conv_shape)
+    force_evaluation, propagate_pool_shape, propagate_conv_shape,
+    multi_output_nary_operator)
 from .types import (float_types, signed_integer_types, all_types)
-from .shapes import ShapeLike, as_shape
+from .shapes import ShapeLike, as_shape, DynamicShape
 import numpy as np
 from typing import Union, Optional, List
 
@@ -242,17 +243,6 @@ def elu(x, alpha=1.0):
     return elu_helper(x, alpha=float(alpha))
 
 
-def gru(
-        x: Array, w: Array, r: Array, b: Array,
-        sequence_length: Array, initial_h: Array,
-        hidden_size: int, activation_alpha: List[float] = None,
-        activation_beta: List[float] = None, activations: List[str] = None,
-        clip: float = 0.0, direction: str = "forward", layout: int = 0,
-        linear_before_reset: bool = False):
-    # TODO
-    raise NotImplementedError()
-
-
 def global_average_pool(x: Array):
 
     if x.ndims != 4:
@@ -302,6 +292,48 @@ def global_max_pool(x: Array):
         return nary_operator("GlobalMaxPool", x)
 
     return helper_global_max_pool(x)
+
+
+def gru(
+        x: Array, w: Array, r: Array, hidden_size: int, b: Optional[Array] = None,
+        sequence_length: Optional[Array] = None, initial_h: Optional[Array] = None,
+        activation_alpha: Optional[List[float]] = None,
+        activation_beta: Optional[List[float]] = None,
+        activations: Optional[List[str]] = None, clip: Optional[float] = None,
+        direction: str = "forward", linear_before_reset: bool = False):
+
+    if direction.lower() not in ["forward", "reverse", "bidirectional"]:
+        raise ValueError(
+            "direction has to be one of forward, reverse or bidirectional")
+
+    def gru_helper(x: Array, w: Array, r: Array, b: Optional[Array],
+                   sequence_length: Optional[Array], initial_h: Optional[Array],
+                   hidden_size: int, activation_alpha: Optional[List[float]],
+                   activation_beta: Optional[List[float]],
+                   activations: Optional[List[str]],
+                   clip: Optional[float], direction: str,
+                   linear_before_reset: bool):
+
+        y, yh = multi_output_nary_operator(2)(
+            "GRU", x, w, r, b, sequence_length, initial_h,
+            hidden_size=hidden_size, activation_alpha=activation_alpha,
+            activation_beta=activation_beta, activations=activations, clip=clip,
+            direction=direction, linear_before_reset=linear_before_reset)
+
+        seq_length, batch_size, _ = x.shape
+        num_directions = 2 if direction == "bidirectional" else 1
+
+        y._dims = DynamicShape(seq_length, num_directions,
+                               batch_size, hidden_size)
+        yh._dims = DynamicShape(num_directions, batch_size, hidden_size)
+
+        return y, yh
+
+    return gru_helper(
+        x, w, r, b, sequence_length, initial_h, hidden_size=hidden_size,
+        activation_alpha=activation_alpha, activation_beta=activation_beta,
+        activations=activations, clip=clip, direction=direction.lower(),
+        linear_before_reset=linear_before_reset)
 
 
 def hard_sigmoid(x: Array, alpha: float = 0.2, beta: float = 0.5):

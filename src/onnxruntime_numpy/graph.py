@@ -1,20 +1,22 @@
 from .types import numpy_to_onnx
 from . import array
+from . import evaluator
 from . import onnx_utils
+from .exceptions import InternalException
 
 import numpy as np
 import networkx as nx
 import onnx
+import uuid
 
 from collections import namedtuple
 from collections.abc import Hashable
 from typing import Tuple, List, Set, Dict
-from typing import Iterable as IterableType
 
 
-class Node(namedtuple("Node", "op_type inputs outputs op_name attributes")):
+class Node(namedtuple("Node", "op_type node_name op_name attributes")):
     def __repr__(self):
-        return f'Node({self.op_name})'
+        return f'Node({self.node_name})'
 
 
 class Input(namedtuple("Input", "dtype shape")):
@@ -103,13 +105,11 @@ def build_graph_from_onnx(onnx_graph, outputs):  # pragma: no cover
 
 class Graph:
     def __init__(self):
-        self._graph = nx.DiGraph()
-        self._input_edges: Dict[str, str] = {}
+        self._graph = nx.MultiDiGraph()
 
     def copy(self):
         g = Graph()
         g._graph = self._graph.copy()
-        g._input_edges = {**self._input_edges}
         return g
 
     @property
@@ -124,29 +124,26 @@ class Graph:
 
     def add_node(
             self, op_name: str, inputs: List["array.Array"],
-            outputs: List["array.Array"],
             **attributes):
+
+        op_id = uuid.uuid4()
+        node_name = f"{op_name}_{op_id}"
+
         new_node = Node(
             None,  # op_type is added by register decorator
-            inputs,
-            outputs,
+            node_name,
             op_name,
             HashableAttributes(**attributes))
-
-        node_name = str(hash(new_node))
 
         self._graph.add_node(node_name, node=new_node)
 
         for idx, i in enumerate(inputs):
             # nodes can have empty inputs
             if i is not None:
-                # input nodes are not added. This way graphs do not have to be copied
-                # around
                 if i._evaluator._parent_node is not None:
                     self._graph.add_edge(
-                        i._evaluator._parent_node, node_name, index=idx)
-                else:
-                    self._input_edges[i._internal_name] = node_name
+                        i._evaluator._parent_node, node_name, index=idx,
+                        array=i)
         return node_name
 
     def add_initializer(
@@ -154,52 +151,127 @@ class Graph:
             vals):
         raise NotImplementedError()
 
-    def add_input(self, array):
-        if array._internal_name not in self._input_edges:  # pragma: no cover
-            raise ValueError("Invalid input array")
+    def add_input(self, array: "array.Array", feed_node_name: str):
+        if feed_node_name not in self._graph.nodes:  # pragma: no cover
+            raise InternalException("Invalid node to feed array to")
 
         new_node = Input(array.dtype, array.shape)
         self._graph.add_node(array._internal_name, node=new_node)
         self._graph.add_edge(array._internal_name,
-                             self._input_edges[array._internal_name],
-                             index=0)
+                             feed_node_name,
+                             index=0, array=array)
         return array._internal_name
 
-    def add_output(self, array, from_node):
+    def cast_node_to_input(self, array, node_name):
+        if node_name not in self._graph.nodes:
+            raise InternalException(f"Node {node_name} not present")
+
+        # remove all edges leading into the node
+        # this will potentially create a dead end in the graph, but onnxruntime
+        # should remove this at runtime
+        in_edges = list(self._graph.in_edges(node_name))
+        self._graph.remove_edges_from(in_edges)
+
+        # now the node becomes an input
+        new_node = Input(array.dtype, array.shape)
+        self._graph.nodes[node_name]["node"] = new_node
+        mapping = {node_name: array._internal_name}
+        self._graph = nx.relabel_nodes(self._graph, mapping, copy=False)
+        for out_edge in self._graph.out_edges(array._internal_name, data=True):
+            out_edge[-1]["array"] = array
+
+        return array._internal_name
+
+    def add_output(self, array, from_node, idx):
         output_node = Output(array.dtype, array.shape)
         self._graph.add_node(array._internal_name,
                              node=output_node)
         # FIXME: when multiple outputs are supported
-        self._graph.add_edge(from_node, array._internal_name, index=0)
+        self._graph.add_edge(
+            from_node, array._internal_name, index=idx, array=array)
+        return array._internal_name
+
+    def add_empty_output(self, array, from_node, idx):
+        output_node = Output(array.dtype, array.shape)
+        self._graph.add_node(array._internal_name,
+                             node=output_node)
+        # FIXME: when multiple outputs are supported
+        self._graph.add_edge(
+            from_node, array._internal_name, index=idx, array=array)
         return array._internal_name
 
     def add_subgraph(self, other_graph):
         if self._graph is None:
             self._graph = other_graph._graph
-            self._input_edges = {**other_graph._input_edges}
         elif other_graph._graph is not None:
             self._graph = nx.compose(self._graph, other_graph._graph)
-            self._input_edges = {**self._input_edges,
-                                 **other_graph._input_edges}
 
 
 class ExecutableGraph:
     def __init__(
-            self, graph: Graph, inputs: IterableType["array.Array"],
-            outputs: Dict[str, "array.Array"]):
+            self, graph: Graph,
+            node_inputs: Dict[str, List["array.Array"]],
+            node_outputs: Dict[str, List["array.Array"]],
+            inputs: Dict[str, "array.Array"],
+            outputs: Dict[str, "array.Array"],
+            cached_results: "evaluator.IntermediateResultCache"):
         self._graph = graph.copy()
 
+        # input_nodes = [node for node in self._graph.nodes
+        #                if self._graph._graph.in_degree(node) == 0]
+
         self._input_names: Set[str] = set()
-        for a in inputs:
-            self._input_names.add(self._graph.add_input(a))
+
+        inputs_to_add = list()
+
+        cached_array_names = [a._internal_name
+                              for a in cached_results._cache.values()]
+
+        for array_name, input_array in inputs.items():
+            if array_name not in cached_array_names:
+                for node_name, node_input_arrays in node_inputs.items():
+                    node_input_array_names = [
+                        a._internal_name for a in node_input_arrays
+                        if a is not None]
+                    if node_name in self._graph.nodes and (
+                            array_name in node_input_array_names):
+                        inputs_to_add.append((input_array, node_name))
+
+        for input_array, node_name in inputs_to_add:
+            self._input_names.add(self._graph.add_input(
+                input_array, node_name))
+
+        if not cached_results.empty():
+            for node_name, result in cached_results.to_dict().items():
+                if node_name in self._graph.nodes:
+                    self._input_names.add(self._graph.cast_node_to_input(
+                        result, node_name))
 
         if len(outputs) != 1:
             raise NotImplementedError("Can only handle a single output value")
 
         self._output_names: Set[str] = set()
+        # TODO: fix this loop if more than one output is supported
+        # currently assumes that a single node output is used
         for parent_node, output_array in outputs.items():
-            self._output_names.add(self._graph.add_output(
-                output_array, parent_node))
+            node_output_array_names = [a._internal_name
+                                       for a in node_outputs[parent_node]]
+            idx = node_output_array_names.index(output_array._internal_name)
+            if idx == -1:
+                raise InternalException(
+                    "Could not find output array in output node")
+
+            for node_output_idx, node_output_name in enumerate(
+                    node_output_array_names):
+                if node_output_idx == idx:
+                    self._output_names.add(self._graph.add_output(
+                        output_array, parent_node, idx))
+                else:
+                    a = node_outputs[parent_node][node_output_idx]
+                    self._graph.add_output(a, parent_node, node_output_idx)
+
+        if len(self._output_names) != 1:
+            raise NotImplementedError("Can only handle a single output value")
 
     @classmethod
     def from_onnx(cls, onnx_graph, outputs=None):
@@ -221,30 +293,35 @@ class ExecutableGraph:
         # FIXME: make this independent of the number of outputs
         output_name = next(iter(self._output_names))
         for node_name in nx.ancestors(template_graph, output_name):
+
+            if node_name is None:
+                raise InternalException("Could not find ancestor nodes")
+
             node = template_graph.nodes[node_name]["node"]
+
             if isinstance(node, Input):
                 g.input.append(
                     onnx.helper.make_tensor_value_info(
                         node_name, numpy_to_onnx(np.dtype(node.dtype)),
                         node.shape.tolist()))
-            # elif "output" in node:
-            #     node = node["output"]
-            #     g.output.append(onnx.helper.make_tensor_value_info(
-            #         node_name, numpy_to_onnx(np.dtype(node.dtype)), node.shape))
             elif isinstance(node, Node):
+                in_edges = template_graph.in_edges(node_name, data=True)
+                out_edges = template_graph.out_edges(node_name, data=True)
+
+                input_names = [e[-1]["array"]._internal_name for e in in_edges]
+                output_names = [
+                    e[-1]["array"]._internal_name for e in out_edges]
+
                 n = onnx.helper.make_node(node.op_name,
-                                          [n._internal_name
-                                           if n is not None else ""
-                                           for n in node.inputs],
-                                          [n._internal_name
-                                           if n is not None else ""
-                                           for n in node.outputs],
+                                          input_names,
+                                          output_names,
                                           name=node_name, **node.attributes)
                 g.node.append(n)
             else:  # pragma: no cover
-                raise ValueError("")
+                raise InternalException(f"Unhandled node type {type(node)}")
 
         output_node = template_graph.nodes[output_name]["node"]
+
         g.output.append(
             onnx.helper.make_tensor_value_info(
                 output_name, numpy_to_onnx(np.dtype(output_node.dtype)),

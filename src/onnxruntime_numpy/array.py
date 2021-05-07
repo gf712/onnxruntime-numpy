@@ -40,8 +40,8 @@ class Array:
         if self._ort_value is None:
             self._ort_value = self._evaluator.evaluate(self)
             self._dims = StaticShape(*self._ort_value.shape())
-            self._evaluator = LazyEvaluator()
-            self._initialize()
+            # self._evaluator = LazyEvaluator()
+            # self._initialize()
 
     def ort_value(self) -> onnxruntime.OrtValue:
         if self._ort_value is None:

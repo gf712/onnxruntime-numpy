@@ -42,7 +42,7 @@
 |EyeLike | :heavy_check_mark: | `eye_like` | :x: |
 |Flatten | :heavy_check_mark: | `flatten` | :x: |
 |Floor | :heavy_check_mark: | `floor` | :x: |
-|GRU | :x: | | :x: |
+|GRU | :heavy_check_mark: | `nn.gru` | :x: |
 |Gather | :heavy_check_mark: | `gather` | :x: |
 |GatherElements | :heavy_check_mark: | `gather_elements` | :x: |
 |GatherND | :x: | | :x: |

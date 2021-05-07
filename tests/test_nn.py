@@ -2,7 +2,7 @@ import pytest
 import onnxruntime_numpy as onp
 from onnxruntime_numpy.types import float_types, all_types
 import numpy as np
-from .utils import expect
+from .utils import expect, GRU_Helper
 import math
 import itertools
 
@@ -1122,6 +1122,56 @@ def test_global_max_pool_precomputed(type_a):
     result = onp.nn.global_max_pool(onp.array(x, dtype=type_a))
 
     expect(expected, result.numpy())
+
+
+@ pytest.mark.parametrize("type_a", [np.float32])
+def test_gru(type_a):
+    x = np.array([[[1., 2.]], [[3., 4.]], [[5., 6.]]]).astype(type_a)
+
+    input_size = 2
+    hidden_size = 5
+    weight_scale = 0.1
+    number_of_gates = 3
+
+    W = weight_scale * np.ones((1, number_of_gates * hidden_size,
+                               input_size)).astype(type_a)
+    R = weight_scale * np.ones((1, number_of_gates * hidden_size,
+                               hidden_size)).astype(type_a)
+
+    expected_y, expected_yh = GRU_Helper(
+        X=x, W=W, R=R).step()
+
+    y, yh = onp.nn.gru(onp.array(x), onp.array(W), onp.array(R),
+                       hidden_size=hidden_size)
+
+    expect(expected_y.astype(np.float32), y.numpy())
+    expect(expected_yh.astype(np.float32), yh.numpy())
+
+
+# TODO: fix test after upgrading to onnx opset version 14
+# @ pytest.mark.parametrize("type_a", [np.float32])
+# def test_gru_batchwise(type_a):
+#     x = np.array([[[1., 2.]], [[3., 4.]], [[5., 6.]]]).astype(type_a)
+
+#     input_size = 2
+#     hidden_size = 6
+#     number_of_gates = 3
+#     weight_scale = 0.2
+#     layout = 1
+
+#     W = weight_scale * np.ones((1, number_of_gates * hidden_size,
+#                                input_size)).astype(type_a)
+#     R = weight_scale * np.ones((1, number_of_gates * hidden_size,
+#                                hidden_size)).astype(type_a)
+
+#     expected_y, expected_yh = GRU_Helper(
+#         X=x, W=W, R=R, layout=layout).step()
+
+#     y, yh = onp.nn.gru(onp.array(x), onp.array(W), onp.array(R),
+#                        hidden_size=hidden_size, layout=layout)
+
+#     expect(expected_y, y.numpy())
+#     expect(expected_yh, yh.numpy())
 
 
 @ pytest.mark.parametrize("type_a", [np.float32])

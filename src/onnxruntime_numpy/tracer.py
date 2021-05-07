@@ -1,11 +1,13 @@
 from .array import Array
 from .graph import Graph
+from typing import List
 import logging
 
 
 class OpTracer:
-    def __init__(self, *t_args, **t_kwargs):
-        self._original_tensors = [*t_args, *t_kwargs.values()]
+    def __init__(self, *t_args: Array, **t_kwargs: Array):
+        raise NotImplementedError("Needs fixing")
+        self._original_tensors: List[Array] = [*t_args, *t_kwargs.values()]
         # self._lazy_tensors = set()
         # this is a "tracker array"
         # we just want to know what ops were added from here on
@@ -43,21 +45,21 @@ class OpTracer:
         # and then "merge" the graphs by adding edges between output nodes
         # of old graphs and the new graph
         inputs_to_remove = set()
-        new_graph_input_edges = mock_array._evaluator._graph._input_edges
-        for input_value in mock_array._evaluator._input_values:
-            if input_value in old_graph_output_nodes:
+        new_graph_input_edges = mock_array._evaluator._input_values
+        for input_name, input_array in mock_array._evaluator._input_values.items():
+            if input_name in old_graph_output_nodes:
+                output_node = old_graph_output_nodes[input_name]
+                input_node = new_graph_input_edges[input_name]._evaluator._parent_node
+
                 mock_array._evaluator._graph._graph.add_edge(
-                    old_graph_output_nodes[input_value],
-                    new_graph_input_edges[input_value],
-                    index=0)
-                inputs_to_remove.add(input_value)
+                    output_node, input_node, index=0, array=input_array)
+                inputs_to_remove.add(input_name)
                 logging.debug(
-                    f"adding edge between: {input_value} and "
-                    f"{new_graph_input_edges[input_value]}")
+                    f"adding edge between: {input_name} and "
+                    f"{new_graph_input_edges[input_name]}")
 
         for i in inputs_to_remove:
             mock_array._evaluator._input_values.pop(i)
-            mock_array._evaluator._graph._input_edges.pop(i)
 
     def trace_function_call(self, func):
         if self._graph is not None:

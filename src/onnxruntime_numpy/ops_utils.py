@@ -6,6 +6,7 @@ import functools
 from typing import Union, List, Optional
 import numpy as np
 import math
+from .exceptions import InternalException
 
 
 STRICT_MODE = True
@@ -22,40 +23,51 @@ def add_node(
 
 
 def nary_operator(op_name, *arrays, **attributes):
-    # if len(arrays) > 0:
-    #     arrays = list(filter(lambda a: a is not None, arrays))
-    if len(arrays) == 0:
-        raise ValueError("")
-    if any(map(lambda a: a is not None, arrays)):
-        first_not_none_idx = [idx for idx,
-                              a in enumerate(arrays) if a is not None][0]
-        new_evaluator = arrays[first_not_none_idx]._evaluator.copy()
-        if len(arrays) > 1:
-            for array_i in arrays[1:]:
-                if array_i is not None:
-                    new_evaluator.merge(array_i._evaluator)
-    else:
-        # if all inputs are none we create a new evaluator
-        # and the graph starts from here
-        # TODO: is this ever valid in the ONNX standard?
-        new_evaluator = evaluator.LazyEvaluator()
+    return multi_output_nary_operator(1)(op_name, *arrays, **attributes)[0]
 
-    evaluators = [new_evaluator]
-    n_return_values = 1
-    if n_return_values > 1:
-        for x in range(1, n_return_values):
-            evaluators.append(new_evaluator.copy())
-    new_arrays = []
-    for e in evaluators:
-        new_arrays.append(array.Array(evaluator=e))
-        # by default assume that the output shape and dtype are the same as lhs
-        new_arrays[-1]._dtype = arrays[0].dtype
-        new_arrays[-1]._dims = arrays[0].shape
 
-    add_node(new_evaluator, op_name, arrays, new_arrays, **attributes)
+def multi_output_nary_operator(output_count):
+    def nary_operator(op_name, *arrays, **attributes):
+        # if len(arrays) > 0:
+        #     arrays = list(filter(lambda a: a is not None, arrays))
+        if len(arrays) == 0:
+            raise InternalException("no arrays present")
+        if any(map(lambda a: a is not None, arrays)):
+            first_not_none_idx = [idx for idx,
+                                  a in enumerate(arrays) if a is not None][0]
+            new_evaluator = arrays[first_not_none_idx]._evaluator.copy()
+            if len(arrays) > 1:
+                for array_i in arrays[1:]:
+                    if array_i is not None:
+                        new_evaluator.merge(array_i._evaluator)
+        else:
+            # if all inputs are none we create a new evaluator
+            # and the graph starts from here
+            # TODO: is this ever valid in the ONNX standard?
+            new_evaluator = evaluator.LazyEvaluator()
 
-    # FIXME: assuming single output for now
-    return new_arrays[0]
+        evaluators = [new_evaluator]
+        n_return_values = output_count
+        if n_return_values > 1:
+            for x in range(1, n_return_values):
+                evaluators.append(new_evaluator.copy())
+        new_arrays = []
+        for e in evaluators:
+            new_arrays.append(array.Array(evaluator=e))
+            # by default assume that the output shape and dtype are the same as lhs
+            new_arrays[-1]._dtype = arrays[0].dtype
+            new_arrays[-1]._dims = arrays[0].shape
+
+        add_node(new_evaluator, op_name, arrays, new_arrays, **attributes)
+
+        if len(evaluators) > 1:
+            for e in evaluators[1:]:
+                # share parent node
+                e._parent_node = new_evaluator._parent_node
+
+        return new_arrays
+
+    return nary_operator
 
 
 def unary_operator(array_obj: "array.Array", op_name: str, **attributes):
