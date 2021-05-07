@@ -32,7 +32,7 @@
 |DequantizeLinear | :heavy_check_mark: | `nn.dequantize_linear` | :x: |
 |Det | :heavy_check_mark: | `det` | :x: |
 |Div | :heavy_check_mark: | `divide` | :x: |
-|Dropout | :x: | | :x: |
+|Dropout | :heavy_check_mark: | `nn.dropout` | :x: |
 |Einsum | :heavy_check_mark: | `einsum` | :x: |
 |Elu | :heavy_check_mark: | `nn.elu` | :x: |
 |Equal | :heavy_check_mark: | `equal` | :x: |

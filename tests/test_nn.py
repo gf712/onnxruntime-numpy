@@ -2,7 +2,7 @@ import pytest
 import onnxruntime_numpy as onp
 from onnxruntime_numpy.types import float_types, all_types
 import numpy as np
-from .utils import expect, GRU_Helper
+from .utils import expect, GRU_Helper, dropout_reference
 import math
 import itertools
 
@@ -1059,6 +1059,137 @@ def test_dequantize_linear_scalar(type_a):
             onp.array(x_zero_point))
 
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_dropout_default(type_a):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = dropout_reference(x)
+    result, _ = onp.nn.dropout(onp.array(x))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+def test_dropout_default_mask(type_a):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected, expected_mask = dropout_reference(x, return_mask=True)
+
+    result, mask = onp.nn.dropout(onp.array(x), seed=0)
+
+    expect(expected, result.numpy())
+    expect(expected_mask, mask.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+@pytest.mark.parametrize("type_b", float_types)
+def test_dropout_default_mask_ratio(type_a, type_b):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    r = type_b(0.1)
+    expected, expected_mask = dropout_reference(x, r, return_mask=True)
+
+    result, mask = onp.nn.dropout(onp.array(x), onp.array(r), seed=0)
+
+    expect(expected, result.numpy())
+    expect(expected_mask, mask.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+@pytest.mark.parametrize("type_b", float_types)
+@pytest.mark.parametrize("type_c", [np.bool_])
+def test_dropout_training(type_a, type_b, type_c):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    r = type_b(0.75)
+    t = type_c(True)
+    mask = np.array([[[False, False, True, False, False],
+                      [False, False, False, False, True],
+                      [False, False, True, False, False],
+                      [False, False, False, False, False]],
+                     [[False, False, False, True, True],
+                      [False, False, False, False, False],
+                      [True, True, False, False, False],
+                      [False, False, True, True, False]],
+                     [[False, True, False, True, False],
+                      [False, False, True, False, False],
+                      [True, False, False, False, False],
+                      [False, False, True, True, False]]])
+
+    scale = 1. / (1. - r)
+    expected = (scale * x * mask).astype(type_a)
+
+    result, _ = onp.nn.dropout(
+        onp.array(x),
+        onp.array(r),
+        onp.array(t),
+        seed=0)
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+@pytest.mark.parametrize("type_b", float_types)
+@pytest.mark.parametrize("type_c", [np.bool_])
+def test_dropout_training_default_ratio_mask(type_a, type_b, type_c):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    r = type_b(0.5)
+    t = type_c(True)
+    mask = np.array([[[False, False, True, False, True],
+                      [False, False, True, True, True],
+                      [False, True, True, False, False],
+                      [True, True, False, False, False]],
+                     [[False, True, True, True, True],
+                      [True, False, True, False, True],
+                      [True, True, False, False, True],
+                      [False, True, True, True, False]],
+                     [[False, True, True, True, True],
+                      [False, True, True, False, False],
+                      [True, False, False, False, False],
+                      [False, False, True, True, False]]])
+
+    scale = 1. / (1. - r)
+    expected = (scale * x * mask).astype(type_a)
+
+    result, m = onp.nn.dropout(
+        onp.array(x),
+        onp.array(r),
+        onp.array(t),
+        seed=0)
+
+    expect(expected, result.numpy())
+    expect(mask, m.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+@pytest.mark.parametrize("type_b", float_types)
+@pytest.mark.parametrize("type_c", [np.bool_])
+def test_dropout_training_default_zero_ratio(type_a, type_b, type_c):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    r = type_b(0.)
+    t = type_c(True)
+    mask = np.array([[[True, True, True, True, True],
+                      [True, True, True, True, True],
+                      [True, True, True, True, True],
+                      [True, True, True, True, True]],
+                     [[True, True, True, True, True],
+                      [True, True, True, True, True],
+                      [True, True, True, True, True],
+                      [True, True, True, True, True]],
+                     [[True, True, True, True, True],
+                      [True, True, True, True, True],
+                      [True, True, True, True, True],
+                      [True, True, True, True, True]]])
+
+    scale = 1. / (1. - r)
+    expected = (scale * x * mask).astype(type_a)
+
+    result, m = onp.nn.dropout(
+        onp.array(x),
+        onp.array(r),
+        onp.array(t),
+        seed=0)
+
+    expect(expected, result.numpy())
+    expect(mask, m.numpy())
 
 
 @ pytest.mark.parametrize("type_a", [np.float32])

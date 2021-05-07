@@ -103,3 +103,20 @@ class GRU_Helper():
             Y_h = Y[:, :, -1, :]
 
         return Y, Y_h
+
+
+def dropout_reference(X, drop_probability=0.5, seed=0, training_mode=False,
+                      return_mask=False):
+    if drop_probability == 0 or training_mode is False:
+        if return_mask is True:
+            return X, np.ones(X.shape, dtype=bool)
+        else:
+            return X
+
+    np.random.seed(seed)
+    mask = np.random.uniform(0, 1.0, X.shape) >= drop_probability
+    scale = (1 / (1 - drop_probability))
+    if return_mask is True:
+        return mask * X * scale, mask.astype(bool)
+    else:
+        return mask * X * scale

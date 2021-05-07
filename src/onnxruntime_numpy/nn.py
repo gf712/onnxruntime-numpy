@@ -263,6 +263,32 @@ def dequantize_linear(x: Array, x_scale: Array,
     return dequantize_linear_helper(x, x_scale, x_zero_point, axis=axis)
 
 
+def dropout(
+        x: Array, ratio: Optional[Array] = None,
+        training_mode: Optional[Array] = None, seed: Optional[int] = None):
+
+    if ratio and ratio.ndims != 0:
+        raise ValueError("Ratio of Dropout must be a scalar.")
+
+    if training_mode and training_mode.ndims != 0:
+        raise ValueError("Training of Dropout must be a bool.")
+
+    @allowed_types(float_types, float_types, [np.bool_])
+    def dropout_helper(
+            x: Array, ratio: Optional[Array],
+            training_mode: Optional[Array],
+            seed: Optional[int]):
+        output, mask = multi_output_nary_operator(2)(
+            "Dropout", x, ratio, training_mode, seed=seed)
+
+        mask._dims = output.shape
+        mask._dtype = np.bool_
+
+        return output, mask
+
+    return dropout_helper(x, ratio, training_mode, seed=seed)
+
+
 def elu(x, alpha=1.0):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
