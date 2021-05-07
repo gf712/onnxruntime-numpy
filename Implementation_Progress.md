@@ -28,7 +28,7 @@
 |Cos | :heavy_check_mark: | `cos` | :x: |
 |Cosh | :heavy_check_mark: | `cosh` | :x: |
 |CumSum | :heavy_check_mark: | `cumsum` | :x: |
-|DepthToSpace | :x: | | :x: |
+|DepthToSpace | :heavy_check_mark: | `nn.depth_to_space` | :x: |
 |DequantizeLinear | :heavy_check_mark: | `nn.dequantize_linear` | :x: |
 |Det | :heavy_check_mark: | `det` | :x: |
 |Div | :heavy_check_mark: | `divide` | :x: |

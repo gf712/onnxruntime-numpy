@@ -182,6 +182,35 @@ def conv_transpose(
         output_shape=output_shape, output_padding=output_padding)
 
 
+def depth_to_space(x: Array, blocksize: int, mode: str = "DCR"):
+
+    if x.ndims != 4:
+        raise ValueError(f"Rank of x has to be four, but got {x.ndims}")
+
+    n, c, h, w = x.shape
+
+    if c.is_static() and int(c) % (blocksize ** 2) != 0:
+        raise ValueError(
+            f"Input depth ({int(c)}) has to be a multiple of blocksize square "
+            f"({blocksize ** 2})")
+
+    @allowed_types(all_types)
+    @not_implemented_types([np.float64, np.uint8, np.uint16, np.uint32, np.uint64,
+                            np.int8, np.int16, np.int32, np.int64, np.bool_])
+    def depth_to_space_helper(x: Array, blocksize: int, mode: str):
+        n, c, h, w = x.shape
+        result = nary_operator(
+            "DepthToSpace", x, blocksize=blocksize, mode=mode)
+        new_c = int(c) // (blocksize ** 2) if c.is_static() else c
+        new_h = int(h) * blocksize if h.is_static() else h
+        new_w = int(w) * blocksize if w.is_static() else w
+        result._dims = DynamicShape(n, new_c, new_h, new_w)
+
+        return result
+
+    return depth_to_space_helper(x, blocksize=blocksize, mode=mode)
+
+
 def dequantize_linear(x: Array, x_scale: Array,
                       x_zero_point: Optional[Array] = None, axis: int = 1):
 
