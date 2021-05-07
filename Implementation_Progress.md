@@ -60,7 +60,7 @@
 |IsInf | :heavy_check_mark: | `isinf` , `isneginf` , `isposinf` | :x: |
 |IsNaN | :heavy_check_mark: | `isnan` | :x: |
 |LRN | :heavy_check_mark: | `lrn` | :x: |
-|LSTM | :x: |  | :x: |
+|LSTM | :heavy_check_mark: | `nn.lstm` | :x: |
 |LeakyRelu | :heavy_check_mark: | `nn.leakyrelu` | :x: |
 |Less | :heavy_check_mark: | `less` | :x: |
 |LessOrEqual | :heavy_check_mark: | `less_equal` | :x: |

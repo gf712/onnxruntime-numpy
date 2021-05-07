@@ -120,3 +120,102 @@ def dropout_reference(X, drop_probability=0.5, seed=0, training_mode=False,
         return mask * X * scale, mask.astype(bool)
     else:
         return mask * X * scale
+
+
+class LSTM_Helper():
+    def __init__(self, **params):
+        # LSTM Input Names
+        X = str('X')
+        W = str('W')
+        R = str('R')
+        B = str('B')
+        H_0 = str('initial_h')
+        C_0 = str('initial_c')
+        P = str('P')
+        LAYOUT = str('layout')
+        number_of_gates = 4
+        number_of_peepholes = 3
+
+        required_inputs = [X, W, R]
+        for i in required_inputs:
+            assert i in params, "Missing Required Input: {0}".format(i)
+
+        self.num_directions = params[W].shape[0]
+
+        if self.num_directions == 1:
+            for k in params.keys():
+                if k != X:
+                    params[k] = np.squeeze(params[k], axis=0)
+
+            hidden_size = params[R].shape[-1]
+            batch_size = params[X].shape[1]
+
+            layout = params[LAYOUT] if LAYOUT in params else 0
+            x = params[X]
+            x = x if layout == 0 else np.swapaxes(x, 0, 1)
+            b = params[B] if B in params else np.zeros(
+                2 * number_of_gates * hidden_size, dtype=np.float32)
+            p = params[P] if P in params else np.zeros(
+                number_of_peepholes * hidden_size, dtype=np.float32)
+            h_0 = params[H_0] if H_0 in params else np.zeros(
+                (batch_size, hidden_size), dtype=np.float32)
+            c_0 = params[C_0] if C_0 in params else np.zeros(
+                (batch_size, hidden_size), dtype=np.float32)
+
+            self.X = x
+            self.W = params[W]
+            self.R = params[R]
+            self.B = b
+            self.P = p
+            self.H_0 = h_0
+            self.C_0 = c_0
+            self.LAYOUT = layout
+
+        else:
+            raise NotImplementedError()
+
+    def f(self, x):
+        return 1 / (1 + np.exp(-x))
+
+    def g(self, x):
+        return np.tanh(x)
+
+    def h(self, x):
+        return np.tanh(x)
+
+    def step(self):
+        seq_length = self.X.shape[0]
+        hidden_size = self.H_0.shape[-1]
+        batch_size = self.X.shape[1]
+
+        Y = np.empty([seq_length, self.num_directions, batch_size, hidden_size])
+        h_list = []
+
+        [p_i, p_o, p_f] = np.split(self.P, 3)
+        H_t = self.H_0
+        C_t = self.C_0
+        for x in np.split(self.X, self.X.shape[0], axis=0):
+            gates = np.dot(x, np.transpose(self.W)) + \
+                np.dot(H_t, np.transpose(self.R)) + np.add(*np.split(self.B, 2))
+            i, o, f, c = np.split(gates, 4, -1)
+            i = self.f(i + p_i * C_t)
+            f = self.f(f + p_f * C_t)
+            c = self.g(c)
+            C = f * C_t + i * c
+            o = self.f(o + p_o * C)
+            H = o * self.h(C)
+            h_list.append(H)
+            H_t = H
+            C_t = C
+
+        concatenated = np.concatenate(h_list)
+        if self.num_directions == 1:
+            Y[:, 0, :, :] = concatenated
+
+        if self.LAYOUT == 0:
+            Y_h = Y[-1]
+        else:
+            Y = np.transpose(Y, [2, 0, 1, 3])
+            Y_h = Y[:, :, -1, :]
+
+        return Y, Y_h

@@ -144,6 +144,8 @@ class Graph:
                     self._graph.add_edge(
                         i._evaluator._parent_node, node_name, index=idx,
                         array=i)
+            else:
+                self._graph.add_edge(None, node_name, index=idx, array=None)
         return node_name
 
     def add_initializer(
@@ -217,9 +219,6 @@ class ExecutableGraph:
             cached_results: "evaluator.IntermediateResultCache"):
         self._graph = graph.copy()
 
-        # input_nodes = [node for node in self._graph.nodes
-        #                if self._graph._graph.in_degree(node) == 0]
-
         self._input_names: Set[str] = set()
 
         inputs_to_add = list()
@@ -292,10 +291,12 @@ class ExecutableGraph:
 
         # FIXME: make this independent of the number of outputs
         output_name = next(iter(self._output_names))
-        for node_name in nx.ancestors(template_graph, output_name):
-
+        ancestors = nx.ancestors(template_graph, output_name)
+        if len(ancestors) == 0:
+            raise InternalException("Could not find ancestor nodes")
+        for node_name in ancestors:
             if node_name is None:
-                raise InternalException("Could not find ancestor nodes")
+                continue
 
             node = template_graph.nodes[node_name]["node"]
 
@@ -308,7 +309,18 @@ class ExecutableGraph:
                 in_edges = template_graph.in_edges(node_name, data=True)
                 out_edges = template_graph.out_edges(node_name, data=True)
 
-                input_names = [e[-1]["array"]._internal_name for e in in_edges]
+                input_names = [
+                    e[-1]["array"]._internal_name for e in in_edges
+                    if e[-1]["array"] is not None]
+
+                # ensures that empty inputs are still added to the graph as ""
+                # which means empty input in ONNX
+                # This makes sure that all inputs are in the corrent argument position
+                for e in in_edges:
+                    if e[-1]["array"] is None:
+                        idx = e[-1]["index"]
+                        input_names.insert(idx, "")
+
                 output_names = [
                     e[-1]["array"]._internal_name for e in out_edges]
 

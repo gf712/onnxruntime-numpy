@@ -5,7 +5,7 @@ from .ops_utils import (
     force_evaluation, propagate_pool_shape, propagate_conv_shape,
     multi_output_nary_operator)
 from .types import (float_types, signed_integer_types, all_types)
-from .shapes import ShapeLike, as_shape, DynamicShape
+from .shapes import ShapeLike, as_shape, DynamicShape, weak_shape_comparisson
 import numpy as np
 from typing import Union, Optional, List
 
@@ -456,13 +456,114 @@ def lrn(
     return helper_lrn(x, size=size, alpha=alpha, beta=beta, bias=bias)
 
 
-def lstm(x: Array, w: Array, r: Array, b: Array, sequence_length: Array,
-         initial_h: Array, initial_c: Array, P: Array, hidden_size: int,
-         activation_alpha: List[float] = None, activation_beta: List[float] = None,
-         activations: List[str] = None, clip: float = 0.0, direction: str = "forward",
-         layout: int = 0, input_forget: bool = False):
-    # TODO
-    raise NotImplementedError()
+def lstm(
+        x: Array, w: Array, r: Array, hidden_size: int, b: Optional[Array] = None,
+        sequence_lengths: Optional[Array] = None, initial_h: Optional[Array] = None,
+        initial_c: Optional[Array] = None, P: Optional[Array] = None,
+        activation_alpha: Optional[List[float]] = None,
+        activation_beta: Optional[List[float]] = None,
+        activations: Optional[List[str]] = None, clip: Optional[float] = None,
+        direction: str = "forward", input_forget: bool = False):
+
+    if direction.lower() not in ["forward", "reverse", "bidirectional"]:
+        raise ValueError(
+            "direction has to be one of forward, reverse or bidirectional")
+
+    @allowed_types(float_types, float_types, float_types, float_types,
+                   [np.int32],
+                   float_types, float_types, float_types)
+    @not_implemented_types([np.float64],
+                           [np.float64],
+                           [np.float64],
+                           [np.float64],
+                           [],
+                           [np.float64],
+                           [np.float64],
+                           [np.float64])
+    def lstm_helper(
+            x: Array, w: Array, r: Array, b: Optional[Array],
+            sequence_lengths: Optional[Array],
+            initial_h: Optional[Array],
+            initial_c: Optional[Array], P: Optional[Array],
+            hidden_size: int, activation_alpha: Optional[List[float]],
+            activation_beta: Optional[List[float]],
+            activations: Optional[List[str]],
+            clip: Optional[float], direction: str, input_forget: int):
+        seq_length, batch_size, input_size = x.shape
+        num_directions = 2 if direction == "bidirectional" else 1
+
+        expected_w_shape = DynamicShape(
+            num_directions, 4 * hidden_size, input_size)
+
+        expected_r_shape = DynamicShape(
+            num_directions, 4 * hidden_size, hidden_size)
+
+        if not weak_shape_comparisson(w.shape, expected_w_shape):
+            raise ValueError(
+                f"W expected to be of shape {expected_w_shape}, but got {w.shape}")
+
+        if not weak_shape_comparisson(r.shape, expected_r_shape):
+            raise ValueError(
+                f"R expected to be of shape {expected_r_shape}, but got {r.shape}")
+
+        if b is not None:
+            expected_b_shape = DynamicShape(num_directions, 8 * hidden_size)
+            if not weak_shape_comparisson(r.shape, expected_r_shape):
+                raise ValueError(
+                    f"bias expected to be of shape {expected_b_shape}, "
+                    f"but got {b.shape}")
+
+        if sequence_lengths:
+            expected_sequence_lengths = DynamicShape(batch_size)
+            if not weak_shape_comparisson(
+                    sequence_lengths.shape, expected_sequence_lengths):
+                raise ValueError(
+                    "sequence_lengths expected to be of shape "
+                    f"{expected_sequence_lengths}, but got {sequence_lengths.shape}")
+
+        if initial_h:
+            expected_initial_h = DynamicShape(
+                num_directions, batch_size, hidden_size)
+            if not weak_shape_comparisson(
+                    initial_h.shape, expected_initial_h):
+                raise ValueError(
+                    "Initial hidden expected to be of shape "
+                    f"{expected_initial_h}, but got {initial_h.shape}")
+
+        if initial_c:
+            expected_initial_c = DynamicShape(
+                num_directions, batch_size, hidden_size)
+            if not weak_shape_comparisson(
+                    initial_c.shape, expected_initial_c):
+                raise ValueError(
+                    "Initial cell value expected to be of shape "
+                    f"{expected_initial_c}, but got {initial_c.shape}")
+
+        if P:
+            expected_p = DynamicShape(num_directions, 3 * hidden_size)
+            if not weak_shape_comparisson(P.shape, expected_p):
+                raise ValueError(
+                    "Initial cell value expected to be of shape "
+                    f"{expected_p}, but got {P.shape}")
+
+        y, yh, yc = multi_output_nary_operator(3)(
+            "LSTM", x, w, r, b, sequence_lengths, initial_h, initial_c, P,
+            hidden_size=hidden_size, activation_alpha=activation_alpha,
+            activation_beta=activation_beta, activations=activations, clip=clip,
+            direction=direction)
+
+        y._dims = DynamicShape(seq_length, num_directions,
+                               batch_size, hidden_size)
+        yh._dims = DynamicShape(num_directions, batch_size, hidden_size)
+        yc._dims = DynamicShape(num_directions, batch_size, hidden_size)
+
+        return y, yh, yc
+
+    return lstm_helper(
+        x, w, r, b, sequence_lengths, initial_h, initial_c, P,
+        hidden_size=hidden_size, activation_alpha=activation_alpha,
+        activation_beta=activation_beta, activations=activations, clip=clip,
+        direction=direction.lower(), input_forget=int(input_forget))
 
 
 def leakyrelu(x: Array, alpha: float = 0.01):
