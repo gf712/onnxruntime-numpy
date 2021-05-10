@@ -134,7 +134,7 @@
 |Sin | :heavy_check_mark: | `sin` | :x: |
 |Sinh | :heavy_check_mark: | `sinh` | :x: |
 |Size | :heavy_check_mark: | `size` | :x: |
-|Slice | :x: | | :x: |
+|Slice | :heavy_check_mark: | `slice` and `Array.__getitem__` | :x: |
 |Softplus | :heavy_check_mark: | `nn.softplus` | :x: |
 |Softsign | :heavy_check_mark: | `nn.softsign` | :x: |
 |SpaceToDepth | :x: | | :x: |

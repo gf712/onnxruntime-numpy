@@ -1304,8 +1304,15 @@ def shape(x: "array.Array") -> "array.Array":
     return shape_helper(x)
 
 
+def sign(x: "array.Array") -> "array.Array":
+    @allowed_types(numeric_types)
+    def sign_helper(x: "array.Array") -> "array.Array":
+        return nary_operator("Sign", x)
+    return sign_helper(x)
+
+
 @register
-def sin(x):
+def sin(x) -> "array.Array":
     @allowed_types([*float_types])
     def helper_sin(x):
         return unary_operator(x, "Sin")
@@ -1313,7 +1320,7 @@ def sin(x):
 
 
 @register
-def sinh(x):
+def sinh(x) -> "array.Array":
     @allowed_types([*float_types])
     @not_implemented_types([np.float64])
     def helper_sin(x):
@@ -1347,11 +1354,47 @@ def size(x: "array.Array") -> "array.Array":
     return size_helper(x)
 
 
-def sign(x: "array.Array") -> "array.Array":
-    @allowed_types(numeric_types)
-    def sign_helper(x: "array.Array") -> "array.Array":
-        return nary_operator("Sign", x)
-    return sign_helper(x)
+def slice(x: "array.Array", starts: "array.Array", ends: "array.Array",
+          axes: Optional["array.Array"] = None, steps: Optional["array.Array"] = None):
+
+    if (starts.dtype != ends.dtype or (axes and starts.dtype != axes.dtype)
+            or (steps and starts.dtype != steps.dtype)):
+        raise ValueError("types of starts, ends, axes and steps must match")
+
+    if starts.ndims != 1:
+        raise ValueError("starts must be a 1D array")
+
+    if ends.ndims != 1:
+        raise ValueError("ends must be a 1D array")
+
+    if axes and axes.ndims != 1:
+        raise ValueError("axes must be a 1D array")
+    # elif not axes:
+    #     axes = array.array(list(range(starts)), dtype=starts.dtype)
+
+    if steps and steps.ndims != 1:
+        raise ValueError("steps must be a 1D array")
+    # elif not steps:
+    #     steps = array.array([1] * starts.ndims, dtype=starts.dtype)
+
+    @allowed_types(all_types, [np.int32, np.int64],
+                   [np.int32, np.int64],
+                   [np.int32, np.int64],
+                   [np.int32, np.int64])
+    def slice_helper(
+            x: "array.Array", starts: "array.Array", ends: "array.Array",
+            axes: Optional["array.Array"], steps: Optional["array.Array"]):
+        result = nary_operator("Slice", x, starts, ends, axes, steps)
+
+        # TODO: infer shape
+        # if (array.is_lazy(starts) or array.is_lazy(ends)
+        #         or (axes and array.is_lazy(axes))
+        #         or (steps and array.is_lazy(steps))):
+        result._dims = DynamicShape(*[-1 for _ in range(x.ndims)])
+
+        return result
+
+    return slice_helper(x, starts, ends, axes, steps)
 
 
 def subtract(x, y):

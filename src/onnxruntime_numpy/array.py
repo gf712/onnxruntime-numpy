@@ -2,6 +2,7 @@ from .evaluator import LazyEvaluator
 from . import ops
 from .types import numpy_to_ort, python_to_numpy, ort_to_numpy, all_types, AnyType
 from .shapes import as_shape, Shape, ShapeLike, DynamicShape, StaticShape
+from .constants import INT32_MAX, INT32_MIN
 from typing import Any, List, Union, Optional
 from typing import Iterable as IterableType
 from collections.abc import Iterable
@@ -79,7 +80,55 @@ class Array:
         return self.shape.size()
 
     def __getitem__(self, index) -> Any:
-        return self.numpy()[index]
+        if isinstance(index, int):
+            return ops.slice(
+                self, array([index], dtype=np.int32),
+                array([index + 1], dtype=np.int32),
+                axes=array([0], dtype=np.int32))
+        elif isinstance(index, slice):
+            index = (index,)
+        elif index == Ellipsis:
+            raise NotImplementedError("Currently cannot handle ellipsis")
+        elif not isinstance(index, tuple):
+            raise TypeError(f"Unexpected type {type(index)} for slice {index}")
+
+        starts = []
+        ends = []
+        steps = []
+        axes = []
+
+        for i, idx in enumerate(index):
+            if idx == Ellipsis:
+                raise NotImplementedError("Currently cannot handle ellipsis")
+            if isinstance(idx, slice):
+                if idx.start is None and idx.stop is None and idx.step is None:
+                    starts.append(0)
+                    ends.append(INT32_MAX)
+                    steps.append(1)
+                else:
+                    starts.append(idx.start if idx.start is not None else 0)
+                    steps.append(idx.step if idx.step is not None else 1)
+                    if idx.stop is not None:
+                        ends.append(idx.stop)
+                    # we could always use INT32_MAX, but to respect the ONNX standard
+                    # differentiate negative from positive steps by using INT32_MAX/MIN
+                    elif steps[-1] > 0:
+                        ends.append(INT32_MAX)
+                    else:
+                        ends.append(INT32_MIN)
+            elif isinstance(idx, int):
+                starts.append(idx)
+                ends.append(idx + 1)
+                steps.append(1)
+            else:
+                raise TypeError(f"Unexpected type {type(idx)} in slice {index}")
+            axes.append(i)
+
+        return ops.slice(
+            self, array(starts, dtype=np.int32),
+            array(ends, dtype=np.int32),
+            axes=array(axes, dtype=np.int32),
+            steps=array(steps, dtype=np.int32))
 
     def __int__(self) -> int:
         return int(self.numpy())
@@ -193,7 +242,7 @@ def infer_dtype_from_array(array: IterableType[Any]) -> int:
     return python_to_numpy(infer_dtype_from_array_helper(array))
 
 
-def array(values, dtype: np.dtype = None) -> Array:
+def array(values, dtype: type = None) -> Array:
     # it's already an Array
     if isinstance(values, Array):
         if dtype is None or values.dtype == dtype:
@@ -214,7 +263,7 @@ def array(values, dtype: np.dtype = None) -> Array:
             dtype = values.dtype
         else:
             # by default an empty array without a type is a float32
-            dtype = numpy_to_ort(np.dtype(np.float32)) if len(
+            dtype = numpy_to_ort(np.dtype(np.float32)) if len(  # type: ignore
                 values) == 0 else infer_dtype_from_array(values)
 
     if isinstance(values, np.ndarray):
