@@ -157,4 +157,4 @@
 |Unsqueeze | :x: | | :x: |
 |Upsample | :x: | | :x: |
 |Where | :x: | | :x: |
-|Xor | :x: | | :x: |
+|Xor | :heavy_check_mark: | `logical_xor` | :x: |

@@ -3,6 +3,7 @@ from . import ops
 from .types import numpy_to_ort, python_to_numpy, ort_to_numpy, all_types, AnyType
 from .shapes import as_shape, Shape, ShapeLike, DynamicShape, StaticShape
 from .constants import INT32_MAX, INT32_MIN
+from .exceptions import InternalException
 from typing import Any, List, Union, Optional
 from typing import Iterable as IterableType
 from collections.abc import Iterable
@@ -61,11 +62,13 @@ class Array:
     @property
     def shape(self) -> Shape:
         if self._dims is None:
-            raise ValueError("Unevaluated shape.. This is a bug!")
+            raise InternalException("Unevaluated shape.. This is a bug!")
         return self._dims  # type: ignore
 
     @property
     def dtype(self) -> np.dtype:
+        if self._dtype is None:
+            raise InternalException("Unevaluated dtype.. This is a bug!")
         return self._dtype
 
     @property

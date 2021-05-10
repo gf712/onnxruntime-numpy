@@ -565,3 +565,57 @@ def test_pow_broadcast(type_a, type_b):
     expected = np.power(x, y).astype(type_a)
     result = onp.power(onp.array(x), onp.array(y))
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.bool_])
+def test_xor(type_a):
+    x = (np.random.randn(3, 4) > 0).astype(type_a)
+    y = (np.random.randn(3, 4) > 0).astype(type_a)
+    expected = np.logical_xor(x, y)
+    result = onp.logical_xor(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    expected = np.logical_xor(x, y)
+    result = onp.logical_xor(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    expected = np.logical_xor(x, y)
+    result = onp.logical_xor(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.bool_])
+def test_xor_broadcast(type_a):
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(5) > 0).astype(type_a)
+    expected = np.logical_xor(x, y)
+    result = onp.logical_xor(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5) > 0).astype(type_a)
+    y = (np.random.randn(4, 5) > 0).astype(type_a)
+    expected = np.logical_xor(x, y)
+    result = onp.logical_xor(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(5, 6) > 0).astype(type_a)
+    expected = np.logical_xor(x, y)
+    result = onp.logical_xor(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(4, 5, 6) > 0).astype(type_a)
+    expected = np.logical_xor(x, y)
+    result = onp.logical_xor(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())
+
+    x = (np.random.randn(3, 4, 5, 6) > 0).astype(type_a)
+    y = (np.random.randn(3, 1, 5, 6) > 0).astype(type_a)
+    expected = np.logical_xor(x, y)
+    result = onp.logical_xor(onp.array(x), onp.array(y))
+    expect(expected, result.numpy())

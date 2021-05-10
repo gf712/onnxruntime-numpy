@@ -1427,3 +1427,15 @@ def transpose(x: "array.Array", perm: Optional[List[int]] = None):
         return result
 
     return transpose_helper(x, perm)
+
+
+def logical_xor(a: "array.Array", b: "array.Array"):
+
+    @allowed_types(bool_types, bool_types)
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def logical_xor_helper(a: "array.Array", b: "array.Array"):
+        return nary_operator("Xor", a, b)
+
+    return logical_xor_helper(a, b)
