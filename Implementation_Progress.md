@@ -86,7 +86,7 @@
 |NonMaxSuppression | :x: | | :x: |
 |NonZero | :heavy_check_mark: | `nonzero` | :x: |
 |Not | :heavy_check_mark: | `not_` | :x: |
-|OneHot | :x: | | :x: |
+|OneHot | :heavy_check_mark: | `one_hot` | :x: |
 |Or | :heavy_check_mark: | `logical_or` | :x: |
 |PRelu | :heavy_check_mark: | `nn.prelu` | :x: |
 |Pad | :x: | | :x: |

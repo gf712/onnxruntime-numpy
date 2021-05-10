@@ -4,7 +4,7 @@ import onnxruntime
 import numpy as np  # FIXME maybe
 from .types import numpy_to_ort, ort_to_numpy
 from .shapes import weak_shape_comparisson, as_shape
-from .graph import Graph, ExecutableGraph
+from .graph import Graph, compile_graph
 from .config import PROVIDERS
 from .exceptions import InternalException
 from collections.abc import Iterable
@@ -154,9 +154,9 @@ class LazyEvaluator:
         # self._graph_names.update(other._graph_names)
         # self._initializers = {**self._initializers, **other._initializers}
 
-    def _build_executable_graph(self, array: "array.Array") -> ExecutableGraph:
+    def _build_onnx_graph(self, array: "array.Array") -> onnx.GraphProto:
         # FIXME: need to fix result caching
-        return ExecutableGraph(
+        return compile_graph(
             self._graph, self._array_to_node_map.get_input_map(),
             self._array_to_node_map.get_output_map(),
             self._input_values,
@@ -169,9 +169,8 @@ class LazyEvaluator:
                 "Graph is empty. "
                 "This is an internal error. Please file a bug")
 
-        executable_graph = self._build_executable_graph(output_array)
+        onnx_graph = self._build_onnx_graph(output_array)
 
-        onnx_graph = executable_graph.build_onnx_graph()
         m = onnx.helper.make_model(onnx_graph)
         buffer = m.SerializeToString()
 

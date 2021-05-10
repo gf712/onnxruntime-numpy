@@ -219,3 +219,17 @@ class LSTM_Helper():
             Y_h = Y[:, :, -1, :]
 
         return Y, Y_h
+
+
+def one_hot_reference(indices, depth, axis=-1, dtype=np.float32):  # type: ignore
+    values = np.asarray(indices)
+    rank = len(values.shape)
+    depth_range = np.arange(depth)
+    if axis < 0:
+        axis += (rank + 1)
+    ls = values.shape[0:axis]
+    rs = values.shape[axis:rank]
+    targets = np.reshape(
+        depth_range, (1,) * len(ls) + depth_range.shape + (1,) * len(rs))
+    values = np.reshape(np.mod(values, depth), ls + (1,) + rs)
+    return np.asarray(targets == values, dtype=dtype)

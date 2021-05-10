@@ -315,7 +315,7 @@ class ExecutableGraph:
 
                 # ensures that empty inputs are still added to the graph as ""
                 # which means empty input in ONNX
-                # This makes sure that all inputs are in the corrent argument position
+                # This makes sure that all inputs are in the correct argument position
                 for e in in_edges:
                     if e[-1]["array"] is None:
                         idx = e[-1]["index"]
@@ -340,3 +340,13 @@ class ExecutableGraph:
                 output_node.shape.tolist()))
 
         return g
+
+
+def compile_graph(
+        graph: Graph, node_inputs: Dict[str, List["array.Array"]],
+        node_outputs: Dict[str, List["array.Array"]],
+        inputs: Dict[str, "array.Array"],
+        outputs: Dict[str, "array.Array"],
+        cached_results: "evaluator.IntermediateResultCache") -> onnx.GraphProto:
+    return ExecutableGraph(graph, node_inputs, node_outputs, inputs, outputs,
+                           cached_results).build_onnx_graph()

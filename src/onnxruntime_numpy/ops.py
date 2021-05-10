@@ -13,6 +13,7 @@ from .types import (bool_types, float_types, all_types, integer_types,
                     unsigned_integer_types, NumericType)
 from .shapes import ShapeLike, as_shape, Shape, DynamicDimension, DynamicShape
 from . import array
+from .exceptions import InternalException
 from typing import List, Any, Union, Optional
 from typing import Iterable as IterableType
 from collections.abc import Iterable
@@ -932,14 +933,46 @@ def not_(x: "array.Array"):
 def one_hot(
         indices: "array.Array", depth: "array.Array", values: "array.Array",
         axis: int = -1):
-    # TODO
-    raise NotImplementedError("OneHot")
+
+    if axis < -indices.ndims and axis >= indices.ndims:
+        raise ValueError(
+            f"Axis must be in the range [-{indices.ndims}, {indices.ndims-1}]")
+
+    IMPLEMENTED_COMBINATIONS = [[np.float32, np.float32, np.float32],
+                                [np.int64, np.int64, np.float32],
+                                [np.int64, np.int64, np.int64]]
+
+    if [indices.dtype, depth.dtype, values.dtype] not in IMPLEMENTED_COMBINATIONS:
+        raise ValueError(
+            "Array type combination not implemented. Implemented combinations are: "
+            f"{', '.join(str(comb) for comb in IMPLEMENTED_COMBINATIONS)}")
 
     @allowed_types(numeric_types, numeric_types, all_types)
     def one_hot_helper(
             indices: "array.Array", depth: "array.Array", values: "array.Array",
             axis: int):
-        return nary_operator("OneHot", indices, depth, values, axis=axis)
+        result = nary_operator("OneHot", indices, depth, values, axis=axis)
+        output_shape: List[Optional[int]] = [None] * (len(indices.shape) + 1)
+        dim_to_insert = -1 if array.is_lazy(depth) else int(depth.item())
+        axis = len(indices.shape) + axis + 1 if axis < 0 else axis
+
+        indices_idx = 0
+        for idx in range(len(output_shape)):
+            if idx == axis:
+                output_shape[idx] = dim_to_insert
+            else:
+                output_shape[idx] = indices.shape[indices_idx]
+                indices_idx += 1
+
+        if any(map(lambda el: el is None, output_shape)):
+            raise InternalException(
+                f"Invalid output shape {output_shape} for one hot encoding!")
+        # line below is ignored because mypy cannot figure out that output_shape cannot
+        # have None at this point
+        result._dims = DynamicShape(*output_shape)  # type: ignore
+        result._dtype = values.dtype
+
+        return result
 
     return one_hot_helper(indices, depth, values, axis=axis)
 
