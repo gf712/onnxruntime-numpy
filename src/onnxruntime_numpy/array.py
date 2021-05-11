@@ -82,6 +82,10 @@ class Array:
     def __len__(self) -> int:
         return self.shape.size()
 
+    @property
+    def size(self) -> int:
+        return len(self)
+
     def __getitem__(self, index) -> Any:
         if isinstance(index, int):
             return ops.slice(

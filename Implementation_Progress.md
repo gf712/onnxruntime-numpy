@@ -148,7 +148,7 @@
 |Tanh | :heavy_check_mark: | `tanh` | :x: |
 |TfIdfVectorizer | :x: | | :x: |
 |ThresholdedRelu | :heavy_check_mark: | `nn.thresholded_relu` | :x: |
-|Tile | :x: | | :x: |
+|Tile | :heavy_check_mark: | `tile` | :x: |
 |TopK | :x: | | :x: |
 |Transpose | :heavy_check_mark: | `transpose` | :x: |
 |Trilu | :x: | | :x: |

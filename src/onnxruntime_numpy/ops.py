@@ -1484,6 +1484,41 @@ def squeeze(x: "array.Array", axes: "array.Array" = None):
     return squeeze_helper(x, axes)
 
 
+def tile(x: "array.Array", repeats: "array.Array"):
+
+    if repeats.ndims != 1:
+        raise ValueError(
+            f"repeats must be tensor of rank 1, but got tensor of rank {repeats.ndims}")
+
+    @allowed_types(all_types, [np.int64])
+    def tile_helper(x: "array.Array", repeats: "array.Array"):
+        output_shape = None
+        if array.is_lazy(repeats):
+            output_shape = DynamicShape(*[-1] * x.ndims)
+        else:
+            if repeats.size != x.ndims:
+                raise ValueError(
+                    f"repeats array size {repeats.size} does not match rank of x "
+                    f"{x.ndims}")
+            repeats_ = repeats.numpy()
+            output_shape_ = []
+            for i in range(repeats.size):
+                if x.shape[i].is_static():
+                    if repeats_[i] < 1:
+                        raise ValueError(
+                            f"repeats must be greater than 0, but got {repeats}")
+                    output_shape_.append(int(x.shape[i]) * repeats_[i])
+                else:
+                    output_shape_.append(-1)
+            output_shape = DynamicShape(*output_shape_)
+
+        result = nary_operator("Tile", x, repeats)
+        result._dims = output_shape
+        return result
+
+    return tile_helper(x, repeats)
+
+
 def trilu(
         x: "array.Array", k: Optional["array.Array"] = None, upper: bool = True):
 

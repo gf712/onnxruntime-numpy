@@ -551,6 +551,31 @@ def test_pow_operator(type_a, type_b):
     expect(expected, result.numpy())
 
 
+@pytest.mark.parametrize("type_a", all_types)
+def test_tile(type_a):
+    x = np.random.rand(2, 3, 4, 5).astype(type_a)
+    repeats = np.random.randint(
+        low=1, high=10, size=(np.ndim(x),)).astype(
+        np.int64)
+
+    expected = np.tile(x, repeats)
+    result = onp.tile(onp.array(x), onp.array(repeats))
+    expect(expected, result.numpy())
+
+
+# TODO
+# @pytest.mark.parametrize("type_a", all_types)
+# def test_tile_lazy(type_a):
+#     x = np.random.rand(2, 3, 4, 5).astype(type_a)
+#     repeats = [4, 6, 12, 16]
+#     expected = np.tile(x, repeats)
+
+#     repeats = onp.array([2, 3, 6, 8], np.int64)
+#     repeats += repeats
+#     result = onp.tile(onp.array(x), repeats)
+#     expect(expected, result.numpy())
+
+
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 @pytest.mark.parametrize("type_b", [*float_types, np.int32, np.int64])
 def test_pow_broadcast(type_a, type_b):
