@@ -140,7 +140,7 @@
 |Split | :x: | | :x: |
 |SplitToSequence | :x:| | :x: |
 |Sqrt | :heavy_check_mark: | `sqrt` | :x: |
-|Squeeze | :x: | | :x: |
+|Squeeze | :heavy_check_mark: | `squeeze` | :x: |
 |StringNormalizer | :x: | | :x: |
 |Sub | :heavy_check_mark: | `subtract` | :x: |
 |Sum | :x: |  | :x: |

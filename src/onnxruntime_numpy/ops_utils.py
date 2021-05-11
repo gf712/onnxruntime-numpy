@@ -100,9 +100,15 @@ def deduce_output_type(lhs: "array.Array", rhs: "array.Array"):
     return lhs._dtype
 
 
+def check_axis_is_valid(x: "array.Array", axis: int):
+    if axis < -len(x.shape) or axis > len(x.shape) - 1:
+        raise ValueError(
+            f"Axis must be in the range [-{len(x.shape)}, {len(x.shape)-1}]")
+
+
 def allowed_types(*expected_types):
     def decorator(func):
-        @functools.wraps(func)
+        @ functools.wraps(func)
         def wrapper_allowed_types(*arrays, **kwargs):
             # type checks
             for idx, (array_obj, dtypes) in enumerate(
@@ -118,7 +124,7 @@ def allowed_types(*expected_types):
 
 def not_implemented_types(*expected_types):
     def decorator(func):
-        @functools.wraps(func)
+        @ functools.wraps(func)
         def wrapper_allowed_types(*arrays, **kwargs):
             # type checks
             for idx, (array_obj, dtypes) in enumerate(
@@ -368,10 +374,9 @@ def reduction_axis(*, axis_arg=None, axis_kwarg=None):
             axis = kwargs[axis_kwarg]
         else:
             axis = input_arrays_and_args[axis_arg]
-        shape = input_arrays_and_args[0].shape
-        if axis < -len(shape) or axis > len(shape) - 1:
-            raise ValueError(
-                f"Axis must be in the range [-{len(shape)}, {len(shape)-1}]")
+        x = input_arrays_and_args[0]
+        check_axis_is_valid(x, axis)
+        shape = x.shape
         new_shape_list = list(shape)
         new_shape_list.pop(axis)
         return_array._dims = tuple(new_shape_list)
@@ -489,11 +494,10 @@ def broadcast_to(shape_: Shape):
 
 def flatten_shape(axis: int):
     def wrapper_flatten_shape(return_array, *input_arrays_and_args, **kwargs):
-        array_shape = input_arrays_and_args[0].shape
-        if axis < -len(array_shape) or axis > len(array_shape) - 1:
-            raise ValueError(
-                f"Axis must be in the range [-{len(array_shape)}, "
-                f"{len(array_shape)-1}]")
+        x = input_arrays_and_args[0]
+        check_axis_is_valid(x, axis)
+
+        array_shape = x.shape
 
         if axis == 0:
             output_shape = DynamicShape(1, array_shape.size())
@@ -517,9 +521,8 @@ def gather_check(axis_: int):
         if x.ndims == 0:
             raise ValueError("Array cannot be a scalar")
 
-        if axis_ < -len(x_shape) or axis_ > len(x_shape) - 1:
-            raise ValueError(
-                f"Axis must be in the range [-{len(x_shape)}, {len(x_shape)-1}]")
+        check_axis_is_valid(x, axis_)
+
         axis = len(x_shape) + axis_ if axis_ < 0 else axis_
 
         if indices._ort_value is not None:
@@ -765,16 +768,15 @@ def reduce_axis(axes: Union[List[int], "array.Array", None], keepdims: bool):
             # and axis is not specified)
             return
 
-        x_shape = input_arrays_and_args[0].shape
+        x = input_arrays_and_args[0]
+        x_shape = x.shape
         if isinstance(axes, array.Array):
             axes_np = axes.numpy()
         else:
             axes_np = np.array(axes)
 
-        if any(map(lambda axis: axis < -len(x_shape) or axis > len(x_shape) - 1,
-                   axes_np)):
-            raise ValueError(
-                f"Axis must be in the range [-{len(x_shape)}, {len(x_shape)-1}]")
+        for axis in axes_np:
+            check_axis_is_valid(x, axis)
 
         reduction_axes = [len(x_shape) + axis if axis <
                           0 else axis for axis in axes_np]
@@ -852,7 +854,7 @@ def force_evaluation(a: "array.Array", name: str, allow_evaluation: bool):
 
 
 def register(function):
-    @functools.wraps(function)
+    @ functools.wraps(function)
     def register_wrapper(*args, **kwargs):
         # FIXME: this is total foobar
         result = function(*args, **kwargs)

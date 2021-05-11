@@ -884,3 +884,31 @@ def test_tanh(type_a):
     expected = np.tanh(x)
     result = onp.tanh(onp.array(x))
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_squeeze(type_a):
+    x = np.random.randn(1, 3, 4, 5).astype(type_a)
+    axes = np.array([0], dtype=np.int64)
+    expected = np.squeeze(x, axis=0)
+    result = onp.squeeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_squeeze_negative_axes(type_a):
+    x = np.random.randn(1, 3, 1, 5).astype(type_a)
+    axes = np.array([-2], dtype=np.int64)
+    expected = np.squeeze(x, axis=-2)
+    result = onp.squeeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_squeeze_lazy(type_a):
+    x = np.random.randn(1, 3, 1, 5).astype(type_a)
+    axes = np.array([-1], dtype=np.int64)
+    axes += axes  # -2
+    expected = np.squeeze(x, axis=-2)
+    result = onp.squeeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())

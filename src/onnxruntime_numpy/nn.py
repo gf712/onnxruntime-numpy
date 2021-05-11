@@ -3,7 +3,7 @@ from .ops_utils import (
     allowed_types, not_implemented_types, output_checks_and_inference,
     allow_broadcasting, nary_operator, propagate_shape_global_pool,
     force_evaluation, propagate_pool_shape, propagate_conv_shape,
-    multi_output_nary_operator)
+    multi_output_nary_operator, check_axis_is_valid)
 from .types import (float_types, signed_integer_types, all_types)
 from .shapes import ShapeLike, as_shape, DynamicShape, weak_shape_comparisson
 import numpy as np
@@ -219,11 +219,9 @@ def dequantize_linear(x: Array, x_scale: Array,
             "x_zero_point cannot be set when using x with type int32")
 
     # only check axis arg if one or both x_scale and x_zero_point aren't scalars
-    if (len(x_scale.shape) > 0 or
-            (x_zero_point is not None and len(x_zero_point.shape) > 0)) and \
-            (axis < -len(x.shape) or axis >= len(x.shape)):
-        raise ValueError(
-            f"Axis must be in the range [-{len(x.shape)}, {len(x.shape)-1}]")
+    if (len(x_scale.shape) > 0
+            or (x_zero_point is not None and len(x_zero_point.shape) > 0)):
+        check_axis_is_valid(x, axis)
 
     if len(x_scale.shape) > 0:
         if len(x_scale.shape) == 1 and x_scale.shape[0] != x.shape[axis]:
@@ -402,9 +400,7 @@ def hard_sigmoid(x: Array, alpha: float = 0.2, beta: float = 0.5):
 
 def hardmax(x: Array, axis: int = -1):
 
-    if axis < -x.ndims or axis > x.ndims - 1:
-        raise ValueError(
-            f"Axis must be in the range [-{x.ndims}, {x.ndims-1}]")
+    check_axis_is_valid(x, axis)
 
     @allowed_types(float_types)
     @not_implemented_types([np.float64])
@@ -577,9 +573,7 @@ def leakyrelu(x: Array, alpha: float = 0.01):
 def logsoftmax(x: Array, axis: int = -1):
 
     axis = int(axis)
-    if axis < -x.ndims or axis > x.ndims - 1:
-        raise ValueError(
-            f"Axis must be in the range [-{x.ndims}, {x.ndims-1}]")
+    check_axis_is_valid(x, axis)
 
     @allowed_types(float_types)
     def helper_logsoftmax(x: Array, axis: int):
@@ -738,9 +732,7 @@ def relu(x):
 def scatter(
         data: Array, indices: Array, updates: Array,
         axis: int = 0):
-    if axis < -len(data.shape) or axis >= len(data.shape):
-        raise ValueError(
-            f"Axis must be in the range [-{len(data.shape)}, {len(data.shape)-1}]")
+    check_axis_is_valid(data, axis)
 
     data_rank = len(data.shape)
     if data_rank == 0:

@@ -7,7 +7,7 @@ from .ops_utils import (
     output_shape_from_einsum, output_type, allow_broadcasting,
     array_is_square_matrix, determinant_output_shape, broadcast_to,
     flatten_shape, gather_check, check_input_shape_gemm, propagate_shape_gemm,
-    force_evaluation, reshape_check, register)
+    force_evaluation, reshape_check, register, check_axis_is_valid)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
                     unsigned_integer_types, NumericType)
@@ -525,9 +525,7 @@ def gather(x: "array.Array", indices: "array.Array", axis: int = 0):
 
 def gather_elements(x: "array.Array", indices: "array.Array", axis: int = 0):
 
-    if axis < -x.ndims or axis > x.ndims - 1:
-        raise ValueError(
-            f"Axis must be in the range [-{x.ndims}, {x.ndims-1}]")
+    check_axis_is_valid(x, axis)
 
     @allowed_types(all_types, [np.int32, np.int64])
     @output_checks_and_inference(
@@ -542,9 +540,7 @@ def gather_elements(x: "array.Array", indices: "array.Array", axis: int = 0):
 
 def gathernd(x: "array.Array", indices: "array.Array", batch_dims: int = 0):
 
-    # if axis < -x.ndims or axis > x.ndims - 1:
-    #     raise ValueError(
-    #         f"Axis must be in the range [-{x.ndims}, {x.ndims-1}]")
+    # check_axis_is_valid(x, axis)
 
     # @allowed_types(all_types, [np.int32, np.int64])
     # @output_checks_and_inference(
@@ -695,9 +691,9 @@ def log(x: "array.Array"):
 def lp_normalization(x: "array.Array", axis: int = -1, p: int = 2):
 
     axis = int(axis)
-    if axis < -x.ndims or axis > x.ndims - 1:
-        raise ValueError(
-            f"Axis must be in the range [-{x.ndims}, {x.ndims-1}]")
+
+    check_axis_is_valid(x, axis)
+
     p = int(p)
     if p not in [1, 2]:
         raise ValueError(
@@ -1455,3 +1451,34 @@ def logical_xor(a: "array.Array", b: "array.Array"):
         return nary_operator("Xor", a, b)
 
     return logical_xor_helper(a, b)
+
+
+def squeeze(x: "array.Array", axes: "array.Array" = None):
+
+    @allowed_types(all_types, [np.int64])
+    def squeeze_helper(x: "array.Array", axes: "array.Array"):
+        output_shape = x.shape
+        if array.is_lazy(axes):
+            output_shape = DynamicShape(
+                *[DynamicDimension(-1)] * (x.ndims - int(axes.shape[0])))
+        else:
+            axis_to_remove = []
+            for axis in axes:
+                check_axis_is_valid(x, axis)
+                if x.shape[axis] != 1:
+                    raise ValueError(
+                        f"cannot select axis ({axis}) to squeeze out "
+                        "which has size not equal to one in shape "
+                        f"{x.shape}")
+                axis = axis if axis >= 0 else x.ndims + axis
+
+                axis_to_remove.append(axis)
+            output_shape = DynamicShape(
+                *[s for idx, s in enumerate(output_shape)
+                    if idx not in axis_to_remove])
+
+        result = nary_operator("Squeeze", x, axes)
+        result._dims = output_shape
+        return result
+
+    return squeeze_helper(x, axes)
