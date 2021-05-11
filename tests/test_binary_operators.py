@@ -619,3 +619,26 @@ def test_xor_broadcast(type_a):
     expected = np.logical_xor(x, y)
     result = onp.logical_xor(onp.array(x), onp.array(y))
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64, np.uint8])
+def test_where(type_a):
+    condition = np.array([[1, 0], [1, 1]], dtype=np.bool)
+    x = np.array([[1, 2], [3, 4]], dtype=type_a)
+    y = np.array([[9, 8], [7, 6]], dtype=type_a)
+    expected = np.where(condition, x, y)
+    result = onp.where(onp.array(condition), onp.array(x), onp.array(y))
+
+    expect(expected, result)
+
+
+# TODO: fix broadcasting with more than two arrays
+# @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64, np.uint8])
+# def test_where_broadcast(type_a):
+#     condition = np.array([[1, 0], [1, 1]], dtype=np.bool)
+#     x = np.array([[1, 2], [3, 4]], dtype=type_a)
+#     y = np.array([[9, 8], [7, 6]], dtype=type_a)
+#     expected = np.where(condition, x, y)
+#     result = onp.where(onp.array(condition), onp.array(x), onp.array(y))
+
+#     expect(expected, result)

@@ -1555,3 +1555,23 @@ def unsqueeze(x: "array.Array", axes: "array.Array"):
         return result
 
     return unsqueeze_helper(x, axes)
+
+
+def where(condition: "array.Array", x: "array.Array", y: "array.Array"):
+
+    @allowed_types([np.bool_], all_types, all_types)
+    @not_implemented_types(
+        [],
+        [np.uint16, np.uint32, np.uint64, np.int8, np.int16, np.bool_],
+        [np.uint16, np.uint32, np.uint64, np.int8, np.int16, np.bool_])
+    @output_checks_and_inference(
+        allow_broadcasting
+    )
+    def where_helper(
+            condition: "array.Array", x: "array.Array", y: "array.Array"):
+        result = nary_operator("Where", condition, x, y)
+        result._dtype = x.dtype
+
+        return result
+
+    return where_helper(condition, x, y)

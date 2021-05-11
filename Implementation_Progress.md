@@ -155,5 +155,5 @@
 |Unique | :x: | | :x: |
 |Unsqueeze | :heavy_check_mark: | `unsqueeze` | :x: |
 |Upsample | Deprecated | | :x: |
-|Where | :x: | | :x: |
+|Where | :heavy_check_mark: | `where` | :x: |
 |Xor | :heavy_check_mark: | `logical_xor` | :x: |
