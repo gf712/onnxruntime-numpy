@@ -153,7 +153,7 @@
 |Transpose | :heavy_check_mark: | `transpose` | :x: |
 |Trilu | :x: | | :x: |
 |Unique | :x: | | :x: |
-|Unsqueeze | :x: | | :x: |
-|Upsample | :x: | | :x: |
+|Unsqueeze | :heavy_check_mark: | `unsqueeze` | :x: |
+|Upsample | Deprecated | | :x: |
 |Where | :x: | | :x: |
 |Xor | :heavy_check_mark: | `logical_xor` | :x: |

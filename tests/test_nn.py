@@ -277,7 +277,7 @@ def test_average_pool_2d_same_lower(type_a):
     result = onp.nn.average_pool(
         onp.array(x), kernel_shape=kernel_shape, auto_pad="SAME_LOWER")
 
-    expect(expected, result.numpy(), rtol=1e-03)
+    expect(expected, result.numpy(), rtol=1e-02)
 
 
 @pytest.mark.parametrize("type_a", [np.float32])

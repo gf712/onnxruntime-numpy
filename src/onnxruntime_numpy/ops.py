@@ -1482,3 +1482,76 @@ def squeeze(x: "array.Array", axes: "array.Array" = None):
         return result
 
     return squeeze_helper(x, axes)
+
+
+def trilu(
+        x: "array.Array", k: Optional["array.Array"] = None, upper: bool = True):
+
+    # TODO: update this when onnxruntime release ONNX opset 14 support
+    raise NotImplementedError("Only available from ONNX opset 14")
+
+    if x.ndims < 2:
+        raise ValueError(
+            "Expected x to be an array with rank greater than 1, but got rank"
+            f"{x.ndims}")
+
+    if k and k.ndims != 0:
+        raise ValueError(
+            f"Expected k to be an array with rank 0, but got rank {k.ndims}")
+
+    @allowed_types(all_types, [np.int64])
+    def trilu_helper(x: "array.Array", k: Optional["array.Array"], upper: int):
+        return nary_operator("Trilu", x, k, upper=upper)
+
+    return trilu_helper(x, k, upper=int(upper))
+
+
+def tril(x: "array.Array", k: Optional["array.Array"] = None):
+    return trilu(x, k, True)
+
+
+def triu(x: "array.Array", k: Optional["array.Array"] = None):
+    return trilu(x, k, False)
+
+
+def unsqueeze(x: "array.Array", axes: "array.Array"):
+
+    @allowed_types(all_types, [np.int64])
+    def unsqueeze_helper(x: "array.Array", axes: "array.Array"):
+        output_shape = None
+        if array.is_lazy(axes):
+            output_shape = DynamicShape(
+                *[DynamicDimension(-1)] * (x.ndims + int(axes.shape[0])))
+        else:
+            output_shape_: List[Optional[int]] = [
+                None] * (x.ndims + int(axes.shape[0]))
+            dims_to_insert = []
+            for axis in axes:
+                if (int(axis) < -len(output_shape_)
+                        or int(axis) > len(output_shape_) - 1):
+                    raise ValueError(
+                        f"Axis must be in the range [-{len(output_shape_)}, "
+                        f"{len(output_shape_)-1}]")
+                axis = axis if axis >= 0 else len(output_shape_) + axis
+                if axis in dims_to_insert:
+                    raise ValueError(f"Repeated axis values in {axes}")
+                dims_to_insert.append(axis)
+
+            indices_idx = 0
+            for idx in range(len(output_shape_)):
+                if idx in dims_to_insert:
+                    output_shape_[idx] = 1
+                else:
+                    output_shape_[idx] = x.shape[indices_idx]
+                    indices_idx += 1
+
+            if None in output_shape_:
+                raise InternalException("output_shape cannot contain None")
+
+            output_shape = DynamicShape(*output_shape_)  # type: ignore
+
+        result = nary_operator("Unsqueeze", x, axes)
+        result._dims = output_shape
+        return result
+
+    return unsqueeze_helper(x, axes)

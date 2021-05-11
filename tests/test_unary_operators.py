@@ -912,3 +912,83 @@ def test_squeeze_lazy(type_a):
     expected = np.squeeze(x, axis=-2)
     result = onp.squeeze(onp.array(x), onp.array(axes))
     expect(expected, result.numpy())
+
+
+# TODO: update this when onnxruntime release ONNX opset 14 support
+# @pytest.mark.parametrize("type_a", all_types)
+# def test_trilu_lower(type_a):
+#     x = np.random.randint(10, size=(4, 5)).astype(type_a)
+#     expected = np.tril(x, 0)
+#     result = onp.tril(onp.array(x))
+#     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_unsqueeze(type_a):
+    x = np.random.randn(1, 3, 4, 5).astype(type_a)
+    axes = np.array([0], dtype=np.int64)
+    expected = np.expand_dims(x, axis=0)
+    result = onp.unsqueeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_unsqueeze_negative_axes(type_a):
+    x = np.random.randn(1, 3, 1, 5).astype(type_a)
+    axes = np.array([-2], dtype=np.int64)
+    expected = np.expand_dims(x, axis=-2)
+    result = onp.unsqueeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_unsqueeze_lazy(type_a):
+    x = np.random.randn(1, 3, 1, 5).astype(type_a)
+    axes = np.array([-1], dtype=np.int64)
+    axes += axes  # -2
+    expected = np.expand_dims(x, axis=-2)
+    result = onp.unsqueeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_unsqueeze_one_axis(type_a):
+    x = np.random.randn(3, 4, 5).astype(np.float32)
+
+    for i in range(x.ndim):
+        axes = np.array([i]).astype(np.int64)
+        expected = np.expand_dims(x, axis=i)
+        result = onp.unsqueeze(onp.array(x), onp.array(axes))
+        expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_unsqueeze_two_axis(type_a):
+    x = np.random.randn(1, 3, 1, 5).astype(type_a)
+    axes = np.array([1, 4], dtype=np.int64)
+    expected = np.expand_dims(x, axis=1)
+    expected = np.expand_dims(expected, axis=4)
+    result = onp.unsqueeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_unsqueeze_three_axis(type_a):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    axes = np.array([2, 4, 5]).astype(np.int64)
+    expected = np.expand_dims(x, axis=2)
+    expected = np.expand_dims(expected, axis=4)
+    expected = np.expand_dims(expected, axis=5)
+    result = onp.unsqueeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", all_types)
+def test_unsqueeze_unsorted(type_a):
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    axes = np.array([5, 4, 2]).astype(np.int64)
+    expected = np.expand_dims(x, axis=2)
+    expected = np.expand_dims(expected, axis=4)
+    expected = np.expand_dims(expected, axis=5)
+    result = onp.unsqueeze(onp.array(x), onp.array(axes))
+    expect(expected, result.numpy())
