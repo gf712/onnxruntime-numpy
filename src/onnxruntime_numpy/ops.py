@@ -1416,6 +1416,22 @@ def sqrt(x: "array.Array") -> "array.Array":
     return sqrt_helper(x)
 
 
+def tan(x: "array.Array") -> "array.Array":
+    @allowed_types(float_types)
+    @not_implemented_types([np.float64])
+    def tan_helper(x: "array.Array") -> "array.Array":
+        return nary_operator("Tan", x)
+    return tan_helper(x)
+
+
+def tanh(x: "array.Array") -> "array.Array":
+    @allowed_types(float_types)
+    @not_implemented_types([np.float64])
+    def tanh_helper(x: "array.Array") -> "array.Array":
+        return nary_operator("Tanh", x)
+    return tanh_helper(x)
+
+
 def transpose(x: "array.Array", perm: Optional[List[int]] = None):
     if perm is None:
         perm = list(reversed(range(len(x.shape))))

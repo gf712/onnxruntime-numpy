@@ -866,3 +866,21 @@ def test_transpose_default(type_a):
     expected = x.T
     result = onp.array(x).T
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_tan(type_a):
+    x = np.array([-1, 0, 1]).astype(type_a)
+
+    expected = np.tan(x)
+    result = onp.tan(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_tanh(type_a):
+    x = np.array([-1, 0, 1]).astype(type_a)
+
+    expected = np.tanh(x)
+    result = onp.tanh(onp.array(x))
+    expect(expected, result.numpy())

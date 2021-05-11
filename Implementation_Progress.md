@@ -145,8 +145,8 @@
 |StringNormalizer | :x: | | :x: |
 |Sub | :heavy_check_mark: | `subtract` | :x: |
 |Sum | :x: |  | :x: |
-|Tan | :x: | | :x: |
-|Tanh | :x: | | :x: |
+|Tan | :heavy_check_mark: | `tan` | :x: |
+|Tanh | :heavy_check_mark: | `tanh` | :x: |
 |TfIdfVectorizer | :x: | | :x: |
 |ThresholdedRelu | :x: | | :x: |
 |Tile | :x: | | :x: |
