@@ -76,13 +76,12 @@
 |MaxRoiPool | :x: | | :x: |
 |MaxUnpool | :x: | `nn.maxunpool` | :x: |
 |Mean | :heavy_check_mark: | `mean` | :x: |
-|NegativeLogLikelihoodLoss | :heavy_check_mark: | `mean` | :x: |
 |Min | :heavy_check_mark: | `minimum` | :x: |
 |Mod | :heavy_check_mark: | `mod` | :x: |
 |Mul | :heavy_check_mark: | `multiply` | :x: |
 |Multinomial | :heavy_check_mark: | `random.multinomial` | :x: |
 |Neg | :heavy_check_mark: | `negative` | :x: |
-|NegativeLogLikelihoodLoss | :x: |  | :x: |
+|NegativeLogLikelihoodLoss | :heavy_check_mark: (unstable) | `nn.negative_loglikelihood_loss` | :x: |
 |NonMaxSuppression | :x: | | :x: |
 |NonZero | :heavy_check_mark: | `nonzero` | :x: |
 |Not | :heavy_check_mark: | `not_` | :x: |

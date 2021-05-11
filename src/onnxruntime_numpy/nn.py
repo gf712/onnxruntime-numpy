@@ -641,17 +641,74 @@ def maxunpool(
 
 
 def negative_loglikelihood_loss(
-        input: Array, target: Array,
+        x: Array, target: Array,
         weight: Optional[Array] = None, ignore_index: Optional[int] = None,
         reduction: str = "mean"):
+
+    import warnings
+    warnings.warn("This function is currently unstable")
+
+    if x.ndims < 2:
+        raise ValueError(
+            f"x must have rank greater than or equal to 2, but got rank {x.ndims}")
+
+    if target.ndims < 1:
+        raise ValueError(
+            "target must have rank greater than or equal to 1, but got rank "
+            f"{target.ndims}")
+
+    if reduction.lower() not in ["none", "sum", "mean"]:
+        raise ValueError(
+            f"reduction must be one of none, sum or mean, but got {reduction}")
+
     def negative_loglikelihood_loss_helper(
-            input: Array, target: Array,
+            x: Array, target: Array,
             weight: Optional[Array],
             ignore_index: Optional[int],
-            reduction: str):
-        NotImplementedError("negative_loglikelihood_loss")
+            reduction: str = "mean"):
+
+        if x.ndims > 2:
+            x_n, x_c, x_ds = x.shape
+            target_n, target_ds = target.shape
+
+            if not weak_shape_comparisson(
+                    DynamicShape(x_ds),
+                    DynamicShape(target_ds)):
+                raise ValueError(
+                    f"x and target features shapes {x_ds} and {target_ds} are not "
+                    "compatible")
+
+        x_n = x.shape[0]
+        target_n = target.shape[0]
+
+        if x_n != target_n:
+            raise ValueError(
+                f"x and target batch sizes {x_n} and {target_n} are not compatible")
+
+        if weight:
+            if weight.ndims != 1:
+                raise ValueError(
+                    f"weight must have rank 1, but got rank {target.ndims}")
+
+            x_c = x.shape[1]
+            weight_c = weight.shape[0]
+
+            if x_c != weight_c:
+                raise ValueError(
+                    f"x and target channel sizes {x_c} and {weight_c} are not "
+                    "compatible")
+
+        result = nary_operator(
+            "NegativeLogLikelihoodLoss", x, target,
+            ignore_index=ignore_index, reduction=reduction)
+
+        result._dims = DynamicShape(
+            x_n) if reduction == "none" else DynamicShape()
+
+        return result
+
     return negative_loglikelihood_loss_helper(
-        input, target, weight, ignore_index, reduction)
+        x, target, weight, ignore_index=ignore_index, reduction=reduction.lower())
 
 
 def prelu(x: Array, slope: Union[Array, float]):

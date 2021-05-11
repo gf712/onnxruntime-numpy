@@ -2,7 +2,9 @@ import pytest
 import onnxruntime_numpy as onp
 from onnxruntime_numpy.types import float_types, all_types
 import numpy as np
-from .utils import expect, GRU_Helper, dropout_reference, LSTM_Helper
+from .utils import (
+    expect, GRU_Helper, dropout_reference, LSTM_Helper,
+    negative_log_likelihood_loss_reference)
 import math
 import itertools
 
@@ -1680,6 +1682,58 @@ def test_maxunpool_with_output_shape(type_a):
 #     result = onp.maxunpool(onp.array(xT), onp.array(
 #         xI), kernel_shape=[2, 2], strides=[2, 2])
 #     expect(expected, result.numpy())
+
+
+# TODO: Investigate negative_loglikelihood_loss issues (tests below fail)
+# @pytest.mark.parametrize("type_a", float_types)
+# @pytest.mark.parametrize("type_b", [np.int32, np.int64])
+# def test_negative_loglikelihood_loss(type_a, type_b):
+#     N, C = 3, 5
+#     reduction = 'none'
+
+#     x = np.random.rand(N, C).astype(type_a)
+#     target = np.random.randint(0, high=C, size=(N,)).astype(type_b)
+#     expected = negative_log_likelihood_loss_reference(
+#         x, target, weight=None, reduction=reduction)
+#     result = onp.nn.negative_loglikelihood_loss(onp.array(x), onp.array(target))
+
+#     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", float_types)
+@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+def test_negative_loglikelihood_loss_input_shape_is_NCd1(type_a, type_b):
+    N, C, d1 = 3, 5, 2
+
+    reduction = "mean"
+
+    x = np.random.rand(N, C, d1).astype(type_a)
+    target = np.random.randint(0, high=C, size=(N, d1)).astype(type_b)
+    expected = negative_log_likelihood_loss_reference(
+        x, target, weight=None, reduction=reduction).astype(type_a)
+    result = onp.nn.negative_loglikelihood_loss(onp.array(x), onp.array(target))
+
+    expect(expected, result.numpy())
+
+
+# @pytest.mark.parametrize("type_a", float_types)
+# @pytest.mark.parametrize("type_b", [np.int32, np.int64])
+# def test_negative_loglikelihood_loss_input_shape_is_NCd1_ii(type_a, type_b):
+#     N, C, d1 = 3, 5, 2
+#     ignore_index = type_b(1)
+#     reduction = "mean"
+
+#     x = np.random.rand(N, C, d1).astype(type_a)
+#     target = np.random.randint(0, high=C, size=(N, d1)).astype(type_b)
+#     target[0][0] = type_b(1)
+#     expected = negative_log_likelihood_loss_reference(
+#         x, target, weight=None, reduction=reduction, ignore_index=ignore_index
+#     ).astype(type_a)
+#     result = onp.nn.negative_loglikelihood_loss(
+#         onp.array(x), onp.array(target), ignore_index=ignore_index)
+
+#     expect(expected, result.numpy())
+
 
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_prelu(type_a):
