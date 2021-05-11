@@ -1922,3 +1922,25 @@ def test_softsign(type_a):
     expected = x / (1 + np.abs(x))
     result = onp.nn.softsign(onp.array(x))
     expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_thresholded_relu_default(type_a):
+    default_alpha = 1.0
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.clip(x, default_alpha, np.inf)
+    expected[expected == default_alpha] = 0
+    result = onp.nn.thresholded_relu(onp.array(x))
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_thresholded_relu(type_a):
+    alpha = 2.0
+    x = np.random.randn(3, 4, 5).astype(type_a)
+    expected = np.clip(x, alpha, np.inf)
+    expected[expected == alpha] = 0
+    result = onp.nn.thresholded_relu(onp.array(x), alpha=alpha)
+
+    expect(expected, result.numpy())

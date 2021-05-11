@@ -768,3 +768,13 @@ def softsign(x: Array):
         return nary_operator("Softsign", x)
 
     return softsign_helper(x)
+
+
+def thresholded_relu(x: Array, alpha: float = 1.0):
+
+    @allowed_types(float_types)
+    @not_implemented_types([np.float64])
+    def thresholded_relu_helper(x: Array, alpha: float):
+        return nary_operator("ThresholdedRelu", x, alpha=alpha)
+
+    return thresholded_relu_helper(x, alpha=float(alpha))
