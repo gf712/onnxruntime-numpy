@@ -1519,6 +1519,37 @@ def tile(x: "array.Array", repeats: "array.Array"):
     return tile_helper(x, repeats)
 
 
+def topk(
+        x: "array.Array", k: "array.Array", axis: int = -1, largest: bool = True,
+        sorted: bool = True):
+
+    @allowed_types(numeric_types, [np.int64])
+    @not_implemented_types([*unsigned_integer_types, np.int8, np.int16, np.int32])
+    def topk_helper(
+            x: "array.Array", k: "array.Array", axis: int, largest: int,
+            sorted: int):
+
+        check_axis_is_valid(x, axis)
+
+        values, indices = multi_output_nary_operator(2)("TopK",
+            x, k, axis=axis, largest=largest, sorted=sorted)
+
+        output_shape_ = x.shape.tolist()
+
+        output_shape_[axis] = -1 if array.is_lazy(k) else int(k.item())
+
+        output_shape = DynamicShape(*output_shape_)
+
+        values._dims = output_shape
+        indices._dims = output_shape
+        indices._dtype = np.int64
+
+        return values, indices
+
+    return topk_helper(
+        x, k, axis=axis, largest=int(largest), sorted=int(sorted))
+
+
 def trilu(
         x: "array.Array", k: Optional["array.Array"] = None, upper: bool = True):
 

@@ -922,6 +922,92 @@ def test_squeeze_lazy(type_a):
 #     result = onp.tril(onp.array(x))
 #     expect(expected, result.numpy())
 
+@pytest.mark.parametrize("type_a", [*float_types, np.int64])
+def test_topk(type_a):
+    axis = 1
+    largest = True
+    k = 3
+
+    X = np.array([
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+        [8, 9, 10, 11],
+    ], dtype=type_a)
+    K = np.array([k], dtype=np.int64)
+
+    values_expected = np.array([[3, 2, 1],
+                                [7, 6, 5],
+                                [11, 10, 9]], dtype=type_a)
+    indices_expected = np.array([[3, 2, 1],
+                                 [3, 2, 1],
+                                 [3, 2, 1]], dtype=np.int64)
+
+    values, indices = onp.topk(
+        onp.array(X),
+        onp.array(K),
+        axis=axis, largest=largest)
+
+    expect(values_expected, values.numpy())
+    expect(indices_expected, indices.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int64])
+def test_topk_negative_axis(type_a):
+    axis = -1
+    largest = True
+    k = 3
+
+    X = np.array([
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+        [8, 9, 10, 11],
+    ], dtype=type_a)
+    K = np.array([k], dtype=np.int64)
+
+    values_expected = np.array([[3, 2, 1],
+                                [7, 6, 5],
+                                [11, 10, 9]], dtype=type_a)
+    indices_expected = np.array([[3, 2, 1],
+                                 [3, 2, 1],
+                                 [3, 2, 1]], dtype=np.int64)
+
+    values, indices = onp.topk(
+        onp.array(X),
+        onp.array(K),
+        axis=axis, largest=largest)
+
+    expect(values_expected, values.numpy())
+    expect(indices_expected, indices.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int64])
+def test_topk_smallest(type_a):
+    axis = 1
+    largest = False
+    sorted = True
+    k = 3
+
+    X = np.array([
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+        [11, 10, 9, 8],
+    ], dtype=type_a)
+    K = np.array([k], dtype=np.int64)
+
+    values_expected = np.array([[0, 1, 2],
+                                [4, 5, 6],
+                                [8, 9, 10]], dtype=type_a)
+    indices_expected = np.array([[0, 1, 2],
+                                 [0, 1, 2],
+                                 [3, 2, 1]], dtype=np.int64)
+
+    values, indices = onp.topk(
+        onp.array(X), onp.array(K),
+        axis=axis, largest=largest, sorted=sorted)
+
+    expect(values_expected, values.numpy())
+    expect(indices_expected, indices.numpy())
+
 
 @pytest.mark.parametrize("type_a", [np.float32, np.int8, np.int64])
 def test_unique_not_sorted_without_axis(type_a):

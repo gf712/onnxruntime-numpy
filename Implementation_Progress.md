@@ -149,7 +149,7 @@
 |TfIdfVectorizer | :x: | | :x: |
 |ThresholdedRelu | :heavy_check_mark: | `nn.thresholded_relu` | :x: |
 |Tile | :heavy_check_mark: | `tile` | :x: |
-|TopK | :x: | | :x: |
+|TopK | :heavy_check_mark: | `topk` | :x: |
 |Transpose | :heavy_check_mark: | `transpose` | :x: |
 |Trilu | :x: | | :x: |
 |Unique | :heavy_check_mark: | `unique` | :x: |
