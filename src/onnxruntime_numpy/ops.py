@@ -1,6 +1,6 @@
 from .ops_utils import (
     unary_operator, binary_operator, nary_operator, allowed_types,
-    output_type_is_argn_position,
+    output_type_is_argn_position, multi_output_nary_operator,
     propagate_shape_from_argn_position, output_checks_and_inference,
     propagate_shape_matmul, check_input_shape_matmul, not_implemented_types,
     concatenate_shapes, types_match_exactly, initializer_operator, reduce_axis,
@@ -1547,6 +1547,45 @@ def tril(x: "array.Array", k: Optional["array.Array"] = None):
 
 def triu(x: "array.Array", k: Optional["array.Array"] = None):
     return trilu(x, k, False)
+
+
+def unique(
+        x: "array.Array", return_index: bool = False, return_inverse: bool = False,
+        return_counts: bool = False, axis: Optional[int] = None, sorted: bool = True):
+
+    @allowed_types(all_types)
+    @not_implemented_types(
+        [np.float64, *unsigned_integer_types, np.int16, np.int32, np.bool_])
+    def unique_helper(x: "array.Array", axis: Optional[int], sorted: int):
+
+        if axis:
+            check_axis_is_valid(x, axis)
+
+        y, indices, inverse_indices, counts = multi_output_nary_operator(
+            4)("Unique", x, axis=axis, sorted=sorted)
+
+        if axis:
+            output_shape = y.shape.tolist()
+            output_shape[axis] = -1
+            y._dims = DynamicShape(*output_shape)
+
+        return_list = [y]
+        if return_index:
+            indices._dtype = np.int64
+            indices._dims = DynamicShape(-1)
+            return_list.append(indices)
+        if return_inverse:
+            inverse_indices._dtype = np.int64
+            inverse_indices._dims = DynamicShape(-1)
+            return_list.append(inverse_indices)
+        if return_counts:
+            counts._dtype = np.int64
+            counts._dims = DynamicShape(-1)
+            return_list.append(counts)
+
+        return (*return_list,)
+
+    return unique_helper(x, axis=axis, sorted=int(sorted))
 
 
 def unsqueeze(x: "array.Array", axes: "array.Array"):

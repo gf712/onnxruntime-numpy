@@ -152,7 +152,7 @@
 |TopK | :x: | | :x: |
 |Transpose | :heavy_check_mark: | `transpose` | :x: |
 |Trilu | :x: | | :x: |
-|Unique | :x: | | :x: |
+|Unique | :heavy_check_mark: | `unique` | :x: |
 |Unsqueeze | :heavy_check_mark: | `unsqueeze` | :x: |
 |Upsample | Deprecated | | :x: |
 |Where | :heavy_check_mark: | `where` | :x: |

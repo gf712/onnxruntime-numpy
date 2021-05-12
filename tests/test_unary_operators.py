@@ -923,6 +923,120 @@ def test_squeeze_lazy(type_a):
 #     expect(expected, result.numpy())
 
 
+@pytest.mark.parametrize("type_a", [np.float32, np.int8, np.int64])
+def test_unique_not_sorted_without_axis(type_a):
+    x = np.array([2, 1, 1, 3, 4, 3], dtype=type_a)
+    y, indices, inverse_indices, counts = np.unique(
+        x, True, True, True)
+
+    # prepare index mapping from sorted to unsorted
+    argsorted_indices = np.argsort(indices)
+    inverse_indices_map = {i: si for i, si in zip(
+        argsorted_indices, np.arange(len(argsorted_indices)))}
+
+    indices = indices[argsorted_indices]
+    y_expected = np.take(x, indices, axis=0)
+    inverse_indices = np.asarray([inverse_indices_map[i]
+                                  for i in inverse_indices],
+                                 dtype=np.int64)
+    counts = counts[argsorted_indices]
+    indices_expected = indices.astype(np.int64)
+    inverse_indices_expected = inverse_indices.astype(np.int64)
+    counts_expected = counts.astype(np.int64)
+
+    y, indices, inverse_indices, counts = onp.unique(onp.array(
+        x), return_index=True, return_inverse=True, return_counts=True, sorted=False)
+
+    expect(y_expected, y.numpy())
+    expect(indices_expected, indices.numpy())
+    expect(inverse_indices_expected, inverse_indices.numpy())
+    expect(counts_expected, counts.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32, np.int8, np.int64])
+def test_unique_sorted_with_axis(type_a):
+    x = np.array([[1, 0, 0], [1, 0, 0], [2, 3, 4]], dtype=type_a)
+    y_expected, indices, inverse_indices, counts = np.unique(
+        x, True, True, True, axis=0)
+
+    indices_expected = indices.astype(np.int64)
+    inverse_indices_expected = inverse_indices.astype(np.int64)
+    counts_expected = counts.astype(np.int64)
+
+    y, indices, inverse_indices, counts = onp.unique(
+        onp.array(x),
+        return_index=True, return_inverse=True, return_counts=True, sorted=True,
+        axis=0)
+
+    expect(y_expected, y.numpy())
+    expect(indices_expected, indices.numpy())
+    expect(inverse_indices_expected, inverse_indices.numpy())
+    expect(counts_expected, counts.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32, np.int8, np.int64])
+def test_unique_sorted_with_axis_3d(type_a):
+    x = np.array([[[1, 1], [0, 1], [2, 1], [0, 1]],
+                  [[1, 1], [0, 1], [2, 1], [0, 1]]], dtype=type_a)
+    y_expected, indices, inverse_indices, counts = np.unique(
+        x, True, True, True, axis=1)
+
+    indices_expected = indices.astype(np.int64)
+    inverse_indices_expected = inverse_indices.astype(np.int64)
+    counts_expected = counts.astype(np.int64)
+
+    y, indices, inverse_indices, counts = onp.unique(
+        onp.array(x),
+        return_index=True, return_inverse=True, return_counts=True, sorted=True,
+        axis=1)
+
+    expect(y_expected, y.numpy())
+    expect(indices_expected, indices.numpy())
+    expect(inverse_indices_expected, inverse_indices.numpy())
+    expect(counts_expected, counts.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32, np.int8, np.int64])
+def test_unique_negative_axis(type_a):
+    x = np.array([[1, 0, 0], [1, 0, 0], [2, 3, 3]], dtype=type_a)
+    y_expected, indices, inverse_indices, counts = np.unique(
+        x, True, True, True, axis=-1)
+
+    indices_expected = indices.astype(np.int64)
+    inverse_indices_expected = inverse_indices.astype(np.int64)
+    counts_expected = counts.astype(np.int64)
+
+    y, indices, inverse_indices, counts = onp.unique(
+        onp.array(x),
+        return_index=True, return_inverse=True, return_counts=True, sorted=True,
+        axis=-1)
+
+    expect(y_expected, y.numpy())
+    expect(indices_expected, indices.numpy())
+    expect(inverse_indices_expected, inverse_indices.numpy())
+    expect(counts_expected, counts.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32, np.int8, np.int64])
+def test_unique_without_axis(type_a):
+    x = np.array([2, 1, 1, 3, 4, 3], dtype=type_a)
+    y_expected, indices, inverse_indices, counts = np.unique(
+        x, True, True, True)
+
+    indices_expected = indices.astype(np.int64)
+    inverse_indices_expected = inverse_indices.astype(np.int64)
+    counts_expected = counts.astype(np.int64)
+
+    y, indices, inverse_indices, counts = onp.unique(
+        onp.array(x),
+        return_index=True, return_inverse=True, return_counts=True, sorted=True)
+
+    expect(y_expected, y.numpy())
+    expect(indices_expected, indices.numpy())
+    expect(inverse_indices_expected, inverse_indices.numpy())
+    expect(counts_expected, counts.numpy())
+
+
 @pytest.mark.parametrize("type_a", all_types)
 def test_unsqueeze(type_a):
     x = np.random.randn(1, 3, 4, 5).astype(type_a)
