@@ -769,14 +769,15 @@ def maxunpool(
         output_shape: Optional[ShapeLike] = None, pads: Optional[List[int]] = None,
         strides: Optional[List[int]] = None, allow_evaluation: bool = False):
 
-    # TODO: check this is still correct
-    if output_shape is None:
-        raise NotImplementedError(
-            "Currently onnxruntime requires output_shape to be specified")
+    if output_shape is not None:
+        output_shape = force_evaluation(
+            as_shape(output_shape).asarray(),
+            "output_shape", allow_evaluation)
 
-    output_shape = force_evaluation(
-        as_shape(output_shape).asarray(),
-        "output_shape", allow_evaluation)
+    if pads is not None and output_shape is not None:
+        import warnings
+        warnings.warn(
+            "pads will be ignored, since output_shape has been specified")
 
     @allowed_types(float_types, [np.int64], [np.int64])
     @not_implemented_types([np.float64])
@@ -786,11 +787,24 @@ def maxunpool(
             kernel_shape: List[int],
             pads: List[int],
             strides: List[int]):
-        result = nary_operator(
-            "MaxUnpool", x, indices, output_shape, kernel_shape=kernel_shape,
-            pads=pads, strides=strides)
+
+        # TODO: pretty sure this is a bug. Onnxruntime should recognise "" as
+        # non-existing input but in this case adding output_shape as None
+        # (which becomes "") causes onnxruntime to think that this node requires
+        # 3 inputs, when actually there should be only 2
+        if output_shape is None:
+            result = nary_operator(
+                "MaxUnpool", x, indices, kernel_shape=kernel_shape,
+                pads=pads, strides=strides)
+        else:
+            result = nary_operator(
+                "MaxUnpool", x, indices, output_shape,
+                kernel_shape=kernel_shape, pads=pads, strides=strides)
         if output_shape is not None:
             result._dims = as_shape(output_shape)
+        else:
+            n, c = x.shape[:2]
+            result._dims = DynamicShape(n, c, *[-1] * (x.ndims - 2))
         return result
 
     return helper_maxunpool(

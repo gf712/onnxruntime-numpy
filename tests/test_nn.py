@@ -2164,25 +2164,36 @@ def test_maxpool_with_argmax_2d_precomputed_strides(type_a):
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_maxunpool_with_output_shape(type_a):
     xT = np.array([[[[5, 6],
-                   [7, 8]]]], dtype=type_a)
-    xI = np.array([[[[5, 7],
-                   [13, 15]]]], dtype=np.int64)
+                     [7, 8]]]], dtype=type_a)
+    # TODO: indices different from ONNX test case.
+    # Pretty sure these are the correct values
+    xI = np.array([[[[6, 8],
+                     [16, 18]]]], dtype=np.int64)
     output_shape = np.array((1, 1, 5, 5), dtype=np.int64)
-    # FIXME: result expected in ONNX operators.md
-    # expected = np.array([[[[0, 0, 0, 0, 0],
-    #                        [0, 5, 0, 6, 0],
-    #                        [0, 0, 0, 0, 0],
-    #                        [0, 7, 0, 8, 0],
-    #                        [0, 0, 0, 0, 0]]]], dtype=type_a)
-    # result I am getting?
-    expected = np.array([[[[0., 0., 0., 0., 0.],
-                         [5., 0., 6., 0., 0.],
-                         [0., 0., 0., 7., 0.],
-                         [8., 0., 0., 0., 0.],
-                         [0., 0., 0., 0., 0.]]]], dtype=type_a)
+    expected = np.array([[[[0, 0, 0, 0, 0],
+                           [0, 5, 0, 6, 0],
+                           [0, 0, 0, 0, 0],
+                           [0, 7, 0, 8, 0],
+                           [0, 0, 0, 0, 0]]]], dtype=type_a)
     result = onp.nn.maxunpool(onp.array(xT), onp.array(xI),
                               kernel_shape=[2, 2],
                               output_shape=onp.array(output_shape),
+                              strides=[2, 2])
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_maxunpool_without_output_shape(type_a):
+    xT = np.array([[[[1, 2],
+                     [3, 4]]]], dtype=type_a)
+    xI = np.array([[[[5, 7],
+                     [13, 15]]]], dtype=np.int64)
+    expected = np.array([[[[0, 0, 0, 0],
+                           [0, 1, 0, 2],
+                           [0, 0, 0, 0],
+                           [0, 3, 0, 4]]]], dtype=type_a)
+    result = onp.nn.maxunpool(onp.array(xT), onp.array(xI),
+                              kernel_shape=[2, 2],
                               strides=[2, 2])
     expect(expected, result.numpy())
 

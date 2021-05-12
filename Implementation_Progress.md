@@ -74,7 +74,7 @@
 |Max | :heavy_check_mark: | `max` | :x: |
 |MaxPool | :heavy_check_mark: | `nn.maxpool` | :x: |
 |MaxRoiPool | :heavy_check_mark: | `nn.maxroipool` | :x: |
-|MaxUnpool | :x: | `nn.maxunpool` | :x: |
+|MaxUnpool | :heavy_check_mark: | `nn.maxunpool` | :x: |
 |Mean | :heavy_check_mark: | `mean` | :x: |
 |Min | :heavy_check_mark: | `minimum` | :x: |
 |Mod | :heavy_check_mark: | `mod` | :x: |
