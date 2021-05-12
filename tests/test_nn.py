@@ -2323,6 +2323,35 @@ def test_softsign(type_a):
 
 
 @pytest.mark.parametrize("type_a", [np.float32])
+def test_space_to_depth_default(type_a):
+    blocksize = 2
+    N = 1
+    C = 2
+    H = 2
+    W = 4
+    x = np.array([[0, 0.1, 0.2, 0.3],
+                  [1, 1.1, 1.2, 1.3],
+                  [2, 2.1, 2.2, 2.3],
+                  [3, 3.1, 3.2, 3.3]], dtype=type_a).reshape(N, C, H, W)
+
+    expected = np.array(
+        [[0., 0.2],
+         [2., 2.2],
+         [0.1, 0.3],
+         [2.1, 2.3],
+         [1., 1.2],
+         [3., 3.2],
+         [1.1, 1.3],
+         [3.1, 3.3]],
+        dtype=type_a).reshape(
+        N, C * blocksize * blocksize, H // blocksize, W // blocksize)
+
+    result = onp.nn.space_to_depth(onp.array(x), blocksize)
+
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [np.float32])
 def test_thresholded_relu_default(type_a):
     default_alpha = 1.0
     x = np.random.randn(3, 4, 5).astype(type_a)

@@ -866,6 +866,38 @@ def softsign(x: Array):
     return softsign_helper(x)
 
 
+def space_to_depth(x: Array, blocksize: int):
+
+    if x.ndims != 4:
+        raise ValueError(f"Rank of x must be four, but got {x.ndims}")
+
+    n, c, h, w = x.shape
+
+    if h.is_static() and int(h) % blocksize != 0:
+        raise ValueError(
+            f"Input height ({int(h)}) must be a multiple of blocksize ({blocksize})")
+
+    if w.is_static() and int(w) % blocksize != 0:
+        raise ValueError(
+            f"Input width ({int(w)}) must be a multiple of blocksize ({blocksize})")
+
+    @allowed_types(all_types)
+    @not_implemented_types([np.float64, np.uint8, np.uint16, np.uint32, np.uint64,
+                            np.int8, np.int16, np.int32, np.int64, np.bool_])
+    def depth_to_space_helper(x: Array, blocksize: int):
+        n, c, h, w = x.shape
+        result = nary_operator(
+            "SpaceToDepth", x, blocksize=blocksize)
+        new_c = int(c) * (blocksize ** 2) if c.is_static() else c
+        new_h = int(h) / blocksize if h.is_static() else h
+        new_w = int(w) / blocksize if w.is_static() else w
+        result._dims = DynamicShape(n, new_c, new_h, new_w)
+
+        return result
+
+    return depth_to_space_helper(x, blocksize=blocksize)
+
+
 def thresholded_relu(x: Array, alpha: float = 1.0):
 
     @allowed_types(float_types)

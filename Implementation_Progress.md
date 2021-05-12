@@ -136,7 +136,7 @@
 |Slice | :heavy_check_mark: | `slice` and `Array.__getitem__` | :x: |
 |Softplus | :heavy_check_mark: | `nn.softplus` | :x: |
 |Softsign | :heavy_check_mark: | `nn.softsign` | :x: |
-|SpaceToDepth | :x: | | :x: |
+|SpaceToDepth | :heavy_check_mark: | `nn.space_to_depth` | :x: |
 |Split | :x: | | :x: |
 |SplitToSequence | :x:| | :x: |
 |Sqrt | :heavy_check_mark: | `sqrt` | :x: |
