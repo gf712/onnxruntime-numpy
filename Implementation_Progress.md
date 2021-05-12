@@ -111,7 +111,7 @@
 |ReduceSumSquare | :heavy_check_mark: | `sum_square` | :x: |
 |Relu | :heavy_check_mark: | `relu` | :x: |
 |Reshape | :heavy_check_mark: | `reshape` | :x: |
-|Resize | :x: | | :x: |
+|Resize | :heavy_check_mark: | `interpolate` | :x: |
 |ReverseSequence | :x: | | :x: |
 |RoiAlign | :x: | | :x: |
 |Round | :heavy_check_mark: | `round` | :x: |

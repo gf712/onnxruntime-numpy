@@ -1,7 +1,7 @@
 # flake8: noqa
 
 from .array import Array
-from .evaluator import merge_array_evaluators
+from .evaluator import merge_array_evaluators, IntermediateResultCache
 from .ops_utils import nary_operator
 from . import ops
 from .graph import Graph, Input, Node, Output
@@ -126,11 +126,11 @@ def backward_pass(g, graph) -> Array:
     return output_grad
 
 
-def grad(func, argnum):
+def grad_fn(func, argnum):
 
     def grad_helper(*array_objs, **array_obj_kwargs):
 
-        with_respect_to = [array_objs[argnum]]
+        inputs = [array_objs[argnum]]
 
         grad_graph = Graph()
 
@@ -138,7 +138,7 @@ def grad(func, argnum):
             result_array = tracker.trace_function_call(func)
 
         grad_graph = ExecutableGraph(
-            grad_graph, with_respect_to,
+            grad_graph, inputs,
             {result_array._evaluator._parent_node: result_array})._graph
 
         g = ops.constant_of_shape(result_array.shape, 1.0)
@@ -153,3 +153,17 @@ def grad(func, argnum):
         return grad_result
 
     return grad_helper
+
+
+def grad(output: Array, *inputs: Array):
+
+    g = ops.constant_of_shape(output.shape, 1.0)
+
+    grad_graph = ExecutableGraph(
+        output._evaluator._graph, output._evaluator._array_to_node_map.get_input_map(),
+        output._evaluator._array_to_node_map.get_output_map(),
+        {input._internal_name: input for input in inputs},
+        {output._evaluator._parent_node: output},
+        IntermediateResultCache())._graph
+
+    return backward_pass(g, grad_graph)

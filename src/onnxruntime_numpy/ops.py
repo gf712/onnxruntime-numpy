@@ -1199,6 +1199,83 @@ def log_sum_exp(
         x, axes, keepdims=bool(keepdims))
 
 
+def interpolate(x: "array.Array", roi: Optional["array.Array"] = None,
+                scales: Optional["array.Array"] = None,
+                sizes: Optional["array.Array"] = None,
+                coordinate_transformation_mode: str = "half_pixel",
+                cubic_coeff_a: float = -0.75, exclude_outside: bool = False,
+                extrapolation_value: float = 0.0, mode: str = "nearest",
+                nearest_mode: str = "round_prefer_floor"):
+
+    AVAILABLE_TRANSFORMATION_MODES = [
+        "half_pixel", "pytorch_half_pixel", "align_corners", "asymmetric",
+        "tf_crop_and_resize"]
+
+    if coordinate_transformation_mode.lower() not in AVAILABLE_TRANSFORMATION_MODES:
+        raise ValueError(
+            "coordinate_transformation_mode must be one of "
+            f"{', '.join(AVAILABLE_TRANSFORMATION_MODES)}, but got "
+            f"{coordinate_transformation_mode}")
+
+    if mode.lower() not in ["nearest", "linear", "cubic"]:
+        raise ValueError(
+            f"mode must be either nearest, linear or cubic, but got {mode}")
+
+    if nearest_mode.lower() not in [
+            "round_prefer_floor", "round_prefer_ceil", "floor", "ceil"]:
+        raise ValueError(
+            "nearest_mode must be one of round_prefer_floor, round_prefer_ceil, "
+            f"floor or ceil, but got {nearest_mode}")
+
+    if roi is not None and roi.ndims != 1:
+        raise ValueError(f"roi must be of rank 1, but got rank {roi.ndims}")
+
+    if not ((scales is not None) ^ (sizes is not None)):
+        raise ValueError("Either scales or sizes array must be specified")
+
+    @allowed_types(all_types, float_types, [np.float32], [np.int64])
+    @not_implemented_types(
+        [np.float64, np.uint16, np.uint32, np.uint64, np.int8,
+         np.int16, np.int64, np.bool_], [np.float64])
+    def interpolate_helper(x: "array.Array", roi: Optional["array.Array"],
+                              scales: Optional["array.Array"],
+                              sizes: Optional["array.Array"],
+                              coordinate_transformation_mode: str,
+                              cubic_coeff_a: float,
+                              exclude_outside: int, extrapolation_value: float,
+                              mode: str, nearest_mode: str):
+
+        if roi is not None and roi.shape[0].is_static() and len(roi) != x.ndims * 2:
+            raise ValueError(
+                f"Expected roi size to be {x.ndims * 2}, but got {len(roi)}")
+
+        if scales is not None and \
+                scales.shape[0].is_static() and len(scales) != x.ndims:
+            raise ValueError(
+                f"scales must have size equal to the rank as x, but got size "
+                f"{scales.ndims}")
+
+        if sizes is not None and sizes.shape[0].is_static() and len(sizes) != x.ndims:
+            raise ValueError(
+                f"sizes must have size equal to the rank as x, but got size "
+                f"{sizes.ndims}")
+
+        return nary_operator(
+            "Resize", x, roi, scales, sizes,
+            coordinate_transformation_mode=coordinate_transformation_mode,
+            cubic_coeff_a=cubic_coeff_a, exclude_outside=exclude_outside,
+            extrapolation_value=extrapolation_value, mode=mode,
+            nearest_mode=nearest_mode)
+
+    return interpolate_helper(
+        x, roi, scales, sizes,
+        coordinate_transformation_mode=coordinate_transformation_mode.lower(),
+        cubic_coeff_a=float(cubic_coeff_a),
+        exclude_outside=int(exclude_outside),
+        extrapolation_value=float(extrapolation_value),
+        mode=mode.lower(), nearest_mode=nearest_mode.lower())
+
+
 def round(x: "array.Array"):
     @allowed_types(float_types)
     def round_helper(x: "array.Array"):

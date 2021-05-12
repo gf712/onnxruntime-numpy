@@ -870,10 +870,10 @@ def negative_loglikelihood_loss(
 
 
 def non_max_suppression(boxes: Array, scores: Array,
-                       max_output_boxes_per_class: Optional[Array] = None,
-                       iou_threshold: Optional[Array] = None,
-                       score_threshold: Optional[Array] = None,
-                       center_point_box: int = 0):
+                        max_output_boxes_per_class: Optional[Array] = None,
+                        iou_threshold: Optional[Array] = None,
+                        score_threshold: Optional[Array] = None,
+                        center_point_box: int = 0):
 
     if boxes.ndims != 3:
         raise ValueError(
@@ -899,10 +899,10 @@ def non_max_suppression(boxes: Array, scores: Array,
             f"{score_threshold.shape}")
 
     def non_max_suppression_helper(boxes: Array, scores: Array,
-                                  max_output_boxes_per_class: Optional[Array],
-                                  iou_threshold: Optional[Array],
-                                  score_threshold: Optional[Array],
-                                  center_point_box: int):
+                                   max_output_boxes_per_class: Optional[Array],
+                                   iou_threshold: Optional[Array],
+                                   score_threshold: Optional[Array],
+                                   center_point_box: int):
 
         if iou_threshold and not is_lazy(iou_threshold):
             if float(
