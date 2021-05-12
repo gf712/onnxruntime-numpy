@@ -43,9 +43,9 @@
 |Flatten | :heavy_check_mark: | `flatten` | :x: |
 |Floor | :heavy_check_mark: | `floor` | :x: |
 |GRU | :heavy_check_mark: | `nn.gru` | :x: |
-|Gather | :heavy_check_mark: | `gather` | :x: |
-|GatherElements | :heavy_check_mark: | `gather_elements` | :x: |
-|GatherND | :x: | | :x: |
+|Gather | :heavy_check_mark: | `nn.gather` | :x: |
+|GatherElements | :heavy_check_mark: | `nn.gather_elements` | :x: |
+|GatherND | :heavy_check_mark: | `nn.gathernd` | :x: |
 |Gemm | :heavy_check_mark: | `gemm` | :x: |
 |GlobalAveragePool | :heavy_check_mark: | `nn.global_average_pool` | :x: |
 |GlobalLpPool | :heavy_check_mark: | `nn.global_lp_pool` | :x: |

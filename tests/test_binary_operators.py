@@ -648,7 +648,7 @@ def test_xor_broadcast(type_a):
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64, np.uint8])
 def test_where(type_a):
-    condition = np.array([[1, 0], [1, 1]], dtype=np.bool)
+    condition = np.array([[1, 0], [1, 1]], dtype=np.bool_)
     x = np.array([[1, 2], [3, 4]], dtype=type_a)
     y = np.array([[9, 8], [7, 6]], dtype=type_a)
     expected = np.where(condition, x, y)

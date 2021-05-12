@@ -3,7 +3,8 @@ from .ops_utils import (
     allowed_types, not_implemented_types, output_checks_and_inference,
     allow_broadcasting, nary_operator, propagate_shape_global_pool,
     force_evaluation, propagate_pool_shape, propagate_conv_shape,
-    multi_output_nary_operator, check_axis_is_valid)
+    multi_output_nary_operator, check_axis_is_valid, gather_check,
+    propagate_shape_from_argn_position)
 from .types import (float_types, signed_integer_types, all_types, numeric_types)
 from .shapes import ShapeLike, as_shape, DynamicShape, weak_shape_comparisson
 import numpy as np
@@ -294,6 +295,82 @@ def elu(x, alpha=1.0):
         return nary_operator("Elu", x, alpha=alpha)
 
     return elu_helper(x, alpha=float(alpha))
+
+
+def gather(x: Array, indices: Array, axis: int = 0):
+
+    @allowed_types(all_types, [np.int32, np.int64])
+    @output_checks_and_inference(
+        gather_check(int(axis))
+    )
+    def gather_helper(x: Array, indices: Array, axis: int):
+        return nary_operator("Gather", x, indices, axis=axis)
+
+    return gather_helper(x, indices, axis=int(axis))
+
+
+def gather_elements(x: Array, indices: Array, axis: int = 0):
+
+    check_axis_is_valid(x, axis)
+
+    @allowed_types(all_types, [np.int32, np.int64])
+    @output_checks_and_inference(
+        propagate_shape_from_argn_position(1)
+    )
+    def gather_elements_helper(
+            x: Array, indices: Array, axis: int):
+        return nary_operator("GatherElements", x, indices, axis=axis)
+
+    return gather_elements_helper(x, indices, axis=int(axis))
+
+
+def gathernd(x: Array, indices: Array, batch_dims: int = 0):
+
+    if x.ndims < 1:
+        raise ValueError(f"x must have rank >= 1, but got {x.ndims}")
+
+    if indices.ndims < 1:
+        raise ValueError(
+            f"indices must have rank >= 1, but got {indices.ndims}")
+
+    if batch_dims >= min(x.ndims, indices.ndims):
+        raise ValueError(
+            "batch_dims has be less than the rank of x and indices")
+
+    @allowed_types(all_types, [np.int64])
+    def gathernd_helper(x: Array, indices: Array, batch_dims: int):
+
+        r = x.ndims
+        q = indices.ndims
+
+        for b in range(batch_dims):
+            if indices.shape[b] != x.shape[b]:
+                raise ValueError(
+                    f"The first batch_dims dimensions ({batch_dims}) of the shape of "
+                    f"indices tensor ({indices.shape}) and x ({x.shape}) tensor "
+                    "must be equal.")
+
+        if indices.shape[-1].is_static() \
+                and indices.shape[-1] not in range(1, r - batch_dims):
+            raise ValueError(
+                "The last dimension of indices, should have a value in range [1, "
+                f"{r-b}]")
+
+        if not indices.shape[-1].is_static():
+            # have to force evaluation
+            _ = indices.numpy()
+
+        last_indices_dimension = batch_dims + int(indices.shape[-1])
+        output_shape = DynamicShape(
+            *indices.shape[: -1],
+            *x.shape[last_indices_dimension:])
+
+        result = nary_operator("GatherND", x, indices, batch_dims=batch_dims)
+        result._dims = output_shape
+
+        return result
+
+    return gathernd_helper(x, indices, batch_dims=batch_dims)
 
 
 def global_average_pool(x: Array):

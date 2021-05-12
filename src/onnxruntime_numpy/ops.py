@@ -1,12 +1,12 @@
 from .ops_utils import (
     unary_operator, binary_operator, nary_operator, allowed_types,
     output_type_is_argn_position, multi_output_nary_operator,
-    propagate_shape_from_argn_position, output_checks_and_inference,
-    propagate_shape_matmul, check_input_shape_matmul, not_implemented_types,
-    concatenate_shapes, types_match_exactly, initializer_operator, reduce_axis,
+    output_checks_and_inference, propagate_shape_matmul,
+    check_input_shape_matmul, not_implemented_types, concatenate_shapes,
+    types_match_exactly, initializer_operator, reduce_axis,
     output_shape_from_einsum, output_type, allow_broadcasting,
     array_is_square_matrix, determinant_output_shape, broadcast_to,
-    flatten_shape, gather_check, check_input_shape_gemm, propagate_shape_gemm,
+    flatten_shape, check_input_shape_gemm, propagate_shape_gemm,
     force_evaluation, reshape_check, register, check_axis_is_valid)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
@@ -509,49 +509,6 @@ def floor(x: "array.Array"):
     def floor_helper(x: "array.Array"):
         return unary_operator(x, "Floor")
     return floor_helper(x)
-
-
-def gather(x: "array.Array", indices: "array.Array", axis: int = 0):
-
-    @allowed_types(all_types, [np.int32, np.int64])
-    @output_checks_and_inference(
-        gather_check(int(axis))
-    )
-    def gather_helper(x: "array.Array", indices: "array.Array", axis: int):
-        return nary_operator("Gather", x, indices, axis=axis)
-
-    return gather_helper(x, indices, axis=int(axis))
-
-
-def gather_elements(x: "array.Array", indices: "array.Array", axis: int = 0):
-
-    check_axis_is_valid(x, axis)
-
-    @allowed_types(all_types, [np.int32, np.int64])
-    @output_checks_and_inference(
-        propagate_shape_from_argn_position(1)
-    )
-    def gather_elements_helper(
-            x: "array.Array", indices: "array.Array", axis: int):
-        return nary_operator("GatherElements", x, indices, axis=axis)
-
-    return gather_elements_helper(x, indices, axis=int(axis))
-
-
-def gathernd(x: "array.Array", indices: "array.Array", batch_dims: int = 0):
-
-    # check_axis_is_valid(x, axis)
-
-    # @allowed_types(all_types, [np.int32, np.int64])
-    # @output_checks_and_inference(
-    #     propagate_shape_from_argn_position(1)
-    # )
-    # def gathernd_helper(x: "array.Array", indices: "array.Array", axis: int):
-    #     return nary_operator("GatherND", x, indices, axis=axis)
-
-    # return gathernd_helper(x, indices, axis=int(axis))
-    # TODO
-    raise NotImplementedError()
 
 
 def gemm(a: "array.Array", b: "array.Array", c: Optional["array.Array"] = None,
@@ -1531,8 +1488,8 @@ def topk(
 
         check_axis_is_valid(x, axis)
 
-        values, indices = multi_output_nary_operator(2)("TopK",
-            x, k, axis=axis, largest=largest, sorted=sorted)
+        values, indices = multi_output_nary_operator(2)(
+            "TopK", x, k, axis=axis, largest=largest, sorted=sorted)
 
         output_shape_ = x.shape.tolist()
 
