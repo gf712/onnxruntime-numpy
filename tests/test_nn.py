@@ -1643,6 +1643,323 @@ def test_logsoftmax_axis(type_a):
     expect(expected, result.numpy())
 
 
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_1d_default(type_a):
+    x = np.random.randn(1, 3, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = [2]
+    strides = [1]
+    out_shape = get_pool_output_shape(
+        'VALID', x_shape[2:],
+        kernel_shape, strides)
+    padded = x
+
+    expected = pool_reference(
+        padded, x_shape, kernel_shape, strides, out_shape, [0],
+        'MAX').astype(type_a)
+    result, _ = onp.nn.maxpool(onp.array(x), kernel_shape=kernel_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_ceil(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4],
+        [5, 6, 7, 8],
+        [9, 10, 11, 12],
+        [13, 14, 15, 16],
+    ]]]).astype(type_a)
+    expected = np.array([[[
+        [11, 12],
+        [15, 16]]]]).astype(type_a)
+    result, _ = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=(3, 3),
+        strides=(2, 2),
+        ceil_mode=True)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_default(type_a):
+    x = np.random.randn(1, 3, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (2, 2)
+    strides = (1, 1)
+    out_shape = get_pool_output_shape(
+        'VALID', x_shape[2:],
+        kernel_shape, strides)
+    padded = x
+    expected = pool_reference(padded, x_shape, kernel_shape,
+                              strides, out_shape, (0, 0), 'MAX').astype(type_a)
+
+    result, _ = onp.nn.maxpool(onp.array(x), kernel_shape=kernel_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_dilations(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4],
+        [5, 6, 7, 8],
+        [9, 10, 11, 12],
+        [13, 14, 15, 16],
+    ]]]).astype(type_a)
+    expected = np.array([[[
+        [11, 12],
+        [15, 16]]]]).astype(type_a)
+    result, _ = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=(2, 2),
+        strides=(1, 1),
+        dilations=(2, 2))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_pads(type_a):
+    x = np.random.randn(1, 3, 28, 28).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (3, 3)
+    strides = (1, 1)
+    pad_bottom = pad_top = pad_right = pad_left = 2
+    pad_shape = [pad_top + pad_bottom, pad_left + pad_right]
+    out_shape = get_pool_output_shape('VALID', np.add(
+        x_shape[2:], pad_shape), kernel_shape, strides)
+    padded = np.pad(
+        x.astype(np.float64), ((0, 0),
+                               (0, 0),
+                               (pad_top, pad_bottom),
+                               (pad_left, pad_right)),
+        mode='constant', constant_values=np.nan)
+    expected = pool_reference(padded, x_shape, kernel_shape,
+                              strides, out_shape, pad_shape, 'MAX').astype(type_a)
+
+    result, _ = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=kernel_shape, strides=strides, pads=(2, 2, 2, 2))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_precomputed_pads(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20],
+        [21, 22, 23, 24, 25],
+    ]]]).astype(type_a)
+    expected = np.array([[[
+        [13, 14, 15, 15, 15],
+        [18, 19, 20, 20, 20],
+        [23, 24, 25, 25, 25],
+        [23, 24, 25, 25, 25],
+        [23, 24, 25, 25, 25]]]]).astype(type_a)
+    result, _ = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=(5, 5),
+        pads=(2, 2, 2, 2))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_precomputed_same_upper(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20],
+        [21, 22, 23, 24, 25],
+    ]]]).astype(type_a)
+    expected = np.array([[[[7, 9, 10],
+                           [17, 19, 20],
+                           [22, 24, 25]]]]).astype(type_a)
+    result, _ = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=(3, 3),
+        strides=(2, 2),
+        auto_pad='SAME_UPPER')
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_precomputed_strides(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20],
+        [21, 22, 23, 24, 25],
+    ]]]).astype(type_a)
+    expected = np.array([[[[7, 9],
+                           [17, 19]]]]).astype(type_a)
+    result, _ = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=(2, 2),
+        strides=(2, 2))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_same_lower(type_a):
+    x = np.random.randn(1, 3, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (2, 2)
+    strides = (1, 1)
+    out_shape = get_pool_output_shape(
+        'SAME_LOWER', x_shape[2:],
+        kernel_shape, strides)
+    pad_shape = get_pool_pad_shape(
+        'SAME_LOWER', x_shape[2:],
+        kernel_shape, strides, out_shape)
+
+    pad_bottom = pad_shape[0] // 2
+    pad_top = pad_shape[0] - pad_bottom
+    pad_right = pad_shape[1] // 2
+    pad_left = pad_shape[1] - pad_right
+
+    padded = np.pad(
+        x.astype(np.float64), ((0, 0),
+                               (0, 0),
+                               (pad_top, pad_bottom),
+                               (pad_left, pad_right)),
+        mode='constant', constant_values=np.nan)
+    expected = pool_reference(padded, x_shape, kernel_shape,
+                              strides, out_shape, pad_shape, 'MAX').astype(type_a)
+
+    result, _ = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=kernel_shape, auto_pad="SAME_LOWER")
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_same_upper(type_a):
+    x = np.random.randn(1, 3, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (2, 2)
+    strides = (1, 1)
+    out_shape = get_pool_output_shape(
+        'SAME_UPPER', x_shape[2:],
+        kernel_shape, strides)
+    pad_shape = get_pool_pad_shape(
+        'SAME_UPPER', x_shape[2:],
+        kernel_shape, strides, out_shape)
+
+    pad_top = pad_shape[0] // 2
+    pad_bottom = pad_shape[0] - pad_top
+    pad_left = pad_shape[1] // 2
+    pad_right = pad_shape[1] - pad_left
+
+    padded = np.pad(
+        x.astype(np.float64), ((0, 0),
+                               (0, 0),
+                               (pad_top, pad_bottom),
+                               (pad_left, pad_right)),
+        mode='constant', constant_values=np.nan)
+    expected = pool_reference(padded, x_shape, kernel_shape,
+                              strides, out_shape, pad_shape, 'MAX').astype(type_a)
+
+    result, _ = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=kernel_shape, auto_pad="SAME_UPPER")
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_2d_strides(type_a):
+    x = np.random.randn(1, 3, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (5, 5)
+    strides = (3, 3)
+    out_shape = get_pool_output_shape(
+        'VALID', x_shape[2:],
+        kernel_shape, strides)
+
+    padded = x
+    expected = pool_reference(
+        padded, x_shape, kernel_shape, strides, out_shape, (0, 0),
+        'MAX').astype(type_a)
+
+    result, _ = onp.nn.maxpool(
+        onp.array(x), kernel_shape=kernel_shape, strides=strides)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_3d_default(type_a):
+    x = np.random.randn(1, 3, 32, 32, 32).astype(type_a)
+    x_shape = np.shape(x)
+    kernel_shape = (2, 2, 2)
+    strides = [1, 1, 1]
+    out_shape = get_pool_output_shape(
+        'VALID', x_shape[2:],
+        kernel_shape, strides)
+
+    padded = x
+    expected = pool_reference(
+        padded, x_shape, kernel_shape, strides, out_shape, (0, 0, 0),
+        'MAX').astype(type_a)
+
+    result, _ = onp.nn.maxpool(
+        onp.array(x), kernel_shape=kernel_shape)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_with_argmax_2d_precomputed_pads(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20],
+        [21, 22, 23, 24, 25],
+    ]]]).astype(type_a)
+    y_expected = np.array([[[
+        [13, 14, 15, 15, 15],
+        [18, 19, 20, 20, 20],
+        [23, 24, 25, 25, 25],
+        [23, 24, 25, 25, 25],
+        [23, 24, 25, 25, 25]]]]).astype(type_a)
+    indices_expected = np.array([[[
+        [12, 13, 14, 14, 14],
+        [17, 18, 19, 19, 19],
+        [22, 23, 24, 24, 24],
+        [22, 23, 24, 24, 24],
+        [22, 23, 24, 24, 24]]]]).astype(np.int64)
+
+    y, indices = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=(5, 5),
+        pads=(2, 2, 2, 2))
+    expect(y_expected, y.numpy())
+    expect(indices_expected, indices.numpy())
+
+
+@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+def test_maxpool_with_argmax_2d_precomputed_strides(type_a):
+    x = np.array([[[
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+        [11, 12, 13, 14, 15],
+        [16, 17, 18, 19, 20],
+        [21, 22, 23, 24, 25],
+    ]]]).astype(type_a)
+    y_expected = np.array([[[[7, 9],
+                             [17, 19]]]]).astype(type_a)
+    indices_expected = np.array([[[[6, 16],
+                                   [8, 18]]]]).astype(np.int64)
+
+    y, indices = onp.nn.maxpool(
+        onp.array(x),
+        kernel_shape=(2, 2),
+        strides=(2, 2),
+        storage_order=1)
+    expect(y_expected, y.numpy())
+    expect(indices_expected, indices.numpy())
+
+
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_maxunpool_with_output_shape(type_a):
     xT = np.array([[[[5, 6],

@@ -65,7 +65,7 @@ def multi_output_nary_operator(output_count):
                 # share parent node
                 e._parent_node = new_evaluator._parent_node
 
-        return new_arrays
+        return (*new_arrays,)
 
     return nary_operator
 
@@ -108,7 +108,7 @@ def check_axis_is_valid(x: "array.Array", axis: int):
 
 def allowed_types(*expected_types):
     def decorator(func):
-        @ functools.wraps(func)
+        @functools.wraps(func)
         def wrapper_allowed_types(*arrays, **kwargs):
             # type checks
             for idx, (array_obj, dtypes) in enumerate(
@@ -124,7 +124,7 @@ def allowed_types(*expected_types):
 
 def not_implemented_types(*expected_types):
     def decorator(func):
-        @ functools.wraps(func)
+        @functools.wraps(func)
         def wrapper_allowed_types(*arrays, **kwargs):
             # type checks
             for idx, (array_obj, dtypes) in enumerate(
@@ -560,7 +560,7 @@ def propagate_pool_shape(kernel_shape: List[int],
                          pads: Optional[List[int]],
                          strides: Optional[List[int]],
                          auto_pad: str, ceil_mode: int,
-                         count_include_pad: int):
+                         dilations: Optional[List[int]] = None):
 
     if auto_pad.upper() not in AVAILABLE_AUTO_PADDING:
         raise ValueError(
@@ -570,6 +570,12 @@ def propagate_pool_shape(kernel_shape: List[int],
             return_array, *input_arrays_and_args, **kwargs):
         nonlocal pads
         nonlocal strides
+        nonlocal dilations
+
+        # multi output operator. Assume pooling result is first output arg
+        if isinstance(return_array, tuple):
+            return_array = return_array[0]
+
         input_array_shape = input_arrays_and_args[0].shape
         n, c = input_array_shape[:2]
         spatial_features = input_array_shape[2:]
@@ -598,6 +604,13 @@ def propagate_pool_shape(kernel_shape: List[int],
                 f"Strides ({strides}) must have the same "
                 f"dimensionaility as spatial features ({spatial_features}).")
 
+        if dilations is None:
+            dilations = [1] * len(spatial_features)
+        elif len(dilations) != len(spatial_features):
+            raise ValueError(
+                f"Dilations ({dilations}) must have the same "
+                f"dimensionaility as spatial features ({spatial_features}).")
+
         if pads and len(pads) != 2 * len(spatial_features):
             raise ValueError(
                 "pads should have format "
@@ -611,14 +624,15 @@ def propagate_pool_shape(kernel_shape: List[int],
             elif auto_pad.upper() == "NOTSET":
                 x_begin = pads[i]
                 x_end = pads[i + len(spatial_features)]
+                dkernel = dilations[i] * (kernel_shape[i] - 1) + 1
                 new_dim = round_dim(
                     float(
-                        int(spatial_features[i]) + x_begin +
-                        x_end - kernel_shape[i]) /
+                        int(spatial_features[i]) + x_begin + x_end - dkernel) /
                     float(strides[i]) + 1)
             elif auto_pad.upper() == "VALID":
+                dkernel = dilations[i] * (kernel_shape[i] - 1) + 1
                 new_dim = math.ceil(
-                    float(int(spatial_features[i]) - kernel_shape[i] + 1) /
+                    float(int(spatial_features[i]) - dkernel) /
                     float(strides[i]))
             elif auto_pad.upper() in ["SAME_UPPER", "SAME_LOWER"]:
                 new_dim = math.ceil(
@@ -832,7 +846,7 @@ def reshape_check(requested_shape: Shape):
 
 def output_checks_and_inference(*output_checks):
     def decorator(func):
-        @ functools.wraps(func)
+        @functools.wraps(func)
         def wrapper_output_checks_and_inference(
                 *input_arrays_and_args, **kwargs):
             return_array = func(*input_arrays_and_args, **kwargs)
@@ -854,7 +868,7 @@ def force_evaluation(a: "array.Array", name: str, allow_evaluation: bool):
 
 
 def register(function):
-    @ functools.wraps(function)
+    @functools.wraps(function)
     def register_wrapper(*args, **kwargs):
         # FIXME: this is total foobar
         result = function(*args, **kwargs)

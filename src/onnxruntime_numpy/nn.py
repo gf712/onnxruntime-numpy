@@ -22,7 +22,7 @@ def average_pool(
     @output_checks_and_inference(
         propagate_pool_shape(
             kernel_shape, pads, strides, auto_pad,
-            ceil_mode, count_include_pad))
+            ceil_mode))
     def average_pool_helper(x: Array, kernel_shape: List[int],
                             pads: Optional[List[int]],
                             strides: Optional[List[int]],
@@ -587,9 +587,30 @@ def maxpool(
         auto_pad: str = "NOTSET", ceil_mode: bool = False,
         dilations: Optional[List[int]] = None, pads: Optional[List[int]] = None,
         storage_order: int = 0, strides: Optional[List[int]] = None):
-    # TODO
-    raise NotImplementedError(
-        "Operators with more than one output are not handled yet")
+
+    @allowed_types([*float_types, np.int8, np.uint8])
+    @output_checks_and_inference(
+        propagate_pool_shape(
+            kernel_shape, pads, strides, auto_pad,
+            ceil_mode, dilations))
+    def maxpool_helper(x: Array, kernel_shape: List[int],
+                       pads: Optional[List[int]],
+                       strides: Optional[List[int]],
+                       dilations: Optional[List[int]],
+                       auto_pad: str, ceil_mode: int,
+                       storage_order: int):
+        return multi_output_nary_operator(2)(
+            "MaxPool", x, kernel_shape=kernel_shape, pads=pads,
+            strides=strides, auto_pad=auto_pad, ceil_mode=ceil_mode,
+            storage_order=storage_order, dilations=dilations)
+
+    y, indices = maxpool_helper(
+        x, kernel_shape, pads, strides, dilations, auto_pad, int(ceil_mode),
+        storage_order)
+    indices._dims = y.shape
+    indices._dtype = np.int64
+
+    return y, indices
 
 
 def maxroipool(
