@@ -82,7 +82,7 @@
 |Multinomial | :heavy_check_mark: | `random.multinomial` | :x: |
 |Neg | :heavy_check_mark: | `negative` | :x: |
 |NegativeLogLikelihoodLoss | :heavy_check_mark: (unstable) | `nn.negative_loglikelihood_loss` | :x: |
-|NonMaxSuppression | :x: | | :x: |
+|NonMaxSuppression | :heavy_check_mark: | `nn.non_max_suppression` | :x: |
 |NonZero | :heavy_check_mark: | `nonzero` | :x: |
 |Not | :heavy_check_mark: | `not_` | :x: |
 |OneHot | :heavy_check_mark: | `one_hot` | :x: |

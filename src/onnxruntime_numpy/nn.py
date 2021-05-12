@@ -869,6 +869,70 @@ def negative_loglikelihood_loss(
         x, target, weight, ignore_index=ignore_index, reduction=reduction.lower())
 
 
+def non_max_suppression(boxes: Array, scores: Array,
+                       max_output_boxes_per_class: Optional[Array] = None,
+                       iou_threshold: Optional[Array] = None,
+                       score_threshold: Optional[Array] = None,
+                       center_point_box: int = 0):
+
+    if boxes.ndims != 3:
+        raise ValueError(
+            f"boxes must be a rank 3 tensor, but got rank {boxes.ndims}")
+
+    if scores.ndims != 3:
+        raise ValueError(
+            f"scores must be a rank 3 tensor, but got rank {scores.ndims}")
+
+    if max_output_boxes_per_class and max_output_boxes_per_class.ndims != 0:
+        raise ValueError(
+            "max_output_boxes_per_class must be a scalar, but got tensor with "
+            f"shape {max_output_boxes_per_class.shape}")
+
+    if iou_threshold and iou_threshold.ndims != 0:
+        raise ValueError(
+            "iou_threshold must be a scalar, but got tensor with shape "
+            f"{iou_threshold.shape}")
+
+    if score_threshold and score_threshold.ndims != 0:
+        raise ValueError(
+            "score_threshold must be a scalar, but got tensor with shape "
+            f"{score_threshold.shape}")
+
+    def non_max_suppression_helper(boxes: Array, scores: Array,
+                                  max_output_boxes_per_class: Optional[Array],
+                                  iou_threshold: Optional[Array],
+                                  score_threshold: Optional[Array],
+                                  center_point_box: int):
+
+        if iou_threshold and not is_lazy(iou_threshold):
+            if float(
+                    iou_threshold.item()) < 0 or float(
+                    iou_threshold.item()) > 1:
+                raise ValueError(
+                    "iou_threshold must be in the value range [0, 1]")
+
+        if boxes.shape[-1].is_static() and int(boxes.shape[-1]) != 4:
+            raise ValueError(
+                "boxes array must be of shape (num_batches, spatial_dimension, "
+                f"4), but got {boxes.shape}")
+
+        if boxes.shape[0] != scores.shape[0]:
+            raise ValueError(
+                "boxes and scores mismatch in their batch_size. "
+                f"Got {boxes.shape} and {scores.shape}")
+
+        result = nary_operator(
+            "NonMaxSuppression", boxes, scores, max_output_boxes_per_class,
+            iou_threshold, score_threshold, center_point_box=center_point_box)
+        result._dtype = np.int64
+        result._dims = DynamicShape(-1, 3)
+        return result
+
+    return non_max_suppression_helper(
+        boxes, scores, max_output_boxes_per_class, iou_threshold,
+        score_threshold, center_point_box=center_point_box)
+
+
 def prelu(x: Array, slope: Union[Array, float]):
     if isinstance(slope, float):
         slope = array([slope], dtype=x.dtype)
