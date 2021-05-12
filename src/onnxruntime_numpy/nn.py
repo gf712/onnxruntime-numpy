@@ -616,9 +616,35 @@ def maxpool(
 def maxroipool(
         x: Array, rois: Array, pooled_shape: List[int],
         spatial_scale: float = 1.0):
-    # TODO
-    raise NotImplementedError(
-        "Operators with more than one output are not handled yet")
+
+    # if x.ndims < 4:
+    #     raise ValueError()
+
+    if rois.ndims != 2:
+        raise ValueError(f"rois should have rank 2 but got rank {rois.ndims}")
+
+    if rois.shape[1] != 5:
+        raise ValueError(
+            f"rois should have shape (num_rois, 5) but got {rois.shape}")
+
+    def maxroipool_helper(x: Array, rois: Array, pooled_shape: List[int],
+                          spatial_scale: float):
+
+        batch_size, channels = x.shape[:2]
+        num_rois = rois.shape[0]
+
+        result = nary_operator(
+            "MaxRoiPool", x, rois, pooled_shape=pooled_shape,
+            spatial_scale=spatial_scale)
+
+        result._dims = DynamicShape(
+            num_rois, channels, pooled_shape[0],
+            pooled_shape[1])
+
+        return result
+
+    return maxroipool_helper(
+        x, rois, pooled_shape=pooled_shape, spatial_scale=spatial_scale)
 
 
 def maxunpool(

@@ -1986,6 +1986,33 @@ def test_maxunpool_with_output_shape(type_a):
     expect(expected, result.numpy())
 
 
+@pytest.mark.parametrize("type_a", [np.float32])
+def test_maxroipool(type_a):
+    pooled_height = 1
+    pooled_width = 1
+    pooled_shape = (pooled_height, pooled_width)
+
+    H = 6
+    W = 6
+    image_size = H * W
+    input_channels = 3
+    x = (np.arange(0, input_channels * image_size,
+         dtype=type_a) / type_a(10)).reshape(1, 3, H, W)
+    rois = np.array(
+        [[0, 1, 1, 2, 3],
+         [0, 1, 1, 2, 3],
+         [0, 1, 1, 2, 3]],
+        dtype=type_a)
+
+    expected = np.array([2., 5.6, 9.2, 2., 5.6, 9.2, 2., 5.6, 9.2],
+                        dtype=type_a).reshape(3, 3, pooled_height, pooled_width)
+
+    result = onp.nn.maxroipool(
+        onp.array(x),
+        onp.array(rois),
+        pooled_shape=pooled_shape)
+    expect(expected, result.numpy())
+
 # @pytest.mark.parametrize("type_a", [np.float32])
 # def test_maxunpool_without_output_shape(type_a):
 #     xT = np.array([[[[5, 6],

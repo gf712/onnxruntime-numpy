@@ -73,7 +73,7 @@
 |MatMulInteger | :heavy_check_mark: | `matmul_integer` | :x: |
 |Max | :heavy_check_mark: | `max` | :x: |
 |MaxPool | :heavy_check_mark: | `nn.maxpool` | :x: |
-|MaxRoiPool | :x: | | :x: |
+|MaxRoiPool | :heavy_check_mark: | `nn.maxroipool` | :x: |
 |MaxUnpool | :x: | `nn.maxunpool` | :x: |
 |Mean | :heavy_check_mark: | `mean` | :x: |
 |Min | :heavy_check_mark: | `minimum` | :x: |
