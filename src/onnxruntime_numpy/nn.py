@@ -4,7 +4,7 @@ from .ops_utils import (
     allow_broadcasting, nary_operator, propagate_shape_global_pool,
     force_evaluation, propagate_pool_shape, propagate_conv_shape,
     multi_output_nary_operator, check_axis_is_valid)
-from .types import (float_types, signed_integer_types, all_types)
+from .types import (float_types, signed_integer_types, all_types, numeric_types)
 from .shapes import ShapeLike, as_shape, DynamicShape, weak_shape_comparisson
 import numpy as np
 from typing import Union, Optional, List
@@ -836,6 +836,14 @@ def selu(
         return nary_operator("Selu", x, alpha=alpha, gamma=gamma)
 
     return selu_helper(x, alpha, gamma)
+
+
+def shrink(x: Array, bias: float = 0.0, lambd: float = 0.5):
+    @allowed_types(numeric_types)
+    def shrink_helper(x: Array, bias: float, lambd: float):
+        return nary_operator("Shrink", x, bias=bias, lambd=lambd)
+
+    return shrink_helper(x, bias=bias, lambd=lambd)
 
 
 def sigmoid(x: Array):

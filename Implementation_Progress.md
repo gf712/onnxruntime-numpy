@@ -127,7 +127,7 @@
 |SequenceInsert | :x: | | :x: |
 |SequenceLength | :x: | | :x: |
 |Shape | :heavy_check_mark: | `shape` | :x: |
-|Shrink | :x: | | :x: |
+|Shrink | :heavy_check_mark: | `nn.shrink` | :x: |
 |Sigmoid | :heavy_check_mark: | `nn.sigmoid` | :x: |
 |Sign | :heavy_check_mark: | `sign` | :x: |
 |Sin | :heavy_check_mark: | `sin` | :x: |

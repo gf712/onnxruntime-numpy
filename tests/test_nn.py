@@ -1,6 +1,6 @@
 import pytest
 import onnxruntime_numpy as onp
-from onnxruntime_numpy.types import float_types, all_types
+from onnxruntime_numpy.types import float_types, all_types, numeric_types
 import numpy as np
 from .utils import (
     expect, GRU_Helper, dropout_reference, LSTM_Helper,
@@ -2275,6 +2275,22 @@ def test_selu_default(type_a):
     expected = np.clip(x, 0, np.inf) * default_gamma + (
         np.exp(np.clip(x, -np.inf, 0)) - 1) * default_alpha * default_gamma
     result = onp.nn.selu(onp.array(x))
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", numeric_types)
+def test_shrink_hard(type_a):
+    x = np.arange(0, 4.1, dtype=type_a)
+    expected = np.array([0, 0, 2, 3, 4], dtype=type_a)
+    result = onp.nn.shrink(onp.array(x), lambd=1.5)
+    expect(expected, result.numpy())
+
+
+@pytest.mark.parametrize("type_a", numeric_types)
+def test_shrink_soft(type_a):
+    x = np.arange(0, 4.1, dtype=type_a)
+    expected = np.array([0, 0, 0.5, 1.5, 2.5], dtype=type_a)
+    result = onp.nn.shrink(onp.array(x), lambd=1.5, bias=1.5)
     expect(expected, result.numpy())
 
 
