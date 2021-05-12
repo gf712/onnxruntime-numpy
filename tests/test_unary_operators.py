@@ -574,18 +574,6 @@ def test_log(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", float_types)
-def test_lp_normalization(type_a):
-    x = np.array([1, 10], dtype=type_a)
-    expected = np.array([0.09950372, 0.99503719], dtype=type_a)
-    result = onp.lp_normalization(onp.array(x))
-    expect(expected, result.numpy())
-
-    expected = np.array([0.09090909, 0.90909091], dtype=type_a)
-    result = onp.lp_normalization(onp.array(x), p=1)
-    expect(expected, result.numpy())
-
-
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_mean_variance_normalization(type_a):
     input_data = np.array([[[[0.8439683], [0.5665144], [0.05836735]],

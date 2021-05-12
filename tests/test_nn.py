@@ -1456,7 +1456,208 @@ def test_instancenorm(type_a):
         rtol=1e-02)
 
 
+@pytest.mark.parametrize("type_a", float_types)
+def test_lp_normalization(type_a):
+    x = np.array([1, 10], dtype=type_a)
+    expected = np.array([0.09950372, 0.99503719], dtype=type_a)
+    result = onp.nn.lp_normalization(onp.array(x))
+    expect(expected, result.numpy())
+
+    expected = np.array([0.09090909, 0.90909091], dtype=type_a)
+    result = onp.nn.lp_normalization(onp.array(x), p=1)
+    expect(expected, result.numpy())
+
+
 @pytest.mark.parametrize("type_a", [np.float32])
+def test_lp_pool(type_a):
+    strides = (1, 1)
+    pads = (0, 0, 0, 0)
+    kernel_shape = (3, 3)
+
+    x = np.array(
+        [0.688458621501922607421875, 0.8835647106170654296875,
+         0.782541573047637939453125, 0.300049364566802978515625,
+         0.8066387176513671875, 0.4520850479602813720703125,
+         0.598959147930145263671875, 0.4597113132476806640625,
+         0.8161861896514892578125, 0.7667262554168701171875,
+         0.840198040008544921875, 0.583297073841094970703125,
+         0.708858668804168701171875, 0.4728293716907501220703125,
+         0.4992314875125885009765625, 0.2504110038280487060546875,
+         0.3881411850452423095703125, 0.517398893833160400390625,
+         0.657192409038543701171875, 0.7325098514556884765625,
+         0.10206781327724456787109375, 0.2179393768310546875,
+         0.0616043470799922943115234375, 0.475992143154144287109375,
+         0.737536609172821044921875, 0.9689886569976806640625,
+         0.4474093914031982421875, 0.4323260486125946044921875,
+         0.648917853832244873046875, 0.701454102993011474609375,
+         0.107639573514461517333984375, 0.811198413372039794921875,
+         0.725269258022308349609375, 0.7497208118438720703125,
+         0.3340204060077667236328125, 0.87611293792724609375,
+         0.6691205501556396484375, 0.87189638614654541015625,
+         0.971237838268280029296875, 0.11620916426181793212890625,
+         0.0249019563198089599609375, 0.752140820026397705078125,
+         0.865541160106658935546875, 0.015474068932235240936279296875,
+         0.5126011371612548828125, 0.45315420627593994140625,
+         0.1925573647022247314453125, 0.98408544063568115234375,
+         0.14754636585712432861328125, 0.54990971088409423828125,
+         0.903382003307342529296875, 0.2905881404876708984375,
+         0.33750665187835693359375, 0.3232279717922210693359375,
+         0.07346880435943603515625, 0.3991589844226837158203125,
+         0.903037011623382568359375, 0.083290748298168182373046875,
+         0.20850212872028350830078125, 0.05971308052539825439453125,
+         0.4810305535793304443359375, 0.087783016264438629150390625,
+         0.2952007353305816650390625, 0.2153458297252655029296875,
+         0.4049233496189117431640625, 0.7175214290618896484375,
+         0.872620165348052978515625, 0.522788941860198974609375,
+         0.43519175052642822265625, 0.0193175189197063446044921875,
+         0.846780240535736083984375, 0.5219886302947998046875,
+         0.242856085300445556640625, 0.2003507316112518310546875,
+         0.8327982425689697265625, 0.18934874236583709716796875,
+         0.917275846004486083984375, 0.658357441425323486328125,
+         0.847428977489471435546875, 0.81426322460174560546875,
+         0.036692313849925994873046875, 0.132266581058502197265625,
+         0.357086241245269775390625, 0.4745192825794219970703125,
+         0.821886956691741943359375, 0.2454545795917510986328125,
+         0.1065533459186553955078125, 0.791345179080963134765625,
+         0.545370578765869140625, 0.3979628086090087890625,
+         0.49180948734283447265625, 0.1297818124294281005859375,
+         0.36476039886474609375, 0.3085542619228363037109375,
+         0.899958193302154541015625, 0.4159581661224365234375,
+         0.675307571887969970703125, 0.829472124576568603515625,
+         0.2064842283725738525390625, 0.64016926288604736328125,
+         0.20317254960536956787109375, 0.61657464504241943359375,
+         0.290811240673065185546875, 0.26665222644805908203125,
+         0.3393469750881195068359375, 0.2539980709552764892578125,
+         0.791014850139617919921875, 0.940179288387298583984375,
+         0.827880084514617919921875, 0.460959732532501220703125,
+         0.63165509700775146484375, 0.1342843472957611083984375,
+         0.583048880100250244140625, 0.4310896396636962890625,
+         0.070260427892208099365234375, 0.518509685993194580078125,
+         0.255076229572296142578125, 0.588839232921600341796875,
+         0.13979454338550567626953125, 0.816810190677642822265625,
+         0.506142139434814453125, 0.780538499355316162109375,
+         0.70891857147216796875, 0.775202929973602294921875,
+         0.33364391326904296875, 0.21829630434513092041015625,
+         0.794861137866973876953125, 0.440593779087066650390625,
+         0.51086711883544921875, 0.059619002044200897216796875,
+         0.626003265380859375, 0.831237018108367919921875,
+         0.775263965129852294921875, 0.48013699054718017578125,
+         0.98830425739288330078125, 0.5461161136627197265625,
+         0.0545087419450283050537109375, 0.067873962223529815673828125,
+         0.334798395633697509765625, 0.083531044423580169677734375,
+         0.1419331729412078857421875, 0.62124884128570556640625,
+         0.4215275943279266357421875, 0.349430382251739501953125,
+         0.645228683948516845703125, 0.15098969638347625732421875,
+         0.789717197418212890625, 0.59648799896240234375,
+         0.3775124251842498779296875, 0.2767163217067718505859375,
+         0.558230340480804443359375, 0.991863429546356201171875,
+         0.813561499118804931640625, 0.79598820209503173828125,
+         0.567295074462890625, 0.4774146378040313720703125,
+         0.3510249555110931396484375, 0.681096494197845458984375,
+         0.745837032794952392578125, 0.681192934513092041015625,
+         0.88084888458251953125, 0.52995645999908447265625,
+         0.087239809334278106689453125, 0.414192855358123779296875,
+         0.539312899112701416015625, 0.23079840838909149169921875,
+         0.548077642917633056640625, 0.3750600516796112060546875,
+         0.3628396093845367431640625, 0.078880332410335540771484375,
+         0.95263445377349853515625, 0.41051447391510009765625,
+         0.820193827152252197265625, 0.4604322016239166259765625,
+         0.3603973090648651123046875, 0.5672309398651123046875,
+         0.685865581035614013671875, 0.7147781848907470703125,
+         0.772135257720947265625, 0.623492062091827392578125,
+         0.7632234096527099609375, 0.877109348773956298828125,
+         0.096309013664722442626953125, 0.21554203331470489501953125,
+         0.254471242427825927734375, 0.58027327060699462890625,
+         0.3754498958587646484375, 0.717136919498443603515625,
+         0.2995398044586181640625, 0.931284368038177490234375,
+         0.011751591227948665618896484375, 0.07255984842777252197265625,
+         0.87918460369110107421875, 0.02955267764627933502197265625,
+         0.889126598834991455078125, 0.0329551957547664642333984375,
+         0.23701806366443634033203125, 0.5436298847198486328125,
+         0.4716108739376068115234375, 0.1311373412609100341796875,
+         0.983278572559356689453125, 0.571916878223419189453125,
+         0.739863812923431396484375, 0.28372323513031005859375,
+         0.18242438137531280517578125, 0.522270500659942626953125,
+         0.880189239978790283203125, 0.530347883701324462890625,
+         0.3022750318050384521484375, 0.02125177718698978424072265625,
+         0.76706016063690185546875, 0.666437804698944091796875,
+         0.5887668132781982421875, 0.3817012608051300048828125,
+         0.069761075079441070556640625, 0.13000230491161346435546875,
+         0.3799968063831329345703125, 0.92774105072021484375,
+         0.2970103323459625244140625, 0.2885017096996307373046875,
+         0.644755303859710693359375, 0.4826243221759796142578125,
+         0.02549990825355052947998046875, 0.845977962017059326171875,
+         0.1354812681674957275390625, 0.59001064300537109375,
+         0.786619603633880615234375, 0.808787405490875244140625,
+         0.850969374179840087890625, 0.864635884761810302734375,
+         0.9816544055938720703125, 0.704220354557037353515625,
+         0.406329214572906494140625, 0.4230716228485107421875,
+         0.410357534885406494140625, 0.7462520599365234375,
+         0.251948177814483642578125, 0.3785230815410614013671875,
+         0.704321324825286865234375, 0.0714503824710845947265625,
+         0.906627714633941650390625, 0.0333719812333583831787109375,
+         0.654077053070068359375],
+        dtype=type_a).reshape(
+        1, 3, 9, 9)
+    expected = np.array(
+        [[2.1165919303894043, 1.9042642116546631, 1.5751385688781738],
+         [1.4826388359069824, 1.5885931253433228, 1.7165449857711792],
+         [1.8440124988555908, 1.9269057512283325, 1.7515288591384888],
+         [1.5131627321243286, 1.5648597478866577, 1.7481330633163452],
+         [1.8362259864807129, 1.8987786769866943, 2.056734561920166],
+         [1.7989484071731567, 1.476754903793335, 1.4329502582550049],
+         [1.9585609436035156, 2.0552983283996582, 2.0338289737701416],
+         [2.1123726367950439, 1.9154638051986694, 1.8470758199691772],
+         [1.7075581550598145, 2.0650856494903564, 1.8786256313323975],
+         [1.6601848602294922, 2.0838139057159424, 1.9302912950515747],
+         [1.7651937007904053, 1.3319482803344727, 1.6723839044570923],
+         [1.6038172245025635, 1.281104564666748, 1.7076961994171143],
+         [1.8572235107421875, 1.9256408214569092, 1.5551244020462036],
+         [1.3944330215454102, 1.4710251092910767, 1.2723797559738159],
+         [1.5805213451385498, 1.786491870880127, 1.9965716600418091],
+         [1.6089824438095093, 1.6536226272583008, 1.7216441631317139],
+         [1.6427503824234009, 1.2622216939926147, 1.3339006900787354],
+         [1.5921475887298584, 1.4477853775024414, 1.5451828241348267],
+         [1.7485626935958862, 1.9603283405303955, 1.5874154567718506],
+         [1.174997091293335, 1.5267566442489624, 1.3757904767990112],
+         [1.4901281595230103, 1.6068876981735229, 1.7605991363525391],
+         [1.7780805826187134, 1.441672682762146, 1.6808938980102539],
+         [1.4773738384246826, 1.5793166160583496, 1.5747464895248413],
+         [1.6349068880081177, 1.8485732078552246, 1.4251554012298584],
+         [1.7163872718811035, 1.7315287590026855, 1.9817506074905396],
+         [1.7880076169967651, 1.7050145864486694, 1.557621955871582],
+         [1.2333823442459106, 1.5207540988922119, 1.6104618310928345],
+         [1.9518419504165649, 1.8223953247070312, 1.8038734197616577],
+         [1.567004919052124, 1.2572110891342163, 1.3791522979736328],
+         [1.3418225049972534, 1.6210030317306519, 1.8650168180465698],
+         [2.1098208427429199, 1.5974785089492798, 1.3397328853607178],
+         [1.435505747795105, 1.3628946542739868, 1.558194637298584],
+         [1.9369972944259644, 2.0405406951904297, 1.69834303855896],
+         [1.5347113609313965, 1.1952571868896484, 1.36539626121521],
+         [1.5550618171691895, 1.6876083612442017, 1.8127884864807129],
+         [1.8130189180374146, 1.6180311441421509, 1.2502912282943726],
+         [1.7129987478256226, 1.6241954565048218, 1.848590612411499],
+         [1.6104695796966553, 1.8547911643981934, 1.7072041034698486],
+         [1.6555715799331665, 1.722585916519165, 1.4128400087356567],
+         [1.4920854568481445, 1.4759902954101562, 1.5659612417221069],
+         [1.664239764213562, 1.9113870859146118, 1.9744715690612793],
+         [1.5460153818130493, 1.315888524055481, 1.2653214931488037],
+         [1.6348875761032104, 1.7388149499893188, 1.8604984283447266],
+         [1.751006007194519, 1.4989807605743408, 1.3538862466812134],
+         [1.4081637859344482, 1.7571074962615967, 1.9259833097457886],
+         [1.9354615211486816, 2.1322348117828369, 1.9475457668304443],
+         [1.7524666786193848, 1.3199115991592407, 1.8716570138931274],
+         [1.9475260972976685, 1.8482059240341187, 1.9523605108261108],
+         [2.0444071292877197, 1.8444844484329224, 1.6809544563293457]],
+        dtype=type_a).reshape(
+        1, 3, 7, 7)
+
+    result = onp.nn.lp_pool(onp.array(x), strides=strides, pads=pads,
+                            kernel_shape=kernel_shape)
+    expect(expected, result.numpy())
+
+
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_lrn_default(type_a):
     alpha = 0.0001
     beta = 0.75
@@ -1476,7 +1677,7 @@ def test_lrn_default(type_a):
     expect(expected, onp.nn.lrn(onp.array(x), size=nsize))
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_lrn(type_a):
     alpha = 0.0002
     beta = 0.5
@@ -1499,7 +1700,7 @@ def test_lrn(type_a):
             size=nsize, alpha=alpha, beta=beta, bias=bias))
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_lstm(type_a):
     x = np.array([[[1., 2.]], [[3., 4.]], [[5., 6.]]]).astype(type_a)
 
@@ -1522,7 +1723,7 @@ def test_lstm(type_a):
     expect(expected_yh.astype(type_a), yh.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_lstm_initial_bias(type_a):
     x = np.array([[[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]]).astype(type_a)
 
@@ -1551,8 +1752,8 @@ def test_lstm_initial_bias(type_a):
     expect(expected_yh.astype(type_a), yh.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
-@pytest.mark.parametrize("type_b", [np.int32])
+@ pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_b", [np.int32])
 def test_lstm_peepholes(type_a, type_b):
     x = np.array([[[1., 2., 3., 4.], [5., 6., 7., 8.]]]).astype(type_a)
 
@@ -1585,7 +1786,7 @@ def test_lstm_peepholes(type_a, type_b):
     expect(expected_yh.astype(np.float32), yh.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_leakyrelu(type_a):
     x = np.array([-1, 0, 1], dtype=type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * 0.1
@@ -1598,7 +1799,7 @@ def test_leakyrelu(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_leakyrelu_default(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     expected = np.clip(x, 0, np.inf) + np.clip(x, -np.inf, 0) * 0.01
@@ -1606,7 +1807,7 @@ def test_leakyrelu_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", float_types)
+@ pytest.mark.parametrize("type_a", float_types)
 def test_logsoftmax(type_a):
     x = np.array([[-1, 0, 1]]).astype(type_a)
     expected = np.array([[-2.4076061, -1.407606, -0.407606]]).astype(type_a)
@@ -1614,7 +1815,7 @@ def test_logsoftmax(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", float_types)
+@ pytest.mark.parametrize("type_a", float_types)
 def test_logsoftmax_axis(type_a):
 
     def logsoftmax(x, axis=-1):
@@ -1643,7 +1844,7 @@ def test_logsoftmax_axis(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_1d_default(type_a):
     x = np.random.randn(1, 3, 32).astype(type_a)
     x_shape = np.shape(x)
@@ -1661,7 +1862,7 @@ def test_maxpool_1d_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_ceil(type_a):
     x = np.array([[[
         [1, 2, 3, 4],
@@ -1680,7 +1881,7 @@ def test_maxpool_2d_ceil(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_default(type_a):
     x = np.random.randn(1, 3, 32, 32).astype(type_a)
     x_shape = np.shape(x)
@@ -1697,7 +1898,7 @@ def test_maxpool_2d_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_dilations(type_a):
     x = np.array([[[
         [1, 2, 3, 4],
@@ -1716,7 +1917,7 @@ def test_maxpool_2d_dilations(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_pads(type_a):
     x = np.random.randn(1, 3, 28, 28).astype(type_a)
     x_shape = np.shape(x)
@@ -1741,7 +1942,7 @@ def test_maxpool_2d_pads(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_precomputed_pads(type_a):
     x = np.array([[[
         [1, 2, 3, 4, 5],
@@ -1763,7 +1964,7 @@ def test_maxpool_2d_precomputed_pads(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_precomputed_same_upper(type_a):
     x = np.array([[[
         [1, 2, 3, 4, 5],
@@ -1773,8 +1974,8 @@ def test_maxpool_2d_precomputed_same_upper(type_a):
         [21, 22, 23, 24, 25],
     ]]]).astype(type_a)
     expected = np.array([[[[7, 9, 10],
-                           [17, 19, 20],
-                           [22, 24, 25]]]]).astype(type_a)
+                          [17, 19, 20],
+                          [22, 24, 25]]]]).astype(type_a)
     result, _ = onp.nn.maxpool(
         onp.array(x),
         kernel_shape=(3, 3),
@@ -1783,7 +1984,7 @@ def test_maxpool_2d_precomputed_same_upper(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_precomputed_strides(type_a):
     x = np.array([[[
         [1, 2, 3, 4, 5],
@@ -1793,7 +1994,7 @@ def test_maxpool_2d_precomputed_strides(type_a):
         [21, 22, 23, 24, 25],
     ]]]).astype(type_a)
     expected = np.array([[[[7, 9],
-                           [17, 19]]]]).astype(type_a)
+                          [17, 19]]]]).astype(type_a)
     result, _ = onp.nn.maxpool(
         onp.array(x),
         kernel_shape=(2, 2),
@@ -1801,7 +2002,7 @@ def test_maxpool_2d_precomputed_strides(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_same_lower(type_a):
     x = np.random.randn(1, 3, 32, 32).astype(type_a)
     x_shape = np.shape(x)
@@ -1834,7 +2035,7 @@ def test_maxpool_2d_same_lower(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_same_upper(type_a):
     x = np.random.randn(1, 3, 32, 32).astype(type_a)
     x_shape = np.shape(x)
@@ -1867,7 +2068,7 @@ def test_maxpool_2d_same_upper(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_2d_strides(type_a):
     x = np.random.randn(1, 3, 32, 32).astype(type_a)
     x_shape = np.shape(x)
@@ -1887,7 +2088,7 @@ def test_maxpool_2d_strides(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_3d_default(type_a):
     x = np.random.randn(1, 3, 32, 32, 32).astype(type_a)
     x_shape = np.shape(x)
@@ -1907,7 +2108,7 @@ def test_maxpool_3d_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_with_argmax_2d_precomputed_pads(type_a):
     x = np.array([[[
         [1, 2, 3, 4, 5],
@@ -1937,7 +2138,7 @@ def test_maxpool_with_argmax_2d_precomputed_pads(type_a):
     expect(indices_expected, indices.numpy())
 
 
-@pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
+@ pytest.mark.parametrize("type_a", [*float_types, np.int8, np.uint8])
 def test_maxpool_with_argmax_2d_precomputed_strides(type_a):
     x = np.array([[[
         [1, 2, 3, 4, 5],
@@ -1947,9 +2148,9 @@ def test_maxpool_with_argmax_2d_precomputed_strides(type_a):
         [21, 22, 23, 24, 25],
     ]]]).astype(type_a)
     y_expected = np.array([[[[7, 9],
-                             [17, 19]]]]).astype(type_a)
+                            [17, 19]]]]).astype(type_a)
     indices_expected = np.array([[[[6, 16],
-                                   [8, 18]]]]).astype(np.int64)
+                                  [8, 18]]]]).astype(np.int64)
 
     y, indices = onp.nn.maxpool(
         onp.array(x),
@@ -1960,7 +2161,7 @@ def test_maxpool_with_argmax_2d_precomputed_strides(type_a):
     expect(indices_expected, indices.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_maxunpool_with_output_shape(type_a):
     xT = np.array([[[[5, 6],
                    [7, 8]]]], dtype=type_a)
@@ -1986,7 +2187,7 @@ def test_maxunpool_with_output_shape(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_maxroipool(type_a):
     pooled_height = 1
     pooled_width = 1
@@ -1997,7 +2198,7 @@ def test_maxroipool(type_a):
     image_size = H * W
     input_channels = 3
     x = (np.arange(0, input_channels * image_size,
-         dtype=type_a) / type_a(10)).reshape(1, 3, H, W)
+                   dtype=type_a) / type_a(10)).reshape(1, 3, H, W)
     rois = np.array(
         [[0, 1, 1, 2, 3],
          [0, 1, 1, 2, 3],
@@ -2044,8 +2245,8 @@ def test_maxroipool(type_a):
 #     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", float_types)
-@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+@ pytest.mark.parametrize("type_a", float_types)
+@ pytest.mark.parametrize("type_b", [np.int32, np.int64])
 def test_negative_loglikelihood_loss_input_shape_is_NCd1(type_a, type_b):
     N, C, d1 = 3, 5, 2
 
@@ -2079,7 +2280,7 @@ def test_negative_loglikelihood_loss_input_shape_is_NCd1(type_a, type_b):
 #     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_prelu(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(3, 4, 5).astype(type_a)
@@ -2088,7 +2289,7 @@ def test_prelu(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_prelu_broadcast(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(5).astype(type_a)
@@ -2097,7 +2298,7 @@ def test_prelu_broadcast(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_prelu_broadcast_scalar(type_a):
     x = np.random.randn(3, 4, 5).astype(type_a)
     slope = np.random.randn(1).astype(type_a)
@@ -2153,8 +2354,8 @@ def scatter_elements(data, indices, updates, axis=0):  # type: ignore
     return scattered
 
 
-@pytest.mark.parametrize("type_a", all_types)
-@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+@ pytest.mark.parametrize("type_a", all_types)
+@ pytest.mark.parametrize("type_b", [np.int32, np.int64])
 def test_scatter_elements_with_axis(type_a, type_b):
     axis = 1
     x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0]], dtype=type_a)
@@ -2170,8 +2371,8 @@ def test_scatter_elements_with_axis(type_a, type_b):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", all_types)
-@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+@ pytest.mark.parametrize("type_a", all_types)
+@ pytest.mark.parametrize("type_b", [np.int32, np.int64])
 def test_scatter_elements_with_negative_indices(type_a, type_b):
     axis = 1
     x = np.array([[1.0, 2.0, 3.0, 4.0, 5.0]], dtype=type_a)
@@ -2187,8 +2388,8 @@ def test_scatter_elements_with_negative_indices(type_a, type_b):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", all_types)
-@pytest.mark.parametrize("type_b", [np.int32, np.int64])
+@ pytest.mark.parametrize("type_a", all_types)
+@ pytest.mark.parametrize("type_b", [np.int32, np.int64])
 def test_scatter_elements_without_axis(type_a, type_b):
     x = np.zeros((3, 3), dtype=type_a)
     indices = np.array([[1, 0, 2], [0, 2, 1]], dtype=type_b)
@@ -2220,7 +2421,7 @@ def scatter_nd_impl(data, indices, updates):
     return output
 
 
-@pytest.mark.parametrize("type_a", all_types)
+@ pytest.mark.parametrize("type_a", all_types)
 def test_scatter_nd(type_a):
     x = np.array(
         [[[1, 2, 3, 4], [5, 6, 7, 8], [8, 7, 6, 5], [4, 3, 2, 1]],
@@ -2240,7 +2441,7 @@ def test_scatter_nd(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_selu(type_a):
     alpha = 2.0
     gamma = 3.0
@@ -2259,7 +2460,7 @@ def test_selu(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_selu_default(type_a):
     default_alpha = 1.67326319217681884765625
     default_gamma = 1.05070102214813232421875
@@ -2278,7 +2479,7 @@ def test_selu_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", numeric_types)
+@ pytest.mark.parametrize("type_a", numeric_types)
 def test_shrink_hard(type_a):
     x = np.arange(0, 4.1, dtype=type_a)
     expected = np.array([0, 0, 2, 3, 4], dtype=type_a)
@@ -2286,7 +2487,7 @@ def test_shrink_hard(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", numeric_types)
+@ pytest.mark.parametrize("type_a", numeric_types)
 def test_shrink_soft(type_a):
     x = np.arange(0, 4.1, dtype=type_a)
     expected = np.array([0, 0, 0.5, 1.5, 2.5], dtype=type_a)
@@ -2294,7 +2495,7 @@ def test_shrink_soft(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32, np.float64])
+@ pytest.mark.parametrize("type_a", [np.float32, np.float64])
 def test_sigmoid(type_a):
 
     x = np.array([-1, 0, 1]).astype(type_a)
@@ -2308,7 +2509,7 @@ def test_sigmoid(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_softplus(type_a):
 
     x = np.array([-1, 0, 1]).astype(type_a)
@@ -2323,7 +2524,7 @@ def test_softplus(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_softsign(type_a):
 
     x = np.array([-1, 0, 1]).astype(type_a)
@@ -2338,7 +2539,7 @@ def test_softsign(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_space_to_depth_default(type_a):
     blocksize = 2
     N = 1
@@ -2346,9 +2547,9 @@ def test_space_to_depth_default(type_a):
     H = 2
     W = 4
     x = np.array([[0, 0.1, 0.2, 0.3],
-                  [1, 1.1, 1.2, 1.3],
-                  [2, 2.1, 2.2, 2.3],
-                  [3, 3.1, 3.2, 3.3]], dtype=type_a).reshape(N, C, H, W)
+                 [1, 1.1, 1.2, 1.3],
+                 [2, 2.1, 2.2, 2.3],
+                 [3, 3.1, 3.2, 3.3]], dtype=type_a).reshape(N, C, H, W)
 
     expected = np.array(
         [[0., 0.2],
@@ -2367,7 +2568,7 @@ def test_space_to_depth_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_thresholded_relu_default(type_a):
     default_alpha = 1.0
     x = np.random.randn(3, 4, 5).astype(type_a)
@@ -2378,7 +2579,7 @@ def test_thresholded_relu_default(type_a):
     expect(expected, result.numpy())
 
 
-@pytest.mark.parametrize("type_a", [np.float32])
+@ pytest.mark.parametrize("type_a", [np.float32])
 def test_thresholded_relu(type_a):
     alpha = 2.0
     x = np.random.randn(3, 4, 5).astype(type_a)

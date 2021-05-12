@@ -67,8 +67,8 @@
 |Log | :heavy_check_mark: | `log` | :x: |
 |LogSoftmax | :heavy_check_mark: | `nn.logsoftmax` | :x: |
 |Loop | :x: | | :x: |
-|LpNormalization | :heavy_check_mark: | `lp_normalization` | :x: |
-|LpPool | :x: | | :x: |
+|LpNormalization | :heavy_check_mark: | `nn.lp_normalization` | :x: |
+|LpPool | :heavy_check_mark: | `nn.lp_pool` | :x: |
 |MatMul | :heavy_check_mark: | `matmul` | :x: |
 |MatMulInteger | :heavy_check_mark: | `matmul_integer` | :x: |
 |Max | :heavy_check_mark: | `max` | :x: |

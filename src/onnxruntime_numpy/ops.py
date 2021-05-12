@@ -645,32 +645,6 @@ def log(x: "array.Array"):
     return helper_log(x)
 
 
-def lp_normalization(x: "array.Array", axis: int = -1, p: int = 2):
-
-    axis = int(axis)
-
-    check_axis_is_valid(x, axis)
-
-    p = int(p)
-    if p not in [1, 2]:
-        raise ValueError(
-            f"Normalization order has to be either 1 or 2, but got {p}")
-
-    @allowed_types(float_types)
-    def helper_lp_normalization(x: "array.Array", axis: int, p: int):
-        return unary_operator(x, "LpNormalization", axis=axis, p=p)
-
-    return helper_lp_normalization(x, axis=axis, p=p)
-
-
-def lp_pool(
-        x: "array.Array", kernel_shape: List[int],
-        auto_pad: str = "NOTSET", p: int = 2, pads: List[int] = None,
-        strides: List[int] = None):
-    # TODO
-    raise NotImplementedError()
-
-
 @register
 def matmul(x: "array.Array", y: "array.Array"):
     @allowed_types([*float_types, np.int32, np.int64, np.uint32, np.uint64],

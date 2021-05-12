@@ -341,7 +341,6 @@ def gathernd(x: Array, indices: Array, batch_dims: int = 0):
     def gathernd_helper(x: Array, indices: Array, batch_dims: int):
 
         r = x.ndims
-        q = indices.ndims
 
         for b in range(batch_dims):
             if indices.shape[b] != x.shape[b]:
@@ -509,6 +508,47 @@ def instance_normalization(
             "InstanceNormalization", x, scale, bias, epsilon=epsilon)
 
     return helper_instance_normalization(x, scale, bias, epsilon=epsilon)
+
+
+def lp_normalization(x: Array, axis: int = -1, p: int = 2):
+
+    axis = int(axis)
+
+    check_axis_is_valid(x, axis)
+
+    p = int(p)
+    if p not in [1, 2]:
+        raise ValueError(
+            f"Normalization order has to be either 1 or 2, but got {p}")
+
+    @allowed_types(float_types)
+    def helper_lp_normalization(x: Array, axis: int, p: int):
+        return nary_operator("LpNormalization", x, axis=axis, p=p)
+
+    return helper_lp_normalization(x, axis=axis, p=p)
+
+
+def lp_pool(
+        x: Array, kernel_shape: List[int],
+        auto_pad: str = "NOTSET", p: int = 2, pads: List[int] = None,
+        strides: List[int] = None):
+
+    @allowed_types(float_types)
+    @not_implemented_types([np.float64])
+    @output_checks_and_inference(
+        propagate_pool_shape(
+            kernel_shape, pads, strides, auto_pad, 1))
+    def lp_pool_helper(
+            x: Array, kernel_shape: List[int],
+            auto_pad: str, p: int, pads: List[int],
+            strides: List[int]):
+        return nary_operator(
+            "LpPool", x, kernel_shape=kernel_shape, auto_pad=auto_pad, p=p,
+            pads=pads, strides=strides)
+
+    return lp_pool_helper(
+        x, kernel_shape=kernel_shape, auto_pad=auto_pad, p=p, pads=pads,
+        strides=strides)
 
 
 def lrn(
