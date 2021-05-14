@@ -1,12 +1,14 @@
-# flake8: noqa
+# TODO: fix types and formatting after refactor
+# type: ignore
+# flake: noqa
 
 from .array import Array
 from .evaluator import merge_array_evaluators, IntermediateResultCache
 from .ops_utils import nary_operator
 from . import ops
-from .graph import Graph, Input, Node, Output
+from .graph import Graph, Input
 from .tracer import OpTracerContext
-from typing import List, Dict, Tuple, Callable
+from typing import Dict, Tuple, Callable
 from .graph import ExecutableGraph
 from .config import HAS_ONNXRUNTIME_TRAINING
 
@@ -145,8 +147,11 @@ def grad_fn(func, argnum):
 
         grad_result = backward_pass(g, grad_graph)
 
-        other_evaluators = [a._evaluator for a in array_objs] + [a._evaluator
-                                                                 for a in array_obj_kwargs.values()]
+        other_evaluators = [
+            a._evaluator for a in array_objs
+        ] + [
+            a._evaluator for a in array_obj_kwargs.values()
+        ]
 
         merge_array_evaluators(grad_result._evaluator, *other_evaluators)
 

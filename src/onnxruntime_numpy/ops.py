@@ -1079,10 +1079,6 @@ def arange(start: Union[NumericType, "array.Array"],
     if len(delta.shape) != 0:
         raise ValueError("Delta value should be a scalar")
 
-    start = force_evaluation(start, "start", allow_evaluation)
-    limit = force_evaluation(limit, "limit", allow_evaluation)
-    delta = force_evaluation(delta, "delta", allow_evaluation)
-
     @allowed_types([*float_types, np.int16, np.int32, np.int64],
                    [*float_types, np.int16, np.int32, np.int64],
                    [*float_types, np.int16, np.int32, np.int64])
@@ -1098,10 +1094,13 @@ def arange(start: Union[NumericType, "array.Array"],
         # in onp (10 - 6) / 3 == 1, but we want 2 (rounded up from 1.33)
         # so (10.0 - 6.0) / 3.0 == 1.33, then ceil(1.33) == 2.0
         # and in the end convert to int (since dimensions are always int)
-        result._dims = DynamicShape(
-            int(ceil(
-                (abs(cast(limit, np.float32) - cast(start, np.float32)) /
-                 abs(cast(delta, np.float32)))).item()),)
+        if allow_evaluation:
+            result._dims = DynamicShape(
+                int(ceil(
+                    (abs(cast(limit, np.float32) - cast(start, np.float32))
+                     / abs(cast(delta, np.float32)))).item()),)
+        else:
+            result._dims = DynamicShape(-1)
         return result
 
     return arange_helper(start, limit, delta)

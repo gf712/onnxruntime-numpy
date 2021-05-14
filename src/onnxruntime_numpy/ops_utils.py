@@ -3,7 +3,7 @@ from . import evaluator
 from .shapes import DynamicShape, DynamicDimension, Shape
 from .einsum_helper import einsum_parse_and_resolve_equation
 import functools
-from typing import Union, List, Optional
+from typing import Union, List, Optional, Tuple
 import numpy as np
 import math
 from .exceptions import InternalException
@@ -14,7 +14,9 @@ AVAILABLE_AUTO_PADDING = ["NOTSET", "SAME_UPPER", "SAME_LOWER", "VALID"]
 
 
 def add_node(
-        evaluator, op_name, input_arrays, output_arrays, **attributes):
+        evaluator, op_name: str, input_arrays: Union[Tuple, Tuple["array.Array"]],
+        output_arrays: Tuple["array.Array"],
+        **attributes):
     attributes = {k: v for k, v in attributes.items() if v is not None}
     evaluator.add_node(op_name,
                        input_arrays,
@@ -58,7 +60,8 @@ def multi_output_nary_operator(output_count):
             new_arrays[-1]._dtype = arrays[0].dtype
             new_arrays[-1]._dims = arrays[0].shape
 
-        add_node(new_evaluator, op_name, arrays, new_arrays, **attributes)
+        add_node(new_evaluator, op_name, tuple(
+            arrays), tuple(new_arrays), **attributes)
 
         if len(evaluators) > 1:
             for e in evaluators[1:]:
@@ -88,7 +91,7 @@ def initializer_operator(
     new_array._dtype = array_dtype
     new_array._dims = array_shape
 
-    add_node(new_evaluator, op_name, [], [new_array], **attributes)
+    add_node(new_evaluator, op_name, (), (new_array,), **attributes)
     return new_array
 
 
@@ -247,7 +250,7 @@ def check_input_shape_gemm(func):
             # 1 to satisfy property 2.
             elif len(c_shape) < len(output_shape):
                 pad = len(output_shape) - len(c_shape)
-                c_shape = (*(1,)*pad, *c_shape)
+                c_shape = (*(1,) * pad, *c_shape)
                 for s1, s2 in zip(output_shape, c_shape):
                     if s1 != s2 and s2 != 1:
                         raise ValueError(
@@ -439,7 +442,10 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
         # The tensors that have too few dimensions can have their shapes
         # prepended with a dimension of length 1 to satisfy property 2.
         max_array_shape = max(map(lambda a: len(a), array_shapes))
-        def prepend_ones_to_shape(s, n): return DynamicShape(*(1,)*n, *s)
+
+        def prepend_ones_to_shape(s, n):
+            return DynamicShape(*(1,) * n, *s)
+
         array_shapes = [
             prepend_ones_to_shape(a, max_array_shape - len(a))
             if len(a) < max_array_shape else a for a in array_shapes]
@@ -472,11 +478,11 @@ def broadcast_to(shape_: Shape):
         input_array_shape = input_arrays_and_args[0].shape
         if len(input_array_shape) < len(shape_):
             pad = len(shape_) - len(input_array_shape)
-            input_array_shape = DynamicShape(*(1,)*pad, *input_array_shape)
+            input_array_shape = DynamicShape(*(1,) * pad, *input_array_shape)
             shape = shape_
         elif len(input_array_shape) > len(shape_):
             pad = len(input_array_shape) - len(shape_)
-            shape = DynamicShape(*(1,)*pad, *shape_)
+            shape = DynamicShape(*(1,) * pad, *shape_)
         else:
             shape = shape_
         output_shape = DynamicShape()

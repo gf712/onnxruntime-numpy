@@ -59,7 +59,7 @@ def test_einsum_period_output_ellipsis():
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 def test_einsum_batch_diagonal(type_a):
 
-    x = onp.array(np.arange(2*3*3).reshape(2, 3, 3), dtype=type_a)
+    x = onp.array(np.arange(2 * 3 * 3).reshape(2, 3, 3), dtype=type_a)
     equation = "...ii ->...i"
     expected = onp.array([[0,  4,  8],
                           [9, 13, 17]], dtype=type_a)
@@ -71,8 +71,8 @@ def test_einsum_batch_diagonal(type_a):
 
 @pytest.mark.parametrize("type_a", [*float_types, np.int32, np.int64])
 def test_einsum_batch_matmul(type_a):
-    x = onp.array(np.arange(3*1*2).reshape((3, 1, 2)), dtype=type_a)
-    y = onp.array(np.arange(3*2*3).reshape(3, 2, 3), dtype=type_a)
+    x = onp.array(np.arange(3 * 1 * 2).reshape((3, 1, 2)), dtype=type_a)
+    y = onp.array(np.arange(3 * 2 * 3).reshape(3, 2, 3), dtype=type_a)
 
     equation = "bij, bjk -> bik"
     expected = onp.array([[[3,   4,   5]],
