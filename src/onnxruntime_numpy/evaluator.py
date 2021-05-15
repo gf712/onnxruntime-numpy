@@ -1,11 +1,11 @@
 import onnx
 from typing import List, Tuple, Dict, Optional
 import onnxruntime
-import numpy as np  # FIXME maybe
+import numpy as np
 from .types import numpy_to_ort, ort_to_numpy
 from .shapes import weak_shape_comparisson, as_shape
 from .graph import Graph, ExecutableGraph, compile_graph
-from .config import PROVIDERS
+from .config import Config, get_ort_graph_optimization_level
 from .exceptions import InternalException
 from . import array
 
@@ -167,11 +167,15 @@ class LazyEvaluator:
 
         output_name = output_array._internal_name
 
+        # TODO: maybe disable optimisations when graph has already been optimised
+        # with jit?
+        session_options = onnxruntime.SessionOptions()
+        session_options.graph_optimization_level = get_ort_graph_optimization_level()
+
         try:
-            # TODO: maybe disable optimisations when graph has already been optimised
-            # with jit?
-            onnx.save_model(m, "failed_model.onnx")
-            session = onnxruntime.InferenceSession(buffer, providers=PROVIDERS)
+            session = onnxruntime.InferenceSession(
+                buffer, providers=Config().get_providers(),
+                sess_options=session_options)
         except Exception:  # pragma: no cover
             # dump failed model for debugging purposes
             onnx.save_model(m, "failed_model.onnx")

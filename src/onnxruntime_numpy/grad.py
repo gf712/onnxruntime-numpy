@@ -3,7 +3,7 @@ from .ops_utils import nary_operator
 from . import ops
 from .graph import Input
 from typing import Dict, Tuple, Callable
-from .config import HAS_ONNXRUNTIME_TRAINING
+from .config import Config
 import networkx as nx
 
 global_gradient_registry: Dict[str, Tuple[Callable, ...]] = {}
@@ -132,7 +132,7 @@ def sinh_grad(grad, output, x):
 
 
 def sin_grad(grad, output, x):
-    if HAS_ONNXRUNTIME_TRAINING:
+    if Config().onnxruntime_training_available():
         return nary_operator("SinGrad", grad, x)
     else:
         return grad * ops.cos(x)
