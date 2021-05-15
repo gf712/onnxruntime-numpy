@@ -1,16 +1,16 @@
 | Operation | Implemented | Function | Gradient Implemented |
 | --------- | :---------: | :------: | :------------------: |
-|Abs | :heavy_check_mark: | `absolute` | :x: |
-|Acos | :heavy_check_mark: | `acos` | :x: |
-|Acosh | :heavy_check_mark: | `acosh` | :x: |
-|Add | :heavy_check_mark: | `add` | :x: |
+|Abs | :heavy_check_mark: | `absolute` | :heavy_check_mark: |
+|Acos | :heavy_check_mark: | `acos` | :heavy_check_mark: |
+|Acosh | :heavy_check_mark: | `acosh` | :heavy_check_mark: |
+|Add | :heavy_check_mark: | `add` | :heavy_check_mark: |
 |And | :heavy_check_mark: | `logical_and` | :x: |
 |ArgMax | :heavy_check_mark: | `argmax` | :x: |
 |ArgMin | :heavy_check_mark: | `argmin` | :x: | 
-|Asin | :heavy_check_mark: | `asin` | :x: |
-|Asinh | :heavy_check_mark: | `asinh` | :x: |
-|Atan | :heavy_check_mark: | `atan` | :x: |
-|Atanh | :heavy_check_mark: | `atanh` | :x: |
+|Asin | :heavy_check_mark: | `asin` | :heavy_check_mark: |
+|Asinh | :heavy_check_mark: | `asinh` | :heavy_check_mark: |
+|Atan | :heavy_check_mark: | `atan` | :heavy_check_mark: |
+|Atanh | :heavy_check_mark: | `atanh` | :heavy_check_mark: |
 |AveragePool | :heavy_check_mark: | `nn.average_pool` | :x: |
 |BatchNormalization | :heavy_check_mark: (eval mode only) | `nn.batch_normalization` | :x: |
 |BitShift | :heavy_check_mark: | `bitshift`, `right_shift`, `left_shift` | :x: |
@@ -25,19 +25,19 @@
 |Conv | :heavy_check_mark: | `nn.conv` | :x: |
 |ConvInteger | :heavy_check_mark: (tests not working) | `nn.conv_integer` | :x: |
 |ConvTranspose | :heavy_check_mark: | `nn.conv_transpose` | :x: |
-|Cos | :heavy_check_mark: | `cos` | :x: |
-|Cosh | :heavy_check_mark: | `cosh` | :x: |
+|Cos | :heavy_check_mark: | `cos` | :heavy_check_mark: |
+|Cosh | :heavy_check_mark: | `cosh` | :heavy_check_mark: |
 |CumSum | :heavy_check_mark: | `cumsum` | :x: |
 |DepthToSpace | :heavy_check_mark: | `nn.depth_to_space` | :x: |
 |DequantizeLinear | :heavy_check_mark: | `nn.dequantize_linear` | :x: |
 |Det | :heavy_check_mark: | `det` | :x: |
-|Div | :heavy_check_mark: | `divide` | :x: |
+|Div | :heavy_check_mark: | `divide` | :heavy_check_mark: |
 |Dropout | :heavy_check_mark: | `nn.dropout` | :x: |
 |Einsum | :heavy_check_mark: | `einsum` | :x: |
 |Elu | :heavy_check_mark: | `nn.elu` | :x: |
 |Equal | :heavy_check_mark: | `equal` | :x: |
 |Erf | :heavy_check_mark: | `erf` | :x: |
-|Exp | :heavy_check_mark: | `exp` | :x: |
+|Exp | :heavy_check_mark: | `exp` | :heavy_check_mark: |
 |Expand | :heavy_check_mark: | `expand` | :x: |
 |EyeLike | :heavy_check_mark: | `eye_like` | :x: |
 |Flatten | :heavy_check_mark: | `flatten` | :x: |
@@ -64,7 +64,7 @@
 |LeakyRelu | :heavy_check_mark: | `nn.leakyrelu` | :x: |
 |Less | :heavy_check_mark: | `less` | :x: |
 |LessOrEqual | :heavy_check_mark: | `less_equal` | :x: |
-|Log | :heavy_check_mark: | `log` | :x: |
+|Log | :heavy_check_mark: | `log` | :heavy_check_mark: |
 |LogSoftmax | :heavy_check_mark: | `nn.logsoftmax` | :x: |
 |Loop | :x: | | :x: |
 |LpNormalization | :heavy_check_mark: | `nn.lp_normalization` | :x: |
@@ -78,7 +78,7 @@
 |Mean | :heavy_check_mark: | `mean` | :x: |
 |Min | :heavy_check_mark: | `minimum` | :x: |
 |Mod | :heavy_check_mark: | `mod` | :x: |
-|Mul | :heavy_check_mark: | `multiply` | :x: |
+|Mul | :heavy_check_mark: | `multiply` | :heavy_check_mark: |
 |Multinomial | :heavy_check_mark: | `random.multinomial` | :x: |
 |Neg | :heavy_check_mark: | `negative` | :x: |
 |NegativeLogLikelihoodLoss | :heavy_check_mark: (unstable) | `nn.negative_loglikelihood_loss` | :x: |
@@ -89,7 +89,7 @@
 |Or | :heavy_check_mark: | `logical_or` | :x: |
 |PRelu | :heavy_check_mark: | `nn.prelu` | :x: |
 |Pad | :x: | | :x: |
-|Pow | :heavy_check_mark: | `power` | :x: |
+|Pow | :heavy_check_mark: | `power` | :heavy_check_mark: |
 |QLinearConv | :x: | | :x: |
 |QLinearMatMul | :x: | | :x: |
 |QuantizeLinear | :x: | | :x: |
@@ -130,8 +130,8 @@
 |Shrink | :heavy_check_mark: | `nn.shrink` | :x: |
 |Sigmoid | :heavy_check_mark: | `nn.sigmoid` | :x: |
 |Sign | :heavy_check_mark: | `sign` | :x: |
-|Sin | :heavy_check_mark: | `sin` | :x: |
-|Sinh | :heavy_check_mark: | `sinh` | :x: |
+|Sin | :heavy_check_mark: | `sin` | :heavy_check_mark: |
+|Sinh | :heavy_check_mark: | `sinh` | :heavy_check_mark: |
 |Size | :heavy_check_mark: | `size` | :x: |
 |Slice | :heavy_check_mark: | `slice` and `Array.__getitem__` | :x: |
 |Softplus | :heavy_check_mark: | `nn.softplus` | :x: |
@@ -139,13 +139,13 @@
 |SpaceToDepth | :heavy_check_mark: | `nn.space_to_depth` | :x: |
 |Split | :x: | | :x: |
 |SplitToSequence | :x:| | :x: |
-|Sqrt | :heavy_check_mark: | `sqrt` | :x: |
+|Sqrt | :heavy_check_mark: | `sqrt` | :heavy_check_mark: |
 |Squeeze | :heavy_check_mark: | `squeeze` | :x: |
 |StringNormalizer | :x: | | :x: |
-|Sub | :heavy_check_mark: | `subtract` | :x: |
+|Sub | :heavy_check_mark: | `subtract` | :heavy_check_mark: |
 |Sum | :x: |  | :x: |
-|Tan | :heavy_check_mark: | `tan` | :x: |
-|Tanh | :heavy_check_mark: | `tanh` | :x: |
+|Tan | :heavy_check_mark: | `tan` | :heavy_check_mark: |
+|Tanh | :heavy_check_mark: | `tanh` | :heavy_check_mark: |
 |TfIdfVectorizer | :x: | | :x: |
 |ThresholdedRelu | :heavy_check_mark: | `nn.thresholded_relu` | :x: |
 |Tile | :heavy_check_mark: | `tile` | :x: |

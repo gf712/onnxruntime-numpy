@@ -19,9 +19,9 @@ class Node(namedtuple("Node", "op_type node_name op_name attributes")):
         return f'Node({self.node_name})'
 
 
-class Input(namedtuple("Input", "dtype shape name")):
+class Input(namedtuple("Input", "dtype shape node_name")):
     def __repr__(self):
-        return f'Input({self.shape}, dtype={self.dtype}, name={self.name})'
+        return f'Input({self.shape}, dtype={self.dtype}, name={self.node_name})'
 
 
 class Output(namedtuple("Output", "dtype shape")):
@@ -147,8 +147,15 @@ class Graph:
                         "Input array does not have a index associated to it")
                 parent_node = input_array._evaluator._parent_node
                 if parent_node is not None:
-                    tensor_id = uuid.uuid4()
-                    edge_name = f"Tensor_{tensor_id}"
+                    # use the Array name as the edge name
+                    # the graph is still independent of array values, this
+                    # is just to make sure that multiple edges using the same
+                    # inputs still have the same name
+                    # if this name was randomly generated, multiple edges with
+                    # same input would have different names, and we would need
+                    # more input nodes for the same values (possibly innefficient
+                    # and just more stuff to keep track of)
+                    edge_name = f"Tensor_{input_array._internal_name}"
                     # adds edge between previous node (which provides an input) and
                     # this node
                     self._graph.add_edge(
@@ -257,7 +264,8 @@ class ExecutableGraph:
                 input_out_edge = self._graph._graph.out_edges(
                     input_name, data=True)
                 if len(input_out_edge) == 0:
-                    raise InternalException()
+                    # unused input node, should this be an error?
+                    continue
                 for e in input_out_edge:
                     edge_name = e[-1]["name"]
                     self._input_node_mapping[input_name] = edge_name
@@ -294,6 +302,9 @@ class ExecutableGraph:
         g = onnx.GraphProto()
         template_graph = self._graph._graph
 
+        # keep track of input names in order to avoid duplicate inputs
+        graph_input_names: Set[str] = set()
+
         # FIXME: make this independent of the number of outputs
         output_name = next(iter(self._output_names))
         ancestors = nx.ancestors(template_graph, output_name)
@@ -311,12 +322,14 @@ class ExecutableGraph:
                     raise InternalException(len(out_edges))
                 for e in out_edges:
                     out_node = e[1]
-                    if out_node in ancestors:
+                    tensor_name = e[-1]["name"]
+                    if out_node in ancestors and tensor_name not in graph_input_names:
                         g.input.append(
                             onnx.helper.make_tensor_value_info(
-                                e[-1]["name"],
+                                tensor_name,
                                 numpy_to_onnx(np.dtype(node.dtype)),
                                 node.shape.tolist()))
+                        graph_input_names.add(tensor_name)
             elif isinstance(node, Node):
                 in_edges = template_graph.in_edges(node_name, data=True)
                 out_edges = template_graph.out_edges(node_name, data=True)

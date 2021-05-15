@@ -13,10 +13,10 @@ STRICT_MODE = True
 AVAILABLE_AUTO_PADDING = ["NOTSET", "SAME_UPPER", "SAME_LOWER", "VALID"]
 
 
-def add_node(
-        evaluator, op_name: str, input_arrays: Union[Tuple, Tuple["array.Array"]],
-        output_arrays: Tuple["array.Array"],
-        **attributes):
+def add_node(evaluator, op_name: str,
+             input_arrays: Union[Tuple, Tuple["array.Array"]],
+             output_arrays: Tuple["array.Array"],
+             **attributes):
     attributes = {k: v for k, v in attributes.items() if v is not None}
     evaluator.add_node(op_name,
                        input_arrays,
@@ -432,11 +432,11 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
             s0 = dims_at_idx[0]
             s_set = set()
             for s in dims_at_idx:
-                if s != s0 and s != 1:
+                if s != s0 and s != 1 and s0 != 1:
                     raise ValueError(
                         f"Broadcasting not possible with shapes {array_shapes}")
                 else:
-                    s_set.add(s)
+                    s_set.add(max(s0, s))
             shape = DynamicShape(*shape, max(s_set))
     else:
         # The tensors that have too few dimensions can have their shapes
@@ -454,11 +454,11 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
             s0 = dims_at_idx[0]
             s_set = set()
             for s in dims_at_idx:
-                if s != s0 and s != 1:
+                if s != s0 and s != 1 and s0 != 1:
                     raise ValueError(
                         f"Broadcasting not possible with shapes {array_shapes}")
                 else:
-                    s_set.add(s)
+                    s_set.add(max(s0, s))
             shape = DynamicShape(*shape, max(s_set))
 
     return_array._dims = shape

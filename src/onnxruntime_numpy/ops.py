@@ -20,6 +20,7 @@ from collections.abc import Iterable
 import numpy as np
 
 
+@register
 def absolute(x):
     @allowed_types([*float_types, *integer_types])
     def absolute_helper(x):
@@ -27,6 +28,7 @@ def absolute(x):
     return absolute_helper(x)
 
 
+@register
 def acos(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -35,6 +37,7 @@ def acos(x):
     return helper_acos(x)
 
 
+@register
 def acosh(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -43,6 +46,7 @@ def acosh(x):
     return helper_acos(x)
 
 
+@register
 def add(x, y):
     @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
     @allowed_types([*float_types, np.int32, np.int64],
@@ -104,6 +108,7 @@ def argmin(x: "array.Array", axis: int = 0, keepdims: bool = True,
     return argmin_helper(x, axis, int(keepdims), int(select_last_index))
 
 
+@register
 def asin(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -112,6 +117,7 @@ def asin(x):
     return helper_asin(x)
 
 
+@register
 def asinh(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -120,6 +126,7 @@ def asinh(x):
     return helper_asinh(x)
 
 
+@register
 def atan(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -128,6 +135,7 @@ def atan(x):
     return atan_helper(x)
 
 
+@register
 def atanh(x):
     @not_implemented_types([np.float64])
     @allowed_types([*float_types])
@@ -394,6 +402,7 @@ def det(x: "array.Array"):
     return det_helper(x)
 
 
+@register
 def divide(x, y):
     @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
     @allowed_types([*float_types, np.int32, np.int64],
@@ -817,6 +826,7 @@ def mod(x: "array.Array", y: "array.Array", fmod: bool = False):
     return helper_mod(x, y, fmod=bool(fmod))
 
 
+@register
 def multiply(x: "array.Array", y: "array.Array"):
     @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
     @allowed_types([*float_types, np.int32, np.int64],
@@ -937,6 +947,7 @@ def pad(x: "array.Array", pads: "array.Array",
     return pad_helper(x, pads, constant_value)
 
 
+@register
 def power(x: "array.Array", y: "array.Array"):
     @allowed_types([*float_types, np.int32, np.int64], numeric_types)
     @not_implemented_types([],
@@ -1400,6 +1411,7 @@ def slice(x: "array.Array", starts: "array.Array", ends: "array.Array",
     return slice_helper(x, starts, ends, axes, steps)
 
 
+@register
 def subtract(x, y):
     @not_implemented_types([np.uint32, np.uint64], [np.uint32, np.uint64])
     @allowed_types([*float_types, np.int32, np.int64],
@@ -1412,6 +1424,12 @@ def subtract(x, y):
     return subtract_helper(x, y)
 
 
+@register
+def square(x: "array.Array") -> "array.Array":
+    return x * x
+
+
+@register
 def sqrt(x: "array.Array") -> "array.Array":
     @allowed_types(float_types)
     def sqrt_helper(x: "array.Array") -> "array.Array":
@@ -1419,6 +1437,7 @@ def sqrt(x: "array.Array") -> "array.Array":
     return sqrt_helper(x)
 
 
+@register
 def tan(x: "array.Array") -> "array.Array":
     @allowed_types(float_types)
     @not_implemented_types([np.float64])
@@ -1427,6 +1446,7 @@ def tan(x: "array.Array") -> "array.Array":
     return tan_helper(x)
 
 
+@register
 def tanh(x: "array.Array") -> "array.Array":
     @allowed_types(float_types)
     @not_implemented_types([np.float64])

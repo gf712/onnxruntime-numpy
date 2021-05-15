@@ -170,6 +170,7 @@ class LazyEvaluator:
         try:
             # TODO: maybe disable optimisations when graph has already been optimised
             # with jit?
+            onnx.save_model(m, "failed_model.onnx")
             session = onnxruntime.InferenceSession(buffer, providers=PROVIDERS)
         except Exception:  # pragma: no cover
             # dump failed model for debugging purposes

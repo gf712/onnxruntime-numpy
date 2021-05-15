@@ -2703,6 +2703,8 @@ def test_scatter_nd(type_a):
 
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_selu(type_a):
+    rng = np.random.default_rng(12345)
+
     alpha = 2.0
     gamma = 3.0
 
@@ -2713,7 +2715,7 @@ def test_selu(type_a):
     result = onp.nn.selu(onp.array(x), alpha, gamma)
     expect(expected, result.numpy())
 
-    x = np.random.randn(3, 4, 5).astype(type_a)
+    x = rng.random((3, 4, 5)).astype(type_a)
     expected = np.clip(
         x, 0, np.inf) * 3.0 + (np.exp(np.clip(x, -np.inf, 0)) - 1) * 2.0 * 3.0
     result = onp.nn.selu(onp.array(x), alpha, gamma)
