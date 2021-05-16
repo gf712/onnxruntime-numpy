@@ -122,9 +122,7 @@ class LazyEvaluator:
         if self._graph is None:
             self._graph = other_graph
         elif other_graph is not None:
-            # if graph.name not in self._graph_names:
             self._graph.add_subgraph(other_graph)
-            # self._graph_names.add(graph.name)
 
     def merge(self, other: "LazyEvaluator"):
         self.add_subgraph(other._graph)
@@ -136,11 +134,6 @@ class LazyEvaluator:
         self._array_to_node_map.update(other._array_to_node_map)
         other._array_to_node_map = self._array_to_node_map
         return
-        # self._input_names.update(other._input_names)
-        # self._node_names.update(other._node_names)
-        # self._initializer_names.update(other._initializer_names)
-        # self._graph_names.update(other._graph_names)
-        # self._initializers = {**self._initializers, **other._initializers}
 
     def _build_executable_graph(self, array: "array.Array") -> ExecutableGraph:
         if self._parent_node is None:
@@ -173,6 +166,8 @@ class LazyEvaluator:
         session_options.graph_optimization_level = get_ort_graph_optimization_level()
 
         try:
+            onnx.save_model(m, "failed_model.onnx")
+
             session = onnxruntime.InferenceSession(
                 buffer, providers=Config().get_providers(),
                 sess_options=session_options)

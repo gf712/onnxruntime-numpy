@@ -1,12 +1,26 @@
 from .array import Array, array
 from .ops_utils import nary_operator
 from . import ops
+from . import nn
 from .graph import Input
-from typing import Dict, Tuple, Callable
 from .config import Config
 import networkx as nx
+import numpy as np
+from typing import Dict, Tuple, Callable, Optional, List
+from enum import Enum
+import functools
+import operator
 
 global_gradient_registry: Dict[str, Tuple[Callable, ...]] = {}
+
+
+class _StopGradient:
+    pass
+
+
+class StopGradientsValue(Enum):
+    NONE = 0
+    Zero = 1
 
 
 def gradient_factory(op):
@@ -38,12 +52,12 @@ def acosh_grad(grad, output, x):
         * ops.sqrt(x + grad))
 
 
-def add_grad_dx(grad, output, *args):
-    return grad
+def add_grad_dx(grad, output, x, y):
+    return unbroadcast(grad, x)
 
 
-def add_grad_dy(grad, output, *args):
-    return grad
+def add_grad_dy(grad, output, x, y):
+    return unbroadcast(grad, y)
 
 
 def asin_grad(grad, output, x):
@@ -75,11 +89,11 @@ def cosh_grad(grad, output, x):
 
 
 def divide_grad_dx(grad, output, x, y):
-    return grad / y
+    return unbroadcast(grad / y, x)
 
 
 def divide_grad_dy(grad, output, x, y):
-    return - grad * x / ops.square(y)
+    return unbroadcast(- grad * x / ops.square(y), y)
 
 
 def exp_grad(grad, output, x):
@@ -93,29 +107,61 @@ def log_grad(grad, output, x):
 def matmul_grad_dA(grad, output, A, B):
     if grad.ndims == 0:
         # output is a scalar
-        return grad * B
+        return unbroadcast(grad * B, A)
     if len(A.shape) == 2 and len(B.shape) == 2:
-        return ops.gemm(grad, B, transB=True)
-    return ops.matmul(grad, B.T)
+        return unbroadcast(ops.gemm(grad, B, transB=True), A)
+    return unbroadcast(ops.matmul(grad, B.T), A)
 
 
 def matmul_grad_dB(grad, output, A, B):
     if grad.ndims == 0:
         # output is a scalar
-        return grad * A
+        return unbroadcast(grad * A, B)
     # dispatch matmul of matrices to gemm
     if len(A.shape) == 2 and len(B.shape) == 2:
-        return ops.gemm(A, grad, transA=True)
+        return unbroadcast(ops.gemm(A, grad, transA=True), B)
     # other tensor shapes are dispatched to matmul
-    return ops.matmul(A.T, grad)
+    return unbroadcast(ops.matmul(A.T, grad), B)
+
+
+def mean_grad_dx(grad: Array, output: Array, x: Array, **kwargs):
+    keep_dims: bool = kwargs.get("keep_dims")  # type: ignore
+
+    # code below adapted from tf
+    input_shape = x.shape
+    if keep_dims:
+        output_shape = output.shape.tolist()
+    else:
+        axes: Optional[List[int]] = kwargs.get("axes")
+        if axes is None:
+            axes = list(range(x.ndims))
+        else:
+            # insert 1's in every axis that has been reduced
+            output_shape = [0] * x.ndims
+            dim_i = 0
+            for idx in range(len(output_shape)):
+                if idx in axes:
+                    output_shape[idx] = 1
+                else:
+                    output_shape[idx] = int(output.shape[dim_i])
+                    dim_i += 1
+
+    tile_scaling = [
+        int(i) / int(o) for i,
+        o in zip(input_shape.tolist(), output_shape)]
+    grad = ops.reshape(grad, output_shape)
+    outgrad = ops.tile(grad, array(tile_scaling, dtype=np.int64))
+    # then we need to normalize each axis (using the axis dimensionality)
+    return outgrad / array(functools.reduce(operator.mul, tile_scaling, 1),
+                           dtype=outgrad.dtype)
 
 
 def multiply_grad_dx(grad, output, x, y):
-    return y
+    return unbroadcast(grad * y, x)
 
 
 def multiply_grad_dy(grad, output, x, y):
-    return x
+    return unbroadcast(grad * x, y)
 
 
 def power_grad_dbase(grad, output, base, exponent):
@@ -125,6 +171,16 @@ def power_grad_dbase(grad, output, base, exponent):
 
 def power_grad_dexponent(grad, output, base, exponent):
     return grad * output * ops.log(base)
+
+
+def relu_grad(grad, output, x):
+    return ops.where(
+        x < array([0],
+                  dtype=x.dtype),
+        array([0],
+              dtype=x.dtype),
+        array([1],
+              dtype=x.dtype))
 
 
 def sinh_grad(grad, output, x):
@@ -138,20 +194,20 @@ def sin_grad(grad, output, x):
         return grad * ops.cos(x)
 
 
-def square_grad(grad, output, x):
-    return grad * array([2], dtype=x.dtype) * x
+# def square_grad(grad, output, x):
+#     return grad * array([2], dtype=x.dtype) * x
 
 
 def sqrt_grad(grad, output, x):
     return grad / (array([2], dtype=x.dtype) * output)
 
 
-def subtract_grad_dx(grad, output, *args):
-    return grad
+def subtract_grad_dx(grad, output, x, y):
+    return unbroadcast(grad, x)
 
 
-def subtract_grad_dy(grad, output, *args):
-    return -grad
+def subtract_grad_dy(grad, output, x, y):
+    return unbroadcast(-grad, y)
 
 
 def tanh_grad(grad, output, x):
@@ -176,12 +232,24 @@ register_gradient(ops.divide,   divide_grad_dx, divide_grad_dy)
 register_gradient(ops.exp,      exp_grad)
 register_gradient(ops.log,      log_grad)
 register_gradient(ops.matmul,   matmul_grad_dA, matmul_grad_dB)
+register_gradient(ops.mean,     mean_grad_dx)
 register_gradient(ops.multiply, multiply_grad_dx, multiply_grad_dy)
 register_gradient(ops.power,    power_grad_dbase, power_grad_dexponent)
+register_gradient(nn.relu,      relu_grad)
 register_gradient(ops.sin,      sin_grad)
 register_gradient(ops.sinh,     sinh_grad)
-register_gradient(ops.square,   square_grad)
-register_gradient(ops.sqrt,   sqrt_grad)
+# FIXME: this should be just f'(x) = 2x
+# but square is defined as x * x (since there is no square op in ONNX)
+# so it is actually a binary operation with a single input/output
+#  x                    x
+#    \                 /  \
+#     out  -> grad: out    + ---> 2x
+#    /                 \  /
+#  x                    x
+# this means that the current framework will do dx/dout twice, even though
+# we just want one pass to immediately get 2x
+# register_gradient(ops.square,   square_grad)
+register_gradient(ops.sqrt,     sqrt_grad)
 register_gradient(ops.subtract, subtract_grad_dx, subtract_grad_dy)
 register_gradient(ops.tan,      tan_grad)
 register_gradient(ops.tanh,     tanh_grad)
@@ -191,8 +259,33 @@ def reversed_toposort(graph: nx.DiGraph):
     return reversed(list(nx.topological_sort(graph)))
 
 
-def backward_pass(g, graph: nx.DiGraph, output_evaluator, inputs: Tuple
-                  [Array, ...]) -> Tuple[Array, ...]:
+def unbroadcast(output: Array, input: Array):
+    """Given an output array undo the broadcasting so that it
+       returns an array with input's shape.
+
+    This code was taken from autograd.
+
+    Args:
+        output (Array): [description]
+        input (Array): [description]
+    """
+    broadcast_idx = 0
+    target_shape = input.shape
+
+    # TODO: figure out what this does so it can be simplified :)
+    while output.ndims > input.ndims:
+        output = ops.sum(output, axes=broadcast_idx, keepdims=False)
+
+    for axis, size in enumerate(target_shape):
+        if size == 1:
+            output = ops.sum(output, axes=axis, keepdims=True)
+
+    return output
+
+
+def backward_pass(g, graph: nx.DiGraph, output_evaluator,
+                  inputs: Tuple[Array, ...],
+                  stop_gradient_value: StopGradientsValue) -> Tuple[Array, ...]:
     it = reversed_toposort(graph)
     node = graph.nodes[next(it)]["node"]
     outgrads = {node: g}
@@ -203,42 +296,65 @@ def backward_pass(g, graph: nx.DiGraph, output_evaluator, inputs: Tuple
         node = graph.nodes[node_name]["node"]
 
         output_grad = outgrads[node]
-
-        if isinstance(node, Input):
-            continue
-
-        grad_funcs = gradient_factory(node.op_type)
-        if grad_funcs is None:
-            raise NotImplementedError(
-                f"Gradient for {node.op_name} not implemented")
-
         input_edges = graph._graph.in_edges(node_name)
 
-        if len(input_edges) != len(grad_funcs):
-            raise NotImplementedError()
+        if isinstance(node, Input):
+            for input_edge in input_edges:
+                parent_node = input_edge[0]
+                parent_node["node"]["stop_gradient"] = True
+            continue
+        else:
+            grad_funcs = gradient_factory(node.op_type)
+            if grad_funcs is None:
+                raise NotImplementedError(
+                    f"Gradient for {node.op_name} not implemented")
 
-        # output_edges = graph._graph.out_edges(node_name)
+            if len(input_edges) != len(grad_funcs):
+                raise NotImplementedError()
 
-        output_mapping = output_evaluator._array_to_node_map.get_output_map()
-        input_mapping = output_evaluator._array_to_node_map.get_input_map()
+            # output_edges = graph._graph.out_edges(node_name)
 
-        for idx, (input_edge, grad_fn) in enumerate(
-                zip(input_edges, grad_funcs)):
-            parent_node = input_edge[0]
-            node_outputs = output_mapping[node_name]
-            node_inputs = input_mapping[node_name]
-            parent_grad = grad_fn(output_grad, *node_outputs,
-                                  *node_inputs, **node.attributes)
-            parent = graph.nodes[parent_node]["node"]
-            outgrads[parent] = add_outgrads(outgrads.get(parent), parent_grad)
+            output_mapping = output_evaluator._array_to_node_map.get_output_map()
+            input_mapping = output_evaluator._array_to_node_map.get_input_map()
+
+            for idx, (input_edge, grad_fn) in enumerate(
+                    zip(input_edges, grad_funcs)):
+                parent_node_name = input_edge[0]
+                parent_node = graph.nodes[parent_node_name]["node"]
+
+                if "stop_gradient" in graph.nodes[parent_node_name] \
+                        or output_grad is None:
+                    # the output node in the forward graph is flagged
+                    # as not participating in gradient, so ignore it
+                    outgrads[parent_node] = outgrads.get(parent_node)
+                    continue
+                node_outputs = output_mapping[node_name]
+                node_inputs = input_mapping[node_name]
+                parent_grad = grad_fn(output_grad, *node_outputs,
+                                      *node_inputs, **node.attributes)
+                if isinstance(parent_grad, _StopGradient):
+                    # TODO: not sure this is correct, but not used currently
+                    parent_node["node"]["stop_gradient"] = True
+                    outgrads[parent_node] = outgrads.get(parent_node)
+                else:
+                    outgrads[parent_node] = add_outgrads(
+                        outgrads.get(parent_node), parent_grad)
 
     input_mapping = output_evaluator._array_to_node_map.get_input_map()
     output_mapping = output_evaluator._array_to_node_map.get_output_map()
 
     outgrads_node_names = {k.node_name: v for k, v in outgrads.items()}
 
+    def get_result(output_name):
+        if output_name in outgrads_node_names:
+            return outgrads_node_names[output_name]
+        elif stop_gradient_value == StopGradientsValue.NONE:
+            return None
+        elif stop_gradient_value == StopGradientsValue.Zero:
+            raise NotImplementedError()
+
     return tuple(
-        outgrads_node_names[i._evaluator._parent_node] for i in inputs)
+        get_result(i._evaluator._parent_node) for i in inputs)
 
 
 # def grad_fn(func, argnum):
@@ -273,7 +389,10 @@ def backward_pass(g, graph: nx.DiGraph, output_evaluator, inputs: Tuple
 #     return grad_helper
 
 
-def grad(output: Array, *inputs: Array):
+def gradients(
+        output: Array, inputs: List[Array],
+        stop_gradients: Optional[List[Array]] = None,
+        unconnected_gradients: StopGradientsValue = StopGradientsValue.NONE):
 
     if output.ndims == 0:
         # TODO: constant_of_shape will cause issues when asked to
@@ -282,7 +401,7 @@ def grad(output: Array, *inputs: Array):
     else:
         g = ops.cast(ops.constant_of_shape(output.shape, 1.), output.dtype.type)
 
-    output_graph = output._evaluator._graph._graph
+    output_graph = output._evaluator._graph._graph.copy()
     output_node_name = output._evaluator._parent_node
 
     ancestor_nodes = nx.ancestors(output_graph, output_node_name)
@@ -294,4 +413,11 @@ def grad(output: Array, *inputs: Array):
     # view of the nodes of interest
     graph = output._evaluator._graph._graph.subgraph(subgraph_nodes)
 
-    return backward_pass(g, graph, output._evaluator, inputs)
+    if stop_gradients is not None:
+        for stop_gradient in stop_gradients:
+            node_name = stop_gradient._evaluator._parent_node
+            graph.nodes[node_name]["stop_gradient"] = True
+
+    return backward_pass(
+        g, graph, output._evaluator, tuple(inputs),
+        unconnected_gradients)

@@ -4,7 +4,7 @@ from .ops_utils import (
     allow_broadcasting, nary_operator, propagate_shape_global_pool,
     force_evaluation, propagate_pool_shape, propagate_conv_shape,
     multi_output_nary_operator, check_axis_is_valid, gather_check,
-    propagate_shape_from_argn_position)
+    propagate_shape_from_argn_position, register)
 from .types import (float_types, signed_integer_types, all_types, numeric_types)
 from .shapes import ShapeLike, as_shape, DynamicShape, weak_shape_comparisson
 import numpy as np
@@ -963,6 +963,7 @@ def prelu(x: Array, slope: Union[Array, float]):
     return prelu_helper(x, slope)
 
 
+@register
 def relu(x):
     @not_implemented_types([np.float64, *signed_integer_types])
     @allowed_types([*float_types, *signed_integer_types])

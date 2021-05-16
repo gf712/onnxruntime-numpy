@@ -75,7 +75,7 @@
 |MaxPool | :heavy_check_mark: | `nn.maxpool` | :x: |
 |MaxRoiPool | :heavy_check_mark: | `nn.maxroipool` | :x: |
 |MaxUnpool | :heavy_check_mark: | `nn.maxunpool` | :x: |
-|Mean | :heavy_check_mark: | `mean` | :x: |
+|Mean | :heavy_check_mark: | `elementwise_mean` | :x: |
 |Min | :heavy_check_mark: | `minimum` | :x: |
 |Mod | :heavy_check_mark: | `mod` | :x: |
 |Mul | :heavy_check_mark: | `multiply` | :heavy_check_mark: |
@@ -104,7 +104,7 @@
 |ReduceLogSum | :heavy_check_mark: | `log_sum` | :x: |
 |ReduceLogSumExp | :heavy_check_mark: | `log_sum_exp` | :x: |
 |ReduceMax | :heavy_check_mark: | `max` | :x: |
-|ReduceMean | :x: |  | :x: |
+|ReduceMean | :heavy_check_mark: | `mean` | :heavy_check_mark: |
 |ReduceMin | :heavy_check_mark: | `min` | :x: |
 |ReduceProd | :heavy_check_mark: | `prod` | :x: |
 |ReduceSum | :heavy_check_mark: | `sum` | :x: |

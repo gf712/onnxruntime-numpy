@@ -754,7 +754,7 @@ def maximum(*arrays):
     return helper_maximum(*arrays)
 
 
-def mean(*inputs: "array.Array"):
+def elementwise_mean(*inputs: "array.Array"):
     @allowed_types(float_types)
     @not_implemented_types([np.float64])
     @types_match_exactly
@@ -1014,7 +1014,8 @@ def reshape(x: "array.Array", shape: ShapeLike, allowzero: bool = False):
 
 
 def sum(
-        x: "array.Array", axes: Optional[Union[int, "array.Array"]] = None,
+        x: "array.Array", axes: Optional[Union[int, List[int],
+                                               "array.Array"]] = None,
         keepdims: bool = True, noop_with_empty_axes: bool = False):
 
     if axes is None or (isinstance(axes, Iterable) and len(axes) == 0) \
@@ -1022,6 +1023,8 @@ def sum(
         axes = array.array(range(x.ndims), np.int64)
     elif isinstance(axes, int):
         axes = array.array([axes], np.int64)
+    elif isinstance(axes, Iterable) and not isinstance(axes, array.Array):
+        axes = array.array(axes, np.int64)
 
     if noop_with_empty_axes:
         import warnings
@@ -1046,6 +1049,32 @@ def sum(
     return helper_sum(
         x, axes, keepdims=bool(keepdims),
         noop_with_empty_axes=bool(noop_with_empty_axes))
+
+
+@register
+def mean(
+        x: "array.Array",
+        axes: Optional[Union[int, List[int],
+                             "array.Array"]] = None, keepdims: bool = True):
+
+    if axes is None or (isinstance(axes, Iterable) and len(axes) == 0):
+        axes = array.array(range(x.ndims), np.int64)
+    elif isinstance(axes, int):
+        axes = array.array([axes], np.int64)
+    elif isinstance(axes, Iterable) and not isinstance(axes, array.Array):
+        axes = array.array(axes, np.int64)
+
+    @allowed_types([*float_types, np.int32, np.int64], [np.int64])
+    @not_implemented_types([np.int64, np.float64], [])
+    @output_checks_and_inference(
+        reduce_axis(axes, bool(keepdims))
+    )
+    def helper_mean(
+            x: "array.Array", axes: "array.Array", keepdims: bool):
+        return nary_operator(
+            "ReduceMean", x, axes=axes.values(), keepdims=keepdims)
+
+    return helper_mean(x, axes, keepdims=bool(keepdims))
 
 
 def sum_square(
@@ -1424,7 +1453,6 @@ def subtract(x, y):
     return subtract_helper(x, y)
 
 
-@register
 def square(x: "array.Array") -> "array.Array":
     return x * x
 

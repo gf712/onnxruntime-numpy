@@ -215,6 +215,14 @@ class Array:
     def reshape(self, shape: ShapeLike) -> "Array":
         return ops.reshape(self, shape)
 
+    def mean(self, axes: Optional[Union[int, List[int],
+                                        "Array"]] = None) -> "Array":
+        return ops.mean(self, axes)
+
+    def sum(self, axes: Optional[Union[int, List[int],
+                                       "Array"]] = None) -> "Array":
+        return ops.sum(self, axes)
+
 
 def is_lazy(x: Array) -> bool:
     return x._ort_value is None

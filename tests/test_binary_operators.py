@@ -388,16 +388,16 @@ def test_mean(type_a):
     data_1 = np.array([1, 3, 4]).astype(type_a)
     data_2 = np.array([2, 6, 6]).astype(type_a)
     expected = np.array([2, 3, 4]).astype(type_a)
-    result = onp.mean(
+    result = onp.elementwise_mean(
         onp.array(data_0),
         onp.array(data_1),
         onp.array(data_2))
     expect(expected, result.numpy())
 
-    result = onp.mean(onp.array(data_0))
+    result = onp.elementwise_mean(onp.array(data_0))
     expect(data_0, result.numpy())
 
-    result = onp.mean(onp.array(data_0), onp.array(data_1))
+    result = onp.elementwise_mean(onp.array(data_0), onp.array(data_1))
     expected = np.divide(np.add(data_0, data_1), 2.).astype(type_a)
     expect(expected, result.numpy())
 
