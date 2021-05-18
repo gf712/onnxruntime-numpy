@@ -194,9 +194,7 @@ class Array:
         return ops.absolute(self)
 
     def item(self) -> AnyType:
-        if len(
-                self.shape) == 0 or (
-                len(self.shape) == 1 and self.shape[0] == 1):
+        if len(self.shape) == 0 or self.shape.size() == 1:
             return self.ort_value().numpy().item()
         else:
             raise ValueError(

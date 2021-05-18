@@ -4,9 +4,10 @@ from . import ops
 from . import nn
 from .graph import Input
 from .config import Config
+from .exceptions import InternalException
 import networkx as nx
 import numpy as np
-from typing import Dict, Tuple, Callable, Optional, List
+from typing import Dict, Tuple, Callable, Optional, List, Set
 from enum import Enum
 import functools
 import operator
@@ -320,6 +321,20 @@ def backward_pass(g, graph: nx.DiGraph, output_evaluator,
             for idx, (input_edge, grad_fn) in enumerate(
                     zip(input_edges, grad_funcs)):
                 parent_node_name = input_edge[0]
+                if parent_node_name not in graph.nodes:
+                    # the node connecting to this node is not relevant
+                    # to compute the gradient
+                    #
+                    # For example for dx/dbase we don't need dexponent/dout
+                    #   base
+                    #      \
+                    #      Power -- out
+                    #      /
+                    # exponent
+                    #
+                    # Also, the graph passed to backward_pass only contains the
+                    # nodes that are needed to compute the requested partials
+                    continue
                 parent_node = graph.nodes[parent_node_name]["node"]
 
                 if "stop_gradient" in graph.nodes[parent_node_name] \
@@ -404,11 +419,22 @@ def gradients(
     output_graph = output._evaluator._graph._graph.copy()
     output_node_name = output._evaluator._parent_node
 
-    ancestor_nodes = nx.ancestors(output_graph, output_node_name)
+    nodes_of_interest: Set[str] = set()
+    for input_array in inputs:
+        input_node_name = input_array._evaluator._parent_node
+        if input_node_name is None:
+            raise InternalException("Input array has no internal name")
+        nodes_of_interest.add(input_node_name)
+        try:
+            nodes_of_interest.update(
+                *nx.all_simple_paths(output_graph, source=input_node_name,
+                                     target=output_node_name))
+        except Exception:
+            pass
 
     # subgraph includes ancestor node and the output itself
     # output wrt itself will have gradient = 1, but add it anyway for completeness
-    subgraph_nodes = [output._evaluator._parent_node, *ancestor_nodes]
+    subgraph_nodes = [output_node_name, *nodes_of_interest]
 
     # view of the nodes of interest
     graph = output._evaluator._graph._graph.subgraph(subgraph_nodes)

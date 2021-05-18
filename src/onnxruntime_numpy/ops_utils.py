@@ -60,13 +60,10 @@ def multi_output_nary_operator(output_count):
             new_arrays[-1]._dtype = arrays[0].dtype
             new_arrays[-1]._dims = arrays[0].shape
 
-        add_node(new_evaluator, op_name, tuple(
-            arrays), tuple(new_arrays), **attributes)
-
-        if len(evaluators) > 1:
-            for e in evaluators[1:]:
-                # share parent node
-                e._parent_node = new_evaluator._parent_node
+        add_node(
+            new_evaluator, op_name, tuple(arrays),
+            tuple(new_arrays),
+            **attributes)
 
         return (*new_arrays,)
 
@@ -92,6 +89,11 @@ def initializer_operator(
     new_array._dims = array_shape
 
     add_node(new_evaluator, op_name, (), (new_array,), **attributes)
+    if new_array._evaluator._parent_node is None:
+        raise InternalException("Array does not have an identifier")
+    # TODO: come up with an API to handle inputs that do not require graph input nodes
+    new_array._evaluator._graph._input_node_names.add(
+        new_array._evaluator._parent_node)
     return new_array
 
 
@@ -879,8 +881,8 @@ def register(function):
         # FIXME: this is total foobar
         result = function(*args, **kwargs)
         node_name = result._evaluator._parent_node
-        node = result._evaluator._graph._graph.nodes[node_name]["node"]
-        result._evaluator._graph._graph.nodes[node_name]["node"] = node._replace(
-            op_type=function.__qualname__)
+        node = result._evaluator._graph._graph.nodes[node_name]
+        node_obj = node["node"]
+        node["node"] = node_obj._replace(op_type=function.__qualname__)
         return result
     return register_wrapper

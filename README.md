@@ -77,9 +77,6 @@ for _ in range(epochs):
     b2._eval()
 ```
 
-
-
-
 ## Roadmap
 
 ### Pre-release

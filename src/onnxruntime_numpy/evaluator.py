@@ -12,10 +12,15 @@ from . import array
 
 class IntermediateResultCache:
     def __init__(self):
-        self._cache: Dict[str, "array.Array"] = {}
+        self._cache: Dict[Tuple[str, int], "array.Array"] = {}
 
-    def add_entry(self, node_name: str, array: "array.Array"):
-        self._cache[node_name] = array
+    def add_entry(self, node_name: str, index: int, array: "array.Array"):
+        key = (node_name, index)
+        self._cache[key] = array
+
+    def get_entry(self, node_name: str, index: int) -> "array.Array":
+        key = (node_name, index)
+        return self._cache[key]
 
     def empty(self) -> bool:
         return len(self._cache) == 0
@@ -48,8 +53,8 @@ class ArrayNodeLookupTable:
 
 class LazyEvaluator:
     def __init__(self):
-        # the name of the node that needs to be executed to get the data
         self._parent_node: Optional[str] = None
+        self._output_node: Optional[str] = None
         self._array_to_node_map: ArrayNodeLookupTable = ArrayNodeLookupTable()
         self._cached_results: IntermediateResultCache = IntermediateResultCache()
         self._graph: Graph = Graph()
@@ -62,27 +67,16 @@ class LazyEvaluator:
 
         return evaluator
 
-    def _get_array_output_index(self, a: "array.Array"):
-        output_map = self._array_to_node_map.get_output_map()
-        arrays = output_map[
-            a._evaluator._parent_node]
-        array_names = [a._internal_name for a in arrays]
-        idx = array_names.index(a._internal_name)
-        if idx == -1:
-            raise InternalException()
-        return idx
-
     def add_node(
             self, op_name: str, inputs: Tuple["array.Array"],
-            outputs: Tuple["array.Array"],
-            **attributes):
+            outputs: Tuple["array.Array"], **attributes):
 
-        input_idx_pairs = tuple((None, None) if input_array is None else (
-            self._get_array_output_index(input_array),
-            input_array) for input_array in inputs)
+        self._parent_node, output_node_names = self._graph.add_node(
+            op_name, inputs, outputs, **attributes)
 
-        self._parent_node = self._graph.add_node(
-            op_name, input_idx_pairs, **attributes)
+        for output_array, output_node_name in zip(outputs, output_node_names):
+            output_array._evaluator._output_node = output_node_name
+            output_array._evaluator._parent_node = self._parent_node
 
         if self._parent_node is not None:
             # keep mypy happy because self._parent_node is Optional[str]
@@ -113,10 +107,13 @@ class LazyEvaluator:
                     f"Input tensor shape {default_shape} does not match input "
                     f"node shape {dims}")
 
-        input_name, _ = self._graph.add_input(array)
+        input_name, output_name = self._graph.add_input(array)
         self._parent_node = input_name
-        self._array_to_node_map.add_input(input_name, (array,))
-        self._array_to_node_map.add_output(input_name, (array,))
+        self._output_node = output_name
+        if self._parent_node is None:
+            raise InternalException("Parent node not set")
+        self._array_to_node_map.add_input(self._parent_node, (array,))
+        self._array_to_node_map.add_output(self._parent_node, (array,))
 
     def add_subgraph(self, other_graph: Graph):
         if self._graph is None:
@@ -127,8 +124,8 @@ class LazyEvaluator:
     def merge(self, other: "LazyEvaluator"):
         self.add_subgraph(other._graph)
         # share result cache
-        for n, c in other._cached_results.to_dict().items():
-            self._cached_results.add_entry(n, c)
+        for (n, i), c in other._cached_results.to_dict().items():
+            self._cached_results.add_entry(n, i, c)
         other._cached_results = self._cached_results
 
         self._array_to_node_map.update(other._array_to_node_map)
@@ -138,18 +135,29 @@ class LazyEvaluator:
     def _build_executable_graph(self, array: "array.Array") -> ExecutableGraph:
         if self._parent_node is None:
             raise InternalException("Parent node not set")
+        if self._output_node is None:
+            raise InternalException("Output node not set")
         # FIXME: need to fix result caching
         return compile_graph(
             self._graph, self._array_to_node_map.get_input_map(),
             self._array_to_node_map.get_output_map(),
-            {self._parent_node: array},
-            IntermediateResultCache())  # self._cached_results)
+            [self._output_node],
+            self._cached_results)
 
     def evaluate(self, output_array: "array.Array") -> List[np.ndarray]:
         if self._graph is None:  # pragma: no cover
             raise InternalException(
                 "Graph is empty. "
                 "This is an internal error. Please file a bug")
+
+        output_node = self._array_to_node_map.get_output_map()[
+            self._parent_node]
+        output_idx = [o._internal_name for o in output_node].index(
+            output_array._internal_name)
+
+        if output_idx == -1:
+            raise InternalException(
+                "Could not find index of output Array in output node")
 
         executable_graph = self._build_executable_graph(output_array)
 
@@ -158,7 +166,8 @@ class LazyEvaluator:
         m = onnx.helper.make_model(onnx_graph)
         buffer = m.SerializeToString()
 
-        output_name = output_array._internal_name
+        output_name = list(self._graph._graph.in_edges(
+            self._output_node, data=True))[0][-1]["name"]
 
         # TODO: maybe disable optimisations when graph has already been optimised
         # with jit?
@@ -183,7 +192,10 @@ class LazyEvaluator:
         inputs = {
             **
             {input_output_name: array_mapping[input_node_name][0]
-             for input_node_name, input_output_name in graph_node_mapping.items()},
+             for input_node_name, input_output_name in graph_node_mapping.items()
+             # TODO: some input nodes, such as initializers, do not require an input
+             # array. This should be cleaned up
+             if len(array_mapping[input_node_name]) > 0},
             **
             {a._internal_name: a
              for a in self._cached_results.to_dict().values()}}
@@ -225,7 +237,7 @@ class LazyEvaluator:
 
         if self._parent_node is not None:
             self._cached_results.add_entry(
-                self._parent_node, array.Array(ort_value=result))
+                self._parent_node, output_idx, array.Array(ort_value=result))
         else:
             raise InternalException("Evaluator does not have a parent node")
 
