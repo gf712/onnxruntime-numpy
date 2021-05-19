@@ -30,12 +30,12 @@ def test_integration_multilayer_perceptron():
 
 @pytest.mark.integration
 def test_integration_multilayer_perceptron_training():
-    # this seed allows the network to reach a loss lower than 1.0 in 4 epochs
+    # this seed allows the network to reach a loss lower than 1.0 in 5 epochs
     rng = np.random.default_rng(42)
 
     batch_size = 32
     n_features = 1
-    epochs = 4
+    epochs = 5
     learning_rate = onp.array(0.01)
 
     X = rng.random((batch_size, n_features)).astype(np.float32)
@@ -72,7 +72,7 @@ def test_integration_multilayer_perceptron_training():
         b2 -= db2 * learning_rate
 
         w1._eval()
-        b2._eval()
+        b1._eval()
         w2._eval()
         b2._eval()
 

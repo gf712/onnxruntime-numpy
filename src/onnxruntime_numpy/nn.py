@@ -4,7 +4,7 @@ from .ops_utils import (
     allow_broadcasting, nary_operator, propagate_shape_global_pool,
     force_evaluation, propagate_pool_shape, propagate_conv_shape,
     multi_output_nary_operator, check_axis_is_valid, gather_check,
-    propagate_shape_from_argn_position, register)
+    propagate_shape_from_argn_position, register, mark_as_optional)
 from .types import (float_types, signed_integer_types, all_types, numeric_types)
 from .shapes import ShapeLike, as_shape, DynamicShape, weak_shape_comparisson
 import numpy as np
@@ -280,6 +280,8 @@ def dropout(
         output, mask = multi_output_nary_operator(2)(
             "Dropout", x, ratio, training_mode, seed=seed)
 
+        mark_as_optional(mask)
+
         mask._dims = output.shape
         mask._dtype = np.bool_
 
@@ -451,6 +453,9 @@ def gru(
 
         seq_length, batch_size, _ = x.shape
         num_directions = 2 if direction == "bidirectional" else 1
+
+        mark_as_optional(y)
+        mark_as_optional(yh)
 
         y._dims = DynamicShape(seq_length, num_directions,
                                batch_size, hidden_size)
@@ -665,6 +670,10 @@ def lstm(
             activation_beta=activation_beta, activations=activations, clip=clip,
             direction=direction)
 
+        mark_as_optional(y)
+        mark_as_optional(yh)
+        mark_as_optional(yc)
+
         y._dims = DynamicShape(seq_length, num_directions,
                                batch_size, hidden_size)
         yh._dims = DynamicShape(num_directions, batch_size, hidden_size)
@@ -716,10 +725,12 @@ def maxpool(
                        dilations: Optional[List[int]],
                        auto_pad: str, ceil_mode: int,
                        storage_order: int):
-        return multi_output_nary_operator(2)(
+        y, indices = multi_output_nary_operator(2)(
             "MaxPool", x, kernel_shape=kernel_shape, pads=pads,
             strides=strides, auto_pad=auto_pad, ceil_mode=ceil_mode,
             storage_order=storage_order, dilations=dilations)
+        mark_as_optional(indices)
+        return y, indices
 
     y, indices = maxpool_helper(
         x, kernel_shape, pads, strides, dilations, auto_pad, int(ceil_mode),

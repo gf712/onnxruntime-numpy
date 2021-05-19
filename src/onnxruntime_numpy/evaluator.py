@@ -12,15 +12,48 @@ from . import array
 
 class IntermediateResultCache:
     def __init__(self):
-        self._cache: Dict[Tuple[str, int], "array.Array"] = {}
+        self._cache: Dict[str, List[Optional["array.Array"]]] = {}
+
+    def merge(self, other):
+        self._cache = {**self._cache, **other._cache}
 
     def add_entry(self, node_name: str, index: int, array: "array.Array"):
-        key = (node_name, index)
-        self._cache[key] = array
+        if node_name in self._cache:
+            entry = self._cache[node_name]
+            if index >= len(entry):
+                # grow cache in order to fit the new entry
+                entry += [None] * (index - len(entry) + 1)
+        else:
+            entry = [None] * (index + 1)
+            self._cache[node_name] = entry
 
-    def get_entry(self, node_name: str, index: int) -> "array.Array":
-        key = (node_name, index)
-        return self._cache[key]
+        self._cache[node_name][index] = array
+
+    def get_entry(self, node_name: str, index: int) -> Optional["array.Array"]:
+        return self._cache[node_name][index]
+
+    def get_node_cache(self, node_name: str) -> List[Optional["array.Array"]]:
+        return self._cache[node_name]
+
+    def get_all_cache_tensor_mappings(self) -> Dict[str, "array.Array"]:
+        mapping: Dict[str, "array.Array"] = {}
+        for key in self._cache.keys():
+            mapping = {**mapping, **self.get_node_cache_tensor_mapping(key)}
+        return mapping
+
+    def get_node_cache_tensor_mapping(self, node_name: str) -> Dict[str,
+                                                                    "array.Array"]:
+        caches = self._cache[node_name]
+        mapping: Dict[str, "array.Array"] = {}
+        for cache in caches:
+            if cache is None:
+                continue
+            output_node = cache._evaluator._output_node
+            output_in_edge = list(cache._evaluator._graph._graph.in_edges(
+                output_node, data=True))[0]
+            mapping[output_in_edge[-1]["name"]] = cache
+
+        return mapping
 
     def empty(self) -> bool:
         return len(self._cache) == 0
@@ -124,8 +157,7 @@ class LazyEvaluator:
     def merge(self, other: "LazyEvaluator"):
         self.add_subgraph(other._graph)
         # share result cache
-        for (n, i), c in other._cached_results.to_dict().items():
-            self._cached_results.add_entry(n, i, c)
+        self._cached_results.merge(other._cached_results)
         other._cached_results = self._cached_results
 
         self._array_to_node_map.update(other._array_to_node_map)
@@ -195,10 +227,8 @@ class LazyEvaluator:
              for input_node_name, input_output_name in graph_node_mapping.items()
              # TODO: some input nodes, such as initializers, do not require an input
              # array. This should be cleaned up
-             if len(array_mapping[input_node_name]) > 0},
-            **
-            {a._internal_name: a
-             for a in self._cached_results.to_dict().values()}}
+             if input_node_name in array_mapping and len(array_mapping[input_node_name]) > 0},  # noqa
+            **self._cached_results.get_all_cache_tensor_mappings()}
         inputs = {k: v for k, v in inputs.items() if k in session_input_names}
 
         if len(inputs) != len(session_input_names):
@@ -237,7 +267,7 @@ class LazyEvaluator:
 
         if self._parent_node is not None:
             self._cached_results.add_entry(
-                self._parent_node, output_idx, array.Array(ort_value=result))
+                self._parent_node, output_idx, output_array)
         else:
             raise InternalException("Evaluator does not have a parent node")
 

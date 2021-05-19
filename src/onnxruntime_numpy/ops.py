@@ -7,7 +7,8 @@ from .ops_utils import (
     output_shape_from_einsum, output_type, allow_broadcasting,
     array_is_square_matrix, determinant_output_shape, broadcast_to,
     flatten_shape, check_input_shape_gemm, propagate_shape_gemm,
-    force_evaluation, reshape_check, register, check_axis_is_valid)
+    force_evaluation, reshape_check, register, check_axis_is_valid,
+    mark_as_optional)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
                     unsigned_integer_types, NumericType)
@@ -1649,6 +1650,10 @@ def unique(
 
         y, indices, inverse_indices, counts = multi_output_nary_operator(
             4)("Unique", x, axis=axis, sorted=sorted)
+
+        mark_as_optional(indices)
+        mark_as_optional(inverse_indices)
+        mark_as_optional(counts)
 
         if axis:
             output_shape = y.shape.tolist()

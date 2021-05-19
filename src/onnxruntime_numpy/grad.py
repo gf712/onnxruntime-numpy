@@ -270,16 +270,21 @@ def unbroadcast(output: Array, input: Array):
         output (Array): [description]
         input (Array): [description]
     """
-    broadcast_idx = 0
     target_shape = input.shape
 
     # TODO: figure out what this does so it can be simplified :)
-    while output.ndims > input.ndims:
-        output = ops.sum(output, axes=broadcast_idx, keepdims=False)
+    if output.ndims > input.ndims:
+        output = ops.sum(
+            output, list(range(output.ndims - input.ndims)),
+            keepdims=False)
 
+    axes = []
     for axis, size in enumerate(target_shape):
         if size == 1:
-            output = ops.sum(output, axes=axis, keepdims=True)
+            axes.append(axis)
+
+    if len(axes) > 0:
+        output = ops.sum(output, axes=axes, keepdims=True)
 
     return output
 

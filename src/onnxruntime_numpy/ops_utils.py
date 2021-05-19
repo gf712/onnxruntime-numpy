@@ -97,6 +97,14 @@ def initializer_operator(
     return new_array
 
 
+def mark_as_optional(x: "array.Array"):
+    g = x._evaluator._graph
+    this_output_node = x._evaluator._output_node
+    # an output node only has a single input edge
+    in_edge = list(g._graph.in_edges(this_output_node, data=True))[0]
+    in_edge[-1]["required"] = False
+
+
 def deduce_output_type(lhs: "array.Array", rhs: "array.Array"):
     if lhs._dtype != rhs._dtype:
         raise ValueError(
