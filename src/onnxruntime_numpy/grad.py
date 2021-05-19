@@ -5,6 +5,7 @@ from . import nn
 from .graph import Input
 from .config import Config
 from .exceptions import InternalException
+from .core import _fetch_array
 import networkx as nx
 import numpy as np
 from typing import Dict, Tuple, Callable, Optional, List, Set
@@ -348,8 +349,10 @@ def backward_pass(g, graph: nx.DiGraph, output_evaluator,
                     # as not participating in gradient, so ignore it
                     outgrads[parent_node] = outgrads.get(parent_node)
                     continue
-                node_outputs = output_mapping[node_name]
-                node_inputs = input_mapping[node_name]
+                node_outputs = [_fetch_array(a[0])
+                                for a in output_mapping[node_name]]
+                node_inputs = [_fetch_array(a[0])
+                               for a in input_mapping[node_name]]
                 parent_grad = grad_fn(output_grad, *node_outputs,
                                       *node_inputs, **node.attributes)
                 if isinstance(parent_grad, _StopGradient):
@@ -374,7 +377,7 @@ def backward_pass(g, graph: nx.DiGraph, output_evaluator,
             raise NotImplementedError()
 
     return tuple(
-        get_result(i._evaluator._parent_node) for i in inputs)
+        get_result(i._internal_array._evaluator._parent_node) for i in inputs)
 
 
 # def grad_fn(func, argnum):
@@ -421,12 +424,12 @@ def gradients(
     else:
         g = ops.cast(ops.constant_of_shape(output.shape, 1.), output.dtype.type)
 
-    output_graph = output._evaluator._graph._graph.copy()
-    output_node_name = output._evaluator._parent_node
+    output_graph = output._internal_array._evaluator._graph._graph.copy()
+    output_node_name = output._internal_array._evaluator._parent_node
 
     nodes_of_interest: Set[str] = set()
     for input_array in inputs:
-        input_node_name = input_array._evaluator._parent_node
+        input_node_name = input_array._internal_array._evaluator._parent_node
         if input_node_name is None:
             raise InternalException("Input array has no internal name")
         nodes_of_interest.add(input_node_name)
@@ -442,13 +445,14 @@ def gradients(
     subgraph_nodes = [output_node_name, *nodes_of_interest]
 
     # view of the nodes of interest
-    graph = output._evaluator._graph._graph.subgraph(subgraph_nodes)
+    graph = output._internal_array._evaluator._graph._graph.subgraph(
+        subgraph_nodes)
 
     if stop_gradients is not None:
         for stop_gradient in stop_gradients:
-            node_name = stop_gradient._evaluator._parent_node
+            node_name = stop_gradient._internal_array._evaluator._parent_node
             graph.nodes[node_name]["stop_gradient"] = True
 
     return backward_pass(
-        g, graph, output._evaluator, tuple(inputs),
+        g, graph, output._internal_array._evaluator, tuple(inputs),
         unconnected_gradients)

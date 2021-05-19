@@ -8,7 +8,7 @@ from .ops_utils import (
     array_is_square_matrix, determinant_output_shape, broadcast_to,
     flatten_shape, check_input_shape_gemm, propagate_shape_gemm,
     force_evaluation, reshape_check, register, check_axis_is_valid,
-    mark_as_optional)
+    mark_as_optional, set_array_info)
 from .types import (bool_types, float_types, all_types, integer_types,
                     numeric_types, signed_integer_types, numpy_to_onnx,
                     unsigned_integer_types, NumericType)
@@ -85,7 +85,7 @@ def argmax(x: "array.Array", axis: int = 0, keepdims: bool = True,
         result = nary_operator(
             "ArgMax", x, axis=axis, keepdims=keepdims,
             select_last_index=select_last_index)
-        result._dtype = np.int64
+        set_array_info(result, dtype=np.int64)
         return result
     return argmax_helper(x, axis, int(keepdims), int(select_last_index))
 
@@ -104,7 +104,7 @@ def argmin(x: "array.Array", axis: int = 0, keepdims: bool = True,
         result = nary_operator(
             "ArgMin", x, axis=axis, keepdims=keepdims,
             select_last_index=select_last_index)
-        result._dtype = np.int64
+        set_array_info(result, dtype=np.int64)
         return result
     return argmin_helper(x, axis, int(keepdims), int(select_last_index))
 
@@ -236,9 +236,12 @@ def compress(
         if axis is not None:
             input_shape = x.shape.tolist()
             input_shape[axis] = -1
-            result._dims = DynamicShape(*input_shape)
+            output_shape = DynamicShape(*input_shape)
         else:
-            result._dims = DynamicShape(-1)
+            output_shape = DynamicShape(-1)
+
+        set_array_info(result, shape=output_shape)
+
         return result
 
     return compress_helper(x, condition, axis=axis)
@@ -357,8 +360,8 @@ def constant_of_shape(shape: ShapeLike, value=0.0,
     else:
         raise ValueError("Could not determine shape")
     output = nary_operator("ConstantOfShape", shape_array, value=value)
-    output._dtype = value.dtype
-    output._dims = DynamicShape(*shape_array.values())
+    out_shape = DynamicShape(*shape_array.values())
+    set_array_info(output, dtype=value.dtype, shape=out_shape)
     return output
 
 
@@ -855,8 +858,8 @@ def nonzero(x: "array.Array"):
                             np.int16])
     def nonzero_helper(x: "array.Array"):
         result = unary_operator(x, "NonZero")
-        result._dtype = np.int64
-        result._dims = DynamicShape(x.ndims, -1)
+        output_shape = DynamicShape(x.ndims, -1)
+        set_array_info(result, shape=output_shape, dtype=np.int64)
         return result
     return nonzero_helper(x)
 
@@ -905,10 +908,8 @@ def one_hot(
         if any(map(lambda el: el is None, output_shape)):
             raise InternalException(
                 f"Invalid output shape {output_shape} for one hot encoding!")
-        # line below is ignored because mypy cannot figure out that output_shape cannot
-        # have None at this point
-        result._dims = DynamicShape(*output_shape)  # type: ignore
-        result._dtype = values.dtype
+        set_array_info(result, shape=DynamicShape(
+            *output_shape), dtype=values.dtype)
 
         return result
 
@@ -942,7 +943,7 @@ def pad(x: "array.Array", pads: "array.Array",
     def pad_helper(x: "array.Array", pads: "array.Array",
                    constant_value: "array.Array"):
         result = nary_operator("Pad", x, pads, constant_value)
-        result._dims = (-1) * result.ndims
+        set_array_info(result, shape=DynamicShape((-1) * result.ndims))
         return result
 
     return pad_helper(x, pads, constant_value)
@@ -1008,7 +1009,7 @@ def reshape(x: "array.Array", shape: ShapeLike, allowzero: bool = False):
         # TODO: fixme when upgrading to opset 14
         # result = nary_operator("Reshape", x, shape.asarray(), allowzero=allowzero)
         result = nary_operator("Reshape", x, shape.asarray())
-        result._dims = shape
+        set_array_info(result, shape=shape)
         return result
 
     return helper_reshape(x, as_shape(shape), int(allowzero))
@@ -1128,20 +1129,20 @@ def arange(start: Union[NumericType, "array.Array"],
     def arange_helper(start: "array.Array", limit: "array.Array",
                       delta: "array.Array"):
         result = nary_operator("Range", start, limit, delta)
-        # FIXME: use dynamic shape?
-        result._dtype = start.dtype
         # here we convert to float32 since int division truncates
         # abs(limit - start) / abs(delta)
         # in onp (10 - 6) / 3 == 1, but we want 2 (rounded up from 1.33)
         # so (10.0 - 6.0) / 3.0 == 1.33, then ceil(1.33) == 2.0
         # and in the end convert to int (since dimensions are always int)
         if allow_evaluation:
-            result._dims = DynamicShape(
+            output_shape = DynamicShape(
                 int(ceil(
                     (abs(cast(limit, np.float32) - cast(start, np.float32))
                      / abs(cast(delta, np.float32)))).item()),)
         else:
-            result._dims = DynamicShape(-1)
+            output_shape = DynamicShape(-1)
+        set_array_info(result, shape=output_shape, dtype=start.dtype)
+
         return result
 
     return arange_helper(start, limit, delta)
@@ -1341,8 +1342,8 @@ def shape(x: "array.Array") -> "array.Array":
     @allowed_types(all_types)
     def shape_helper(x: "array.Array"):
         result = nary_operator("Shape", x)
-        result._dims = DynamicShape(len(x.shape),)
-        result._dtype = np.int64
+        set_array_info(result, dtype=np.int64,
+                       shape=DynamicShape(len(x.shape),))
         return result
 
     return shape_helper(x)
@@ -1391,8 +1392,7 @@ def size(x: "array.Array") -> "array.Array":
     @allowed_types(all_types)
     def size_helper(x: "array.Array"):
         result = nary_operator("Size", x)
-        result._dims = DynamicShape()
-        result._dtype = np.int64
+        set_array_info(result, shape=DynamicShape(), dtype=np.int64)
         return result
 
     return size_helper(x)
@@ -1434,8 +1434,8 @@ def slice(x: "array.Array", starts: "array.Array", ends: "array.Array",
         # if (array.is_lazy(starts) or array.is_lazy(ends)
         #         or (axes and array.is_lazy(axes))
         #         or (steps and array.is_lazy(steps))):
-        result._dims = DynamicShape(*[-1 for _ in range(x.ndims)])
-
+        output_shape = DynamicShape(*[-1 for _ in range(x.ndims)])
+        set_array_info(result, shape=output_shape)
         return result
 
     return slice_helper(x, starts, ends, axes, steps)
@@ -1491,7 +1491,8 @@ def transpose(x: "array.Array", perm: Optional[List[int]] = None):
     @allowed_types(all_types)
     def transpose_helper(x: "array.Array", perm: List[int]):
         result = nary_operator("Transpose", x, perm=perm)
-        result._dims = DynamicShape(*map(lambda idx: x.shape[idx], perm))
+        output_shape = DynamicShape(*map(lambda idx: x.shape[idx], perm))
+        set_array_info(result, shape=output_shape)
         return result
 
     return transpose_helper(x, perm)
@@ -1534,7 +1535,7 @@ def squeeze(x: "array.Array", axes: "array.Array" = None):
                     if idx not in axis_to_remove])
 
         result = nary_operator("Squeeze", x, axes)
-        result._dims = output_shape
+        set_array_info(result, shape=output_shape)
         return result
 
     return squeeze_helper(x, axes)
@@ -1569,7 +1570,7 @@ def tile(x: "array.Array", repeats: "array.Array"):
             output_shape = DynamicShape(*output_shape_)
 
         result = nary_operator("Tile", x, repeats)
-        result._dims = output_shape
+        set_array_info(result, shape=output_shape)
         return result
 
     return tile_helper(x, repeats)
@@ -1596,9 +1597,8 @@ def topk(
 
         output_shape = DynamicShape(*output_shape_)
 
-        values._dims = output_shape
-        indices._dims = output_shape
-        indices._dtype = np.int64
+        set_array_info(values, shape=output_shape)
+        set_array_info(indices, shape=output_shape, dtype=np.int64)
 
         return values, indices
 
@@ -1658,20 +1658,19 @@ def unique(
         if axis:
             output_shape = y.shape.tolist()
             output_shape[axis] = -1
-            y._dims = DynamicShape(*output_shape)
+            set_array_info(y, shape=DynamicShape(*output_shape))
 
         return_list = [y]
         if return_index:
-            indices._dtype = np.int64
-            indices._dims = DynamicShape(-1)
+            set_array_info(indices, shape=DynamicShape(-1), dtype=np.int64)
             return_list.append(indices)
         if return_inverse:
-            inverse_indices._dtype = np.int64
-            inverse_indices._dims = DynamicShape(-1)
+            set_array_info(
+                inverse_indices, shape=DynamicShape(-1),
+                dtype=np.int64)
             return_list.append(inverse_indices)
         if return_counts:
-            counts._dtype = np.int64
-            counts._dims = DynamicShape(-1)
+            set_array_info(counts, shape=DynamicShape(-1), dtype=np.int64)
             return_list.append(counts)
 
         return (*return_list,)
@@ -1716,7 +1715,7 @@ def unsqueeze(x: "array.Array", axes: "array.Array"):
             output_shape = DynamicShape(*output_shape_)  # type: ignore
 
         result = nary_operator("Unsqueeze", x, axes)
-        result._dims = output_shape
+        set_array_info(result, shape=output_shape)
         return result
 
     return unsqueeze_helper(x, axes)
@@ -1735,8 +1734,7 @@ def where(condition: "array.Array", x: "array.Array", y: "array.Array"):
     def where_helper(
             condition: "array.Array", x: "array.Array", y: "array.Array"):
         result = nary_operator("Where", condition, x, y)
-        result._dtype = x.dtype
-
+        set_array_info(result, dtype=x.dtype)
         return result
 
     return where_helper(condition, x, y)

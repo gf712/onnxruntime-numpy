@@ -34,7 +34,7 @@ class TypeShapeID(namedtuple("TypeShapeID", "dtype shape")):
 
 class GraphSignature(namedtuple("GraphSignature", "inputs_type_shape_id")):
     def __repr__(self) -> str:
-        return f"{[(t._shape, t._dtype) for t in self.inputs_type_shape_id]}"
+        return f"{[(t.shape, t.dtype) for t in self.inputs_type_shape_id]}"
 
 
 class JitFunctionSignature(

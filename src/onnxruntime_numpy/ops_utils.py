@@ -28,6 +28,15 @@ def nary_operator(op_name, *arrays, **attributes):
     return multi_output_nary_operator(1)(op_name, *arrays, **attributes)[0]
 
 
+def set_array_info(
+        x: "array.Array", dtype: Optional[Union[type, np.dtype]] = None, shape:
+        Optional[Shape] = None):
+    if dtype is not None:
+        x._internal_array._dtype = dtype
+    if shape is not None:
+        x._internal_array._dims = shape
+
+
 def multi_output_nary_operator(output_count):
     def nary_operator(op_name, *arrays, **attributes):
         # if len(arrays) > 0:
@@ -37,11 +46,12 @@ def multi_output_nary_operator(output_count):
         if any(map(lambda a: a is not None, arrays)):
             first_not_none_idx = [idx for idx,
                                   a in enumerate(arrays) if a is not None][0]
-            new_evaluator = arrays[first_not_none_idx]._evaluator.copy()
+            new_evaluator = arrays[first_not_none_idx]._internal_array._evaluator.copy(
+            )
             if len(arrays) > 1:
                 for array_i in arrays[1:]:
                     if array_i is not None:
-                        new_evaluator.merge(array_i._evaluator)
+                        new_evaluator.merge(array_i._internal_array._evaluator)
         else:
             # if all inputs are none we create a new evaluator
             # and the graph starts from here
@@ -57,8 +67,8 @@ def multi_output_nary_operator(output_count):
         for e in evaluators:
             new_arrays.append(array.Array(evaluator=e))
             # by default assume that the output shape and dtype are the same as lhs
-            new_arrays[-1]._dtype = arrays[0].dtype
-            new_arrays[-1]._dims = arrays[0].shape
+            set_array_info(
+                new_arrays[-1], dtype=arrays[0].dtype, shape=arrays[0].shape)
 
         add_node(
             new_evaluator, op_name, tuple(arrays),
@@ -85,21 +95,20 @@ def initializer_operator(
     attribute, value = next(iter(attributes.items()))
     new_evaluator = evaluator.LazyEvaluator()
     new_array = array.Array(evaluator=new_evaluator)
-    new_array._dtype = array_dtype
-    new_array._dims = array_shape
+    set_array_info(new_array, dtype=array_dtype, shape=array_shape)
 
     add_node(new_evaluator, op_name, (), (new_array,), **attributes)
-    if new_array._evaluator._parent_node is None:
+    if new_array._internal_array._evaluator._parent_node is None:
         raise InternalException("Array does not have an identifier")
     # TODO: come up with an API to handle inputs that do not require graph input nodes
-    new_array._evaluator._graph._input_node_names.add(
-        new_array._evaluator._parent_node)
+    new_array._internal_array._evaluator._graph._input_node_names.add(
+        new_array._internal_array._evaluator._parent_node)
     return new_array
 
 
 def mark_as_optional(x: "array.Array"):
-    g = x._evaluator._graph
-    this_output_node = x._evaluator._output_node
+    g = x._internal_array._evaluator._graph
+    this_output_node = x._internal_array._evaluator._output_node
     # an output node only has a single input edge
     in_edge = list(g._graph.in_edges(this_output_node, data=True))[0]
     in_edge[-1]["required"] = False
@@ -126,7 +135,7 @@ def allowed_types(*expected_types):
             # type checks
             for idx, (array_obj, dtypes) in enumerate(
                     zip(arrays, expected_types)):
-                if array_obj is not None and array_obj._dtype not in dtypes:
+                if array_obj is not None and array_obj.dtype not in dtypes:
                     raise ValueError(
                         f"Unexpected type for argument {idx}, got {array_obj.dtype}, "
                         f"but expected one of {dtypes}!")
@@ -142,7 +151,7 @@ def not_implemented_types(*expected_types):
             # type checks
             for idx, (array_obj, dtypes) in enumerate(
                     zip(arrays, expected_types)):
-                if array_obj is not None and array_obj._dtype in dtypes:
+                if array_obj is not None and array_obj.dtype in dtypes:
                     raise NotImplementedError(
                         f"Operator not implemented for type \"{array_obj.dtype}\" "
                         f"(argument {idx})")
@@ -292,14 +301,15 @@ def array_is_square_matrix(func):
 def output_type_is_argn_position(arg_position):
     def wrapper_output_type_is_arg_position(
             return_array, *input_arrays_and_args, **kwargs):
-        return_array._dtype = input_arrays_and_args[arg_position]
+        set_array_info(return_array, dtype=input_arrays_and_args[arg_position])
     return wrapper_output_type_is_arg_position
 
 
 def propagate_shape_from_argn_position(arg_position):
     def wrapper_propagate_shape_from_argn_position(
             return_array, *input_arrays_and_args, **kwargs):
-        return_array._dims = input_arrays_and_args[arg_position].shape
+        set_array_info(
+            return_array, shape=input_arrays_and_args[arg_position].shape)
     return wrapper_propagate_shape_from_argn_position
 
 
@@ -325,19 +335,21 @@ def propagate_shape_matmul():
             # (n,k),(k,m)->(n,m)
             n, ka = a_shape
             kb, m = b_shape
-            return_array._dims = DynamicShape(n, m)
+            out_shape = DynamicShape(n, m)
         else:
             n, ka = a_shape[-2:]
             kb, m = b_shape[-2:]
-            return_array._dims = DynamicShape(*a_shape[:-2], n, m)
+            out_shape = DynamicShape(*a_shape[:-2], n, m)
 
         if A.ndims == 1:
-            shape = list(return_array._dims)
+            shape = list(return_array.shape)
             shape.pop(-2)
-            return_array._dims = DynamicShape(*shape,)
+            out_shape = DynamicShape(*shape,)
 
         if B.ndims == 1:
-            return_array._dims = return_array._dims[:-1]
+            out_shape = return_array.shape[:-1]
+
+        set_array_info(return_array, shape=out_shape)
 
     return wrapper_propagate_shape_matmul
 
@@ -373,7 +385,7 @@ def concatenate_shapes(axis_kwarg):
                 raise ValueError("Dimension mismatch on axis {shape_idx}")
             else:
                 new_shape = DynamicShape(*new_shape, shapes_at_idx[0])
-        return_array._dims = new_shape
+        set_array_info(return_array, shape=new_shape)
     return wrapper_concatenate_shapes
 
 
@@ -392,7 +404,7 @@ def reduction_axis(*, axis_arg=None, axis_kwarg=None):
         shape = x.shape
         new_shape_list = list(shape)
         new_shape_list.pop(axis)
-        return_array._dims = tuple(new_shape_list)
+        set_array_info(return_array, shape=tuple(new_shape_list))
 
     return wrapper_reduction_axis
 
@@ -418,14 +430,14 @@ def output_shape_from_einsum(equation_kwarg: str):
                     output_shape = DynamicShape(*output_shape, input_shape[pos])
                     break
 
-        return_array._dims = output_shape
+        set_array_info(return_array, shape=output_shape)
 
     return wrapper_output_shape_from_einsum
 
 
 def output_type(dtype: np.dtype):
     def wrapper_output_type(return_array, *input_arrays_and_args, **kwargs):
-        return_array._dtype = dtype
+        set_array_info(return_array, dtype=dtype)
     return wrapper_output_type
 
 
@@ -471,16 +483,17 @@ def allow_broadcasting(return_array, *input_arrays_and_args, **kwargs):
                     s_set.add(max(s0, s))
             shape = DynamicShape(*shape, max(s_set))
 
-    return_array._dims = shape
+    set_array_info(return_array, shape=shape)
 
 
 def determinant_output_shape(return_array, *input_arrays_and_args, **kwargs):
     input_shape = input_arrays_and_args[0].shape
     if len(input_shape) == 2:
-        return_array._dims = DynamicShape()
+        output_shape = DynamicShape()
     else:
         # we know at this point that the array is valid
-        return_array._dims = input_shape[:-2]
+        output_shape = input_shape[:-2]
+    set_array_info(return_array, shape=output_shape)
 
 
 def broadcast_to(shape_: Shape):
@@ -503,7 +516,7 @@ def broadcast_to(shape_: Shape):
                     f"{shape}")
             output_shape = DynamicShape(max(s1, s2), *output_shape)
 
-        return_array._dims = output_shape
+        set_array_info(return_array, shape=output_shape)
 
     return wrapper_broadcast_to
 
@@ -523,7 +536,7 @@ def flatten_shape(axis: int):
                 array_shape[: a].size(),
                 array_shape[a:].size())
 
-        return_array._dims = output_shape
+        set_array_info(return_array, shape=output_shape)
 
     return wrapper_flatten_shape
 
@@ -541,7 +554,7 @@ def gather_check(axis_: int):
 
         axis = len(x_shape) + axis_ if axis_ < 0 else axis_
 
-        if indices._ort_value is not None:
+        if array.is_lazy(indices) is not None:
             # TODO: in this case we can perform a check of input values
             # it would be possible to force evaluation, but it might not be worth it?
             pass
@@ -550,7 +563,7 @@ def gather_check(axis_: int):
             *x_shape[: axis],
             *indices.shape, *x_shape[axis + 1:])
 
-        return_array._dims = output_shape
+        set_array_info(return_array, shape=output_shape)
 
     return wrapper_gather_check
 
@@ -564,12 +577,12 @@ def propagate_shape_gemm(return_array, *input_arrays_and_args, **kwargs):
     # (n,k),(k,m)->(n,m)
     n, _ = a_shape
     _, m = b_shape
-    return_array._dims = DynamicShape(n, m)
+    set_array_info(return_array, shape=DynamicShape(n, m))
 
 
 def propagate_shape_global_pool(return_array, *input_arrays_and_args, **kwargs):
     N, C, H, W = input_arrays_and_args[0].shape
-    return_array._dims = DynamicShape(N, C, 1, 1)
+    set_array_info(return_array, shape=DynamicShape(N, C, 1, 1))
 
 
 def propagate_pool_shape(kernel_shape: List[int],
@@ -656,7 +669,7 @@ def propagate_pool_shape(kernel_shape: List[int],
 
             output_shape = DynamicShape(*output_shape, int(new_dim))
 
-        return_array._dims = output_shape
+        set_array_info(return_array, shape=output_shape)
 
     return propagate_shape_pool_wrapper
 
@@ -786,7 +799,7 @@ def propagate_conv_shape(
 
                 output_shape = DynamicShape(*output_shape, int(new_dim))
 
-        return_array._dims = output_shape
+        set_array_info(return_array, shape=output_shape)
 
     return propagate_conv_shape_wrapper
 
@@ -820,8 +833,10 @@ def reduce_axis(axes: Union[List[int], "array.Array", None], keepdims: bool):
             for axis in reduction_axes:
                 output_shape[axis] = None
 
-        return_array._dims = DynamicShape(*tuple(
+        out_shape = DynamicShape(*tuple(
             filter(lambda s: s is not None, output_shape)))
+
+        set_array_info(return_array, shape=out_shape)
 
     return output_reduce_axis
 
@@ -855,7 +870,7 @@ def reshape_check(requested_shape: Shape):
                 f"Incompatible shapes for reshape: {input_shape} and {requested_shape}")
         else:
             output_shape = requested_shape
-        return_array._dims = output_shape
+        set_array_info(return_array, shape=output_shape)
 
     return reshape_check_wrapper
 
@@ -888,8 +903,8 @@ def register(function):
     def register_wrapper(*args, **kwargs):
         # FIXME: this is total foobar
         result = function(*args, **kwargs)
-        node_name = result._evaluator._parent_node
-        node = result._evaluator._graph._graph.nodes[node_name]
+        node_name = result._internal_array._evaluator._parent_node
+        node = result._internal_array._evaluator._graph._graph.nodes[node_name]
         node_obj = node["node"]
         node["node"] = node_obj._replace(op_type=function.__qualname__)
         return result

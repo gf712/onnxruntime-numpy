@@ -1,13 +1,12 @@
+from .core import InternalArray
 from .evaluator import LazyEvaluator
 from . import ops
-from .types import numpy_to_ort, python_to_numpy, ort_to_numpy, all_types, AnyType
-from .shapes import as_shape, Shape, ShapeLike, DynamicShape, StaticShape
+from .types import numpy_to_ort, python_to_numpy, all_types, AnyType
+from .shapes import Shape, ShapeLike
 from .constants import INT32_MAX, INT32_MIN
-from .exceptions import InternalException
 from typing import Any, List, Union, Optional
 from typing import Iterable as IterableType
 from collections.abc import Iterable
-import uuid
 import numpy as np
 import onnxruntime
 
@@ -16,17 +15,10 @@ class Array:
     def __init__(self, ort_value: onnxruntime.OrtValue = None,
                  dims: Optional[ShapeLike] = None, dtype: np.dtype = None, *,
                  evaluator: LazyEvaluator = None, internal_name: str = None):
-        self._internal_name: str = str(
-            uuid.uuid4()) if internal_name is None else internal_name  # FIXME
-        self._ort_value: onnxruntime.OrtValue = ort_value
-        if dims is None:
-            self._dims = as_shape(tuple(ort_value.shape())
-                                  ) if ort_value is not None else DynamicShape()
-        else:
-            self._dims = as_shape(dims)
-        self._dtype = ort_to_numpy(ort_value.data_type(
-        )) if ort_value is not None and dtype is None else dtype
-        self._evaluator = evaluator if evaluator is not None else LazyEvaluator()
+        self._internal_array = InternalArray(
+            ort_value, dims, dtype, evaluator=evaluator,
+            internal_name=internal_name)
+
         self._treat_array_as_initializer = False
         if evaluator is None:
             self._initialize()
@@ -36,38 +28,32 @@ class Array:
             self._evaluator.add_initializer(
                 self._internal_name, self._dtype, self._dims, self._ort_value)
         else:
-            self._evaluator.add_input(self)
+            self._internal_array._evaluator.add_input(self)
 
-    def _eval(self):
-        if self._ort_value is None:
-            self._ort_value = self._evaluator.evaluate(self)
-            self._dims = StaticShape(*self._ort_value.shape())
+    def eval(self):
+        self._internal_array._eval()
 
-    def ort_value(self) -> onnxruntime.OrtValue:
-        if self._ort_value is None:
-            self._eval()
-        return self._ort_value
+    @property
+    def _dims(self) -> Shape:
+        raise ValueError("Deprecated")
 
-    def numpy(self) -> np.ndarray:
-        return self.ort_value().numpy()
-
-    def values(self) -> List[Any]:
-        self._eval()
-        if self._ort_value is None:
-            return []
-        return self._ort_value.numpy().tolist()
+    @property
+    def _dtype(self) -> np.dtype:
+        raise ValueError("Deprecated")
 
     @property
     def shape(self) -> Shape:
-        if self._dims is None:
-            raise InternalException("Unevaluated shape.. This is a bug!")
-        return self._dims  # type: ignore
+        return self._internal_array.shape
 
     @property
     def dtype(self) -> np.dtype:
-        if self._dtype is None:
-            raise InternalException("Unevaluated dtype.. This is a bug!")
-        return self._dtype
+        return self._internal_array.dtype
+
+    def numpy(self):
+        return self._internal_array.numpy()
+
+    def values(self):
+        return self._internal_array.values()
 
     @property
     def ndims(self) -> int:
@@ -195,7 +181,7 @@ class Array:
 
     def item(self) -> AnyType:
         if len(self.shape) == 0 or self.shape.size() == 1:
-            return self.ort_value().numpy().item()
+            return self._internal_array.ort_value().numpy().item()
         else:
             raise ValueError(
                 "can only convert an array of size 1 to a Python scalar")
@@ -204,10 +190,9 @@ class Array:
         return self.numpy().__repr__()
 
     def __hash__(self):
-        return hash(self._internal_name)
+        return hash(self._internal_array._internal_name)
 
     def __iter__(self) -> Any:
-        self._eval()
         yield from self.numpy()
 
     def reshape(self, shape: ShapeLike) -> "Array":
@@ -223,7 +208,7 @@ class Array:
 
 
 def is_lazy(x: Array) -> bool:
-    return x._ort_value is None
+    return x._internal_array._ort_value is None
 
 
 def merge_types(*types: IterableType[type]) -> type:

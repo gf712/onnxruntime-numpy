@@ -167,7 +167,8 @@ def test_average_pool_2d_default(type_a):
 
 @pytest.mark.parametrize("type_a", [np.float32])
 def test_average_pool_2d_pads(type_a):
-    x = np.random.randn(1, 3, 28, 28).astype(type_a)
+    rng = np.random.default_rng(12345)
+    x = rng.random((1, 3, 28, 28)).astype(type_a)
     x_shape = np.shape(x)
     kernel_shape = (3, 3)
     strides = (1, 1)

@@ -4,7 +4,8 @@ from .ops_utils import (
     allow_broadcasting, nary_operator, propagate_shape_global_pool,
     force_evaluation, propagate_pool_shape, propagate_conv_shape,
     multi_output_nary_operator, check_axis_is_valid, gather_check,
-    propagate_shape_from_argn_position, register, mark_as_optional)
+    propagate_shape_from_argn_position, register, mark_as_optional,
+    set_array_info)
 from .types import (float_types, signed_integer_types, all_types, numeric_types)
 from .shapes import ShapeLike, as_shape, DynamicShape, weak_shape_comparisson
 import numpy as np
@@ -131,7 +132,7 @@ def conv_integer(
             "ConvInteger", x, w, x_zero_point, w_zero_point,
             kernel_shape=kernel_shape, pads=pads, strides=strides, group=group,
             dilations=dilations, auto_pad=auto_pad)
-        result._dtype = np.int32
+        set_array_info(result, dtype=np.int32)
         return result
 
     return conv_integer_helper(
@@ -205,7 +206,7 @@ def depth_to_space(x: Array, blocksize: int, mode: str = "DCR"):
         new_c = int(c) // (blocksize ** 2) if c.is_static() else c
         new_h = int(h) * blocksize if h.is_static() else h
         new_w = int(w) * blocksize if w.is_static() else w
-        result._dims = DynamicShape(n, new_c, new_h, new_w)
+        set_array_info(result, shape=DynamicShape(n, new_c, new_h, new_w))
 
         return result
 
@@ -256,7 +257,7 @@ def dequantize_linear(x: Array, x_scale: Array,
             axis: int = 1):
         result = nary_operator("DequantizeLinear", x,
                                x_scale, x_zero_point, axis=axis)
-        result._dtype = np.float32
+        set_array_info(result, dtype=np.float32)
         return result
 
     return dequantize_linear_helper(x, x_scale, x_zero_point, axis=axis)
@@ -282,8 +283,7 @@ def dropout(
 
         mark_as_optional(mask)
 
-        mask._dims = output.shape
-        mask._dtype = np.bool_
+        set_array_info(mask, shape=output.shape, dtype=np.bool_)
 
         return output, mask
 
@@ -367,7 +367,7 @@ def gathernd(x: Array, indices: Array, batch_dims: int = 0):
             *x.shape[last_indices_dimension:])
 
         result = nary_operator("GatherND", x, indices, batch_dims=batch_dims)
-        result._dims = output_shape
+        set_array_info(result, shape=output_shape)
 
         return result
 
@@ -457,9 +457,11 @@ def gru(
         mark_as_optional(y)
         mark_as_optional(yh)
 
-        y._dims = DynamicShape(seq_length, num_directions,
+        y_shape = DynamicShape(seq_length, num_directions,
                                batch_size, hidden_size)
-        yh._dims = DynamicShape(num_directions, batch_size, hidden_size)
+        yh_shape = DynamicShape(num_directions, batch_size, hidden_size)
+        set_array_info(y, shape=y_shape)
+        set_array_info(yh, shape=yh_shape)
 
         return y, yh
 
@@ -674,10 +676,13 @@ def lstm(
         mark_as_optional(yh)
         mark_as_optional(yc)
 
-        y._dims = DynamicShape(seq_length, num_directions,
+        y_shape = DynamicShape(seq_length, num_directions,
                                batch_size, hidden_size)
-        yh._dims = DynamicShape(num_directions, batch_size, hidden_size)
-        yc._dims = DynamicShape(num_directions, batch_size, hidden_size)
+        yh_shape = DynamicShape(num_directions, batch_size, hidden_size)
+        yc_shape = DynamicShape(num_directions, batch_size, hidden_size)
+        set_array_info(y, shape=y_shape)
+        set_array_info(yh, shape=yh_shape)
+        set_array_info(yc, shape=yc_shape)
 
         return y, yh, yc
 
@@ -735,8 +740,7 @@ def maxpool(
     y, indices = maxpool_helper(
         x, kernel_shape, pads, strides, dilations, auto_pad, int(ceil_mode),
         storage_order)
-    indices._dims = y.shape
-    indices._dtype = np.int64
+    set_array_info(indices, shape=y.shape, dtype=np.int64)
 
     return y, indices
 
@@ -765,9 +769,10 @@ def maxroipool(
             "MaxRoiPool", x, rois, pooled_shape=pooled_shape,
             spatial_scale=spatial_scale)
 
-        result._dims = DynamicShape(
+        out_shape = DynamicShape(
             num_rois, channels, pooled_shape[0],
             pooled_shape[1])
+        set_array_info(result, shape=out_shape)
 
         return result
 
@@ -812,10 +817,12 @@ def maxunpool(
                 "MaxUnpool", x, indices, output_shape,
                 kernel_shape=kernel_shape, pads=pads, strides=strides)
         if output_shape is not None:
-            result._dims = as_shape(output_shape)
+            out_shape = as_shape(output_shape)
         else:
             n, c = x.shape[:2]
-            result._dims = DynamicShape(n, c, *[-1] * (x.ndims - 2))
+            out_shape = DynamicShape(n, c, *[-1] * (x.ndims - 2))
+
+        set_array_info(result, shape=out_shape)
         return result
 
     return helper_maxunpool(
@@ -885,8 +892,9 @@ def negative_loglikelihood_loss(
             "NegativeLogLikelihoodLoss", x, target,
             ignore_index=ignore_index, reduction=reduction)
 
-        result._dims = DynamicShape(
+        out_shape = DynamicShape(
             x_n) if reduction == "none" else DynamicShape()
+        set_array_info(result, shape=out_shape)
 
         return result
 
@@ -949,8 +957,8 @@ def non_max_suppression(boxes: Array, scores: Array,
         result = nary_operator(
             "NonMaxSuppression", boxes, scores, max_output_boxes_per_class,
             iou_threshold, score_threshold, center_point_box=center_point_box)
-        result._dtype = np.int64
-        result._dims = DynamicShape(-1, 3)
+        set_array_info(result, shape=DynamicShape(-1, 3), dtype=np.int64)
+
         return result
 
     return non_max_suppression_helper(
@@ -1106,7 +1114,7 @@ def space_to_depth(x: Array, blocksize: int):
         new_c = int(c) * (blocksize ** 2) if c.is_static() else c
         new_h = int(h) / blocksize if h.is_static() else h
         new_w = int(w) / blocksize if w.is_static() else w
-        result._dims = DynamicShape(n, new_c, new_h, new_w)
+        set_array_info(result, shape=DynamicShape(n, new_c, new_h, new_w))
 
         return result
 

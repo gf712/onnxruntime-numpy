@@ -53,7 +53,7 @@ class HashableAttributes(dict):
     def __getitem__(self, name):
         value = super(HashableAttributes, self).__getitem__(name)
         if isinstance(value, array.Array):
-            return onnx_utils.make_onnx_tensor(value._internal_name, value)
+            return onnx_utils.make_onnx_tensor(value._internal_array._internal_name, value)
         return value
 
     def __iter__(self):  # pragma: no cover
@@ -161,7 +161,7 @@ class Graph:
         for idx, input_array in enumerate(inputs):
             # nodes can have empty inputs
             if input_array is not None:
-                inputs_output_node = input_array._evaluator._output_node
+                inputs_output_node = input_array._internal_array._evaluator._output_node
                 if inputs_output_node is None:
                     raise InternalException(
                         "Array must have an output node")
@@ -172,7 +172,7 @@ class Graph:
                         "Output node must have a single edge")
                 inputs_output_index = inputs_output_edge[0][-1]["in_index"]
                 connection_name = inputs_output_edge[0][-1]["name"]
-                parent_node = input_array._evaluator._parent_node
+                parent_node = input_array._internal_array._evaluator._parent_node
                 if parent_node is None:
                     raise InternalException("Array must have a parent node")
                 self.add_edge(
@@ -191,7 +191,7 @@ class Graph:
             output_node = Output(output.dtype, output.shape)
             self._graph.add_node(output_node_name, node=output_node)
 
-            edge_name = f"Tensor_{output._internal_name}"
+            edge_name = f"Tensor_{output._internal_array._internal_name}"
 
             self.add_edge(
                 node_name, output_node_name, in_index=output_array_idx,
@@ -218,7 +218,7 @@ class Graph:
         output_node = Output(array.dtype, array.shape)
         self._graph.add_node(output_node_name, node=output_node)
 
-        edge_name = f"Tensor_{array._internal_name}"
+        edge_name = f"Tensor_{array._internal_array._internal_name}"
 
         self.add_edge(
             input_node_name, output_node_name, in_index=0,
@@ -230,7 +230,6 @@ class Graph:
         output_node = Output(array.dtype, array.shape)
         self._graph.add_node(array._internal_name,
                              node=output_node)
-        # FIXME: when multiple outputs are supported
         self.add_edge(
             from_node, array._internal_name, in_index=idx,
             out_index=0, name=array._internal_name, required=False)
@@ -240,9 +239,9 @@ class Graph:
         if self._graph is None:
             raise InternalException()
         elif other_graph._graph is not None:
+            self._graph.add_nodes_from(other_graph._graph.nodes(data=True))
             self._graph.add_edges_from(other_graph._graph.edges(
                 data=True, keys=True))
-            self._graph.add_nodes_from(other_graph._graph.nodes(data=True))
 
             self._input_node_names.update(other_graph._input_node_names)
             other_graph._input_node_names = self._input_node_names
@@ -269,7 +268,7 @@ class ExecutableGraph:
 
             output_node_parent = output_edge[0][0]
             output_array = node_outputs[output_node_parent][
-                output_edge[0][-1]["in_index"]]
+                output_edge[0][-1]["in_index"]][1]
 
             self._output_node_info[output_node_name] = (
                 numpy_to_onnx(np.dtype(output_array.dtype)),
@@ -370,7 +369,7 @@ class ExecutableGraph:
         nodes_of_interest |= nodes_of_interest_to_add
         return graph.subgraph(nodes_of_interest)
 
-    @ classmethod
+    @classmethod
     def from_onnx(cls, onnx_graph, outputs=None):
         g = cls()
         if len(onnx_graph.output) == 0 and outputs is None:

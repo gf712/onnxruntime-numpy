@@ -1,95 +1,22 @@
 import onnx
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Optional
 import onnxruntime
 import numpy as np
+from . import core
+from . import array
 from .types import numpy_to_ort, ort_to_numpy
 from .shapes import weak_shape_comparisson, as_shape
 from .graph import Graph, ExecutableGraph, compile_graph
 from .config import Config, get_ort_graph_optimization_level
 from .exceptions import InternalException
-from . import array
-
-
-class IntermediateResultCache:
-    def __init__(self):
-        self._cache: Dict[str, List[Optional["array.Array"]]] = {}
-
-    def merge(self, other):
-        self._cache = {**self._cache, **other._cache}
-
-    def add_entry(self, node_name: str, index: int, array: "array.Array"):
-        if node_name in self._cache:
-            entry = self._cache[node_name]
-            if index >= len(entry):
-                # grow cache in order to fit the new entry
-                entry += [None] * (index - len(entry) + 1)
-        else:
-            entry = [None] * (index + 1)
-            self._cache[node_name] = entry
-
-        self._cache[node_name][index] = array
-
-    def get_entry(self, node_name: str, index: int) -> Optional["array.Array"]:
-        return self._cache[node_name][index]
-
-    def get_node_cache(self, node_name: str) -> List[Optional["array.Array"]]:
-        return self._cache[node_name]
-
-    def get_all_cache_tensor_mappings(self) -> Dict[str, "array.Array"]:
-        mapping: Dict[str, "array.Array"] = {}
-        for key in self._cache.keys():
-            mapping = {**mapping, **self.get_node_cache_tensor_mapping(key)}
-        return mapping
-
-    def get_node_cache_tensor_mapping(self, node_name: str) -> Dict[str,
-                                                                    "array.Array"]:
-        caches = self._cache[node_name]
-        mapping: Dict[str, "array.Array"] = {}
-        for cache in caches:
-            if cache is None:
-                continue
-            output_node = cache._evaluator._output_node
-            output_in_edge = list(cache._evaluator._graph._graph.in_edges(
-                output_node, data=True))[0]
-            mapping[output_in_edge[-1]["name"]] = cache
-
-        return mapping
-
-    def empty(self) -> bool:
-        return len(self._cache) == 0
-
-    def to_dict(self):
-        return self._cache
-
-
-class ArrayNodeLookupTable:
-    def __init__(self):
-        self._input_table: Dict[str, Tuple["array.Array"]] = {}
-        self._output_table: Dict[str, Tuple["array.Array"]] = {}
-
-    def add_input(self, node_name: str, arrays: Tuple["array.Array"]):
-        self._input_table[node_name] = arrays
-
-    def add_output(self, node_name: str, arrays: Tuple["array.Array"]):
-        self._output_table[node_name] = arrays
-
-    def get_input_map(self):
-        return self._input_table
-
-    def get_output_map(self):
-        return self._output_table
-
-    def update(self, other):
-        self._input_table = {**self._input_table, **other._input_table}
-        self._output_table = {**self._output_table, **other._output_table}
 
 
 class LazyEvaluator:
     def __init__(self):
         self._parent_node: Optional[str] = None
         self._output_node: Optional[str] = None
-        self._array_to_node_map: ArrayNodeLookupTable = ArrayNodeLookupTable()
-        self._cached_results: IntermediateResultCache = IntermediateResultCache()
+        self._array_to_node_map = core.ArrayNodeLookupTable()
+        self._cached_results = core.IntermediateResultCache()
         self._graph: Graph = Graph()
 
     def copy(self) -> "LazyEvaluator":
@@ -108,8 +35,8 @@ class LazyEvaluator:
             op_name, inputs, outputs, **attributes)
 
         for output_array, output_node_name in zip(outputs, output_node_names):
-            output_array._evaluator._output_node = output_node_name
-            output_array._evaluator._parent_node = self._parent_node
+            output_array._internal_array._evaluator._output_node = output_node_name
+            output_array._internal_array._evaluator._parent_node = self._parent_node
 
         if self._parent_node is not None:
             # keep mypy happy because self._parent_node is Optional[str]
@@ -127,7 +54,7 @@ class LazyEvaluator:
     def add_input(self, array: "array.Array"):
         dtype = array.dtype
         dims = array.shape
-        default_values = array._ort_value
+        default_values = array._internal_array._ort_value
         # FIXME
         if default_values is not None:
             if default_values.data_type() != numpy_to_ort(
@@ -184,7 +111,7 @@ class LazyEvaluator:
 
         output_node = self._array_to_node_map.get_output_map()[
             self._parent_node]
-        output_idx = [o._internal_name for o in output_node].index(
+        output_idx = [o[1]._internal_name for o in output_node].index(
             output_array._internal_name)
 
         if output_idx == -1:
@@ -236,7 +163,10 @@ class LazyEvaluator:
                 f"Expected {len(session_input_names)} inputs, but got {len(inputs)}")
 
         for input_name, input_array in inputs.items():
-            ortvalue = input_array._ort_value
+            if isinstance(input_array, tuple):
+                ortvalue = input_array[1]._ort_value
+            else:
+                ortvalue = input_array._ort_value
             if ortvalue is None:
                 raise ValueError(
                     "Internal bug. Array's Ortvalue is not set and can not be a model "
@@ -267,7 +197,7 @@ class LazyEvaluator:
 
         if self._parent_node is not None:
             self._cached_results.add_entry(
-                self._parent_node, output_idx, output_array)
+                self._parent_node, output_array)
         else:
             raise InternalException("Evaluator does not have a parent node")
 

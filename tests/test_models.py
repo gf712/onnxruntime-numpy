@@ -71,9 +71,9 @@ def test_integration_multilayer_perceptron_training():
         w2 -= dw2 * learning_rate
         b2 -= db2 * learning_rate
 
-        w1._eval()
-        b1._eval()
-        w2._eval()
-        b2._eval()
+        w1.eval()
+        b1.eval()
+        w2.eval()
+        b2.eval()
 
     assert losses[-1] < 1

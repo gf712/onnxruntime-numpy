@@ -16,4 +16,4 @@ def make_onnx_tensor_value_info(
     dims = array.shape.tolist()
     data_type = numpy_to_onnx(array.dtype)
     return onnx.helper.make_tensor_value_info(
-        array._internal_name, data_type, dims)
+        array._internal_array._internal_name, data_type, dims)

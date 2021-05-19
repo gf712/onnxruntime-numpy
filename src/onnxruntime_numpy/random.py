@@ -1,7 +1,7 @@
 import numpy as np
 from . import array
 from .ops_utils import (allowed_types, not_implemented_types,
-                        nary_operator, initializer_operator)
+                        nary_operator, initializer_operator, set_array_info)
 from .types import numpy_to_onnx, float_types, all_types
 from .shapes import DynamicShape, ShapeLike, as_shape
 from typing import Optional
@@ -32,8 +32,7 @@ def multinomial(
         result = nary_operator(
             "Multinomial", x, dtype=numpy_to_onnx(np.dtype(dtype)),
             sample_size=sample_size, seed=seed)
-        result._dtype = dtype
-        result._dims = DynamicShape(batch_size, 1)
+        set_array_info(result, shape=DynamicShape(batch_size, 1), dtype=dtype)
         return result
     return multinomial_helper(
         x, dtype=dtype, sample_size=sample_size, seed=seed)
@@ -81,9 +80,8 @@ def normal_like(x="array.Array", mean: float = 0.0, scale: float = 1.0,
             seed: Optional[float]):
         result = nary_operator("RandomNormalLike", x, dtype=numpy_to_onnx(
             np.dtype(dtype)), mean=mean, scale=scale, seed=seed)
-        result._dtype = dtype if dtype is not None else x.dtype
-        result._dims = x.shape
-
+        dtype_ = dtype if dtype is not None else x.dtype
+        set_array_info(result, dtype=dtype_, shape=x.shape)
         return result
 
     return normal_like_helper(x, mean=mean, scale=scale, dtype=dtype, seed=seed)
@@ -131,8 +129,8 @@ def uniform_like(x="array.Array", low: float = 0.0, high: float = 1.0,
             seed: Optional[float]):
         result = nary_operator("RandomUniformLike", x, dtype=numpy_to_onnx(
             np.dtype(dtype)), low=low, high=high, seed=seed)
-        result._dtype = dtype if dtype is not None else x.dtype
-        result._dims = x.shape
+        dtype_ = dtype if dtype is not None else x.dtype
+        set_array_info(result, dtype=dtype_, shape=x.shape)
 
         return result
 
