@@ -3,7 +3,7 @@
 # type: ignore
 from .array import Array
 from .evaluator import LazyEvaluator, merge_array_evaluators
-from .tracer import OpTracerContext
+from .tracer import OpTracer
 from .types import onnx_to_numpy
 from .onnx_utils import make_onnx_tensor_value_info
 from .graph import Graph, Node, Input, Output
@@ -19,8 +19,6 @@ from collections import defaultdict, namedtuple
 import functools
 import inspect
 import uuid
-
-# @functools.lru_cache
 
 
 def make_graph_buffer(nodes, inputs, outputs, initializers):
@@ -192,10 +190,9 @@ class MapFnArgsToInput:
 
 
 def generate_graph_flow(func, *array_objs, **array_obj_kwargs):
-    graph = Graph()
-
-    with OpTracerContext(graph, *array_objs, **array_obj_kwargs) as tracker:
-        result_array = tracker.trace_function_call(func)
+    with OpTracer() as tracker:
+        result_array = tracker.trace(func, *array_objs, **array_obj_kwargs)
+        graph = tracer.get_graph()
 
     if isinstance(result_array, tuple) or result_array is None:
         raise ValueError(
