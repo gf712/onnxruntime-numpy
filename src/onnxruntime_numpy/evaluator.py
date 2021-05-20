@@ -91,19 +91,20 @@ class LazyEvaluator:
         other._array_to_node_map = self._array_to_node_map
         return
 
-    def _build_executable_graph(self, array: "array.Array") -> ExecutableGraph:
+    def _build_executable_graph(
+            self, use_cache: bool = True) -> ExecutableGraph:
         if self._parent_node is None:
             raise InternalException("Parent node not set")
         if self._output_node is None:
             raise InternalException("Output node not set")
-        # FIXME: need to fix result caching
+        cache = self._cached_results if use_cache else None
         return compile_graph(
             self._graph, self._array_to_node_map.get_input_map(),
             self._array_to_node_map.get_output_map(),
             [self._output_node],
-            self._cached_results)
+            cache)
 
-    def evaluate(self, output_array: "array.Array") -> List[np.ndarray]:
+    def evaluate(self, output_array: "core.InternalArray") -> List[np.ndarray]:
         if self._graph is None:  # pragma: no cover
             raise InternalException(
                 "Graph is empty. "
@@ -118,7 +119,7 @@ class LazyEvaluator:
             raise InternalException(
                 "Could not find index of output Array in output node")
 
-        executable_graph = self._build_executable_graph(output_array)
+        executable_graph = self._build_executable_graph()
 
         onnx_graph = executable_graph.build_onnx_graph()
 
@@ -134,7 +135,7 @@ class LazyEvaluator:
         session_options.graph_optimization_level = get_ort_graph_optimization_level()
 
         try:
-            onnx.save_model(m, "failed_model.onnx")
+            # onnx.save_model(m, "failed_model.onnx")
 
             session = onnxruntime.InferenceSession(
                 buffer, providers=Config().get_providers(),
@@ -169,7 +170,7 @@ class LazyEvaluator:
                 ortvalue = input_array._ort_value
             if ortvalue is None:
                 raise ValueError(
-                    "Internal bug. Array's Ortvalue is not set and can not be a model "
+                    "Internal bug. Array's Ortvalue is not set and cannot be a model "
                     "input")
             ort_value_dtype = ort_to_numpy(ortvalue.data_type())
             # this will work 99% of the time in this century :D
@@ -198,6 +199,7 @@ class LazyEvaluator:
         if self._parent_node is not None:
             self._cached_results.add_entry(
                 self._parent_node, output_array)
+            self._graph.prune_graph(self._parent_node, self._cached_results)
         else:
             raise InternalException("Evaluator does not have a parent node")
 

@@ -244,9 +244,7 @@ def array(values, dtype: type = None) -> Array:
         if dtype is None or values.dtype == dtype:
             return values
         else:
-            # do cast
-            raise NotImplementedError("")
-            pass
+            return ops.cast(values, to=dtype)
 
     if not isinstance(values, Iterable) and dtype is None:
         if type(values) in all_types:

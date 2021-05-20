@@ -24,7 +24,7 @@ class Input(namedtuple("Input", "dtype shape node_name")):
         return f'Input({self.shape}, dtype={self.dtype}, name={self.node_name})'
 
 
-class Output(namedtuple("Output", "dtype shape")):
+class Output(namedtuple("Output", "dtype shape can_be_dropped")):
     def __repr__(self):
         return f'Output({self.shape}, dtype={self.dtype})'
 
@@ -53,7 +53,8 @@ class HashableAttributes(dict):
     def __getitem__(self, name):
         value = super(HashableAttributes, self).__getitem__(name)
         if isinstance(value, array.Array):
-            return onnx_utils.make_onnx_tensor(value._internal_array._internal_name, value)
+            return onnx_utils.make_onnx_tensor(
+                value._internal_array._internal_name, value)
         return value
 
     def __iter__(self):  # pragma: no cover
@@ -188,7 +189,7 @@ class Graph:
         for output_array_idx, output in enumerate(outputs):
             output_id = uuid.uuid4()
             output_node_name = f"Output_{output_id}"
-            output_node = Output(output.dtype, output.shape)
+            output_node = Output(output.dtype, output.shape, False)
             self._graph.add_node(output_node_name, node=output_node)
 
             edge_name = f"Tensor_{output._internal_array._internal_name}"
@@ -215,7 +216,7 @@ class Graph:
 
         output_id = uuid.uuid4()
         output_node_name = f"Output_{output_id}"
-        output_node = Output(array.dtype, array.shape)
+        output_node = Output(array.dtype, array.shape, False)
         self._graph.add_node(output_node_name, node=output_node)
 
         edge_name = f"Tensor_{array._internal_array._internal_name}"
@@ -227,7 +228,7 @@ class Graph:
         return input_node_name, output_node_name
 
     def add_output(self, array, from_node, idx):
-        output_node = Output(array.dtype, array.shape)
+        output_node = Output(array.dtype, array.shape, False)
         self._graph.add_node(array._internal_name,
                              node=output_node)
         self.add_edge(
@@ -248,6 +249,11 @@ class Graph:
             for k, v in other_graph._edge_lookup_table.items():
                 self._edge_lookup_table[k].update(v)
 
+    def prune_graph(self, end_node: str, cached_nodes: List[str]):
+        # find all nodes from the starting starting nodes that only lead to end or a cached node
+        # and that can be dropped
+        pass
+
 
 class ExecutableGraph:
     def __init__(
@@ -255,7 +261,7 @@ class ExecutableGraph:
             node_inputs: Dict[str, Tuple["array.Array"]],
             node_outputs: Dict[str, Tuple["array.Array"]],
             output_names: List[str],
-            cached_results: "evaluator.IntermediateResultCache"):
+            cached_results: Optional["evaluator.IntermediateResultCache"]):
         self._output_node_info: Dict[str, Tuple[np.dtype, List[int]]] = {}
         self._input_node_mapping: Dict[str, str] = {}
 
@@ -293,8 +299,8 @@ class ExecutableGraph:
 
         core_graph = graph._graph
 
-        if not cached_results.empty():
-            edges_to_remove: Set[Tuple[Optional[str], str, int]] = set()
+        if cached_results is not None and not cached_results.empty():
+            edges_to_remove: Set[Tuple[str, str, int]] = set()
             core_graph = core_graph.copy()
             for tensor_name, result in cached_results.get_all_cache_tensor_mappings().items():  # noqa
                 cached_edge_names = graph._edge_lookup_table.get(tensor_name)
@@ -338,9 +344,9 @@ class ExecutableGraph:
                     *edge_to_remove[: 2],
                     key=edge_to_remove[2])
 
-        self._ancestors = self._prune_graph(core_graph, output_name)
+        self._graph = self._prune_graph(core_graph, output_name)
 
-        if len(self._ancestors) == 0:
+        if len(self._graph) == 0:
             raise InternalException("Could not find ancestor nodes")
 
     def _prune_graph(self, graph, output_name: str):
@@ -387,7 +393,7 @@ class ExecutableGraph:
 
     def build_onnx_graph(self) -> onnx.GraphProto:
         g = onnx.GraphProto()
-        core_graph = self._ancestors
+        core_graph = self._graph
 
         # keep track of input names in order to avoid duplicate inputs
         graph_input_names: Set[str] = set()
@@ -408,7 +414,7 @@ class ExecutableGraph:
                 for e in out_edges:
                     out_node = e[1]
                     tensor_name = e[-1]["name"]
-                    if (out_node in self._ancestors
+                    if (out_node in self._graph
                             and tensor_name not in graph_input_names):
                         g.input.append(
                             onnx.helper.make_tensor_value_info(
@@ -471,6 +477,6 @@ def compile_graph(
         graph: Graph, node_inputs: Dict[str, Tuple["array.Array"]],
         node_outputs: Dict[str, Tuple["array.Array"]],
         output_names: List[str],
-        cached_results: "evaluator.IntermediateResultCache") -> ExecutableGraph:
+        cached_results: Optional["evaluator.IntermediateResultCache"]) -> ExecutableGraph:
     return ExecutableGraph(graph, node_inputs, node_outputs, output_names,
                            cached_results)

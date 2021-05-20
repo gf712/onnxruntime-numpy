@@ -56,15 +56,17 @@ def test_array_with_same_type():
     expect(a.numpy(), b.numpy())
 
 
-def test_new_array_with_cast():
-    a = onp.array([1.])
-    # TODO
-    with pytest.raises(NotImplementedError):
-        b = onp.array(a, dtype=np.int32)
+@pytest.mark.parametrize("from_type", all_types)
+@pytest.mark.parametrize("to_type", all_types)
+def test_new_array_with_cast(from_type, to_type):
+    x = onp.array(0, dtype=from_type)
+    y = onp.array(x, dtype=to_type)
 
-        assert b.dtype == np.int32
-        assert a.shape == b.shape
-        assert np.allclose(a, b)
+    assert x.dtype == from_type
+    assert y.dtype == to_type
+
+    assert x.item() == y.item()
+    assert x.shape == y.shape
 
 
 @pytest.mark.parametrize("type_a", all_types)

@@ -60,11 +60,12 @@ class InternalArray:
 
 def _array_finalizer_factory(x: "array.Array") -> ReferenceType:
 
-    name = x._internal_array._internal_name
+    g = x._internal_array._evaluator._graph
+    output_name = x._internal_array._evaluator._output_node
 
     def _finalizer():
-
-        # print(f"calling finalizer for {name}")
+        n = g.nodes[output_name]
+        n["node"] = n["node"]._replace(can_be_dropped=True)
         print(f"calling finalizer for {x._internal_array._internal_name}")
 
     f = weakref.finalize(x, _finalizer)
