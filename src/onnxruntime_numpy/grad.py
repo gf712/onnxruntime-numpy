@@ -5,7 +5,7 @@ from . import nn
 from .graph import Input
 from .config import Config
 from .exceptions import InternalException
-from .core import _fetch_array
+from .core import as_array
 import networkx as nx
 import numpy as np
 from typing import Dict, Tuple, Callable, Optional, List, Set
@@ -177,12 +177,9 @@ def power_grad_dexponent(grad, output, base, exponent):
 
 def relu_grad(grad, output, x):
     return ops.where(
-        x < array([0],
-                  dtype=x.dtype),
-        array([0],
-              dtype=x.dtype),
-        array([1],
-              dtype=x.dtype))
+        x < array([0], dtype=x.dtype),
+        array([0], dtype=x.dtype),
+        array([1], dtype=x.dtype))
 
 
 def sinh_grad(grad, output, x):
@@ -317,9 +314,7 @@ def backward_pass(g, graph: nx.DiGraph, output_evaluator,
                     f"Gradient for {node.op_name} not implemented")
 
             if len(input_edges) != len(grad_funcs):
-                raise NotImplementedError()
-
-            # output_edges = graph._graph.out_edges(node_name)
+                raise InternalException("Node has unexpected number of outputs")
 
             output_mapping = output_evaluator._array_to_node_map.get_output_map()
             input_mapping = output_evaluator._array_to_node_map.get_input_map()
@@ -331,7 +326,7 @@ def backward_pass(g, graph: nx.DiGraph, output_evaluator,
                     # the node connecting to this node is not relevant
                     # to compute the gradient
                     #
-                    # For example for dx/dbase we don't need dexponent/dout
+                    # For example for dbase/dout we don't need dexponent/dout
                     #   base
                     #      \
                     #      Power -- out
@@ -343,15 +338,15 @@ def backward_pass(g, graph: nx.DiGraph, output_evaluator,
                     continue
                 parent_node = graph.nodes[parent_node_name]["node"]
 
-                if "stop_gradient" in graph.nodes[parent_node_name] \
+                if graph.nodes[parent_node_name].get("stop_gradient", False) \
                         or output_grad is None:
                     # the output node in the forward graph is flagged
                     # as not participating in gradient, so ignore it
                     outgrads[parent_node] = outgrads.get(parent_node)
                     continue
-                node_outputs = [_fetch_array(a[0])
+                node_outputs = [as_array(a[1])
                                 for a in output_mapping[node_name]]
-                node_inputs = [_fetch_array(a[0])
+                node_inputs = [as_array(a[1])
                                for a in input_mapping[node_name]]
                 parent_grad = grad_fn(output_grad, *node_outputs,
                                       *node_inputs, **node.attributes)
@@ -453,6 +448,13 @@ def gradients(
             node_name = stop_gradient._internal_array._evaluator._parent_node
             graph.nodes[node_name]["stop_gradient"] = True
 
-    return backward_pass(
+    result = backward_pass(
         g, graph, output._internal_array._evaluator, tuple(inputs),
         unconnected_gradients)
+
+    if stop_gradients is not None:
+        for stop_gradient in stop_gradients:
+            node_name = stop_gradient._internal_array._evaluator._parent_node
+            graph.nodes[node_name]["stop_gradient"] = False
+
+    return result

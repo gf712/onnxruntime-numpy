@@ -8,6 +8,7 @@ import numpy as np
 import networkx as nx
 import onnx
 import uuid
+import threading
 
 from collections import namedtuple, defaultdict
 from collections.abc import Hashable
@@ -24,7 +25,26 @@ class Input(namedtuple("Input", "dtype shape node_name")):
         return f'Input({self.shape}, dtype={self.dtype}, name={self.node_name})'
 
 
-class Output(namedtuple("Output", "dtype shape can_be_dropped")):
+# class Output(namedtuple("Output", "dtype shape can_be_dropped")):
+#     def __repr__(self):
+#         return f'Output({self.shape}, dtype={self.dtype})'
+
+class Output:
+    def __init__(self, dtype, shape, can_be_dropped: bool):
+        self.dtype = dtype
+        self.shape = shape
+        self.can_be_dropped = can_be_dropped
+        self._hash = hash((dtype, shape))
+
+    def __hash__(self):
+        return self._hash
+
+    def __setitem__(self, key, value):
+        raise InternalException("Cannot set Output attributes")
+
+    def _can_be_dropped(self, can_be_dropped):
+        self.can_be_dropped = can_be_dropped
+
     def __repr__(self):
         return f'Output({self.shape}, dtype={self.dtype})'
 
@@ -33,6 +53,14 @@ class TensorProtoInternal(
         namedtuple("TensorProtoInternal", "values dtype shape name")):
     def __repr__(self):
         return f'TensorProtoInternal({self.shape}, dtype={self.dtype})'
+
+
+class UnreachableNode:
+    pass
+
+
+class Placeholder:
+    pass
 
 
 class HashableAttributes(dict):
@@ -115,12 +143,14 @@ class Graph:
         self._graph = nx.MultiDiGraph()
         self._input_node_names: Set[str] = set()
         self._edge_lookup_table: EdgeTableType = defaultdict(set)
+        self._lock = threading.Lock()
 
     def copy(self):
         g = Graph()
         g._graph = self._graph.copy()
         g._input_node_names = self._input_node_names.copy()
         g._edge_lookup_table = self._edge_lookup_table
+        g._lock = self._lock
         return g
 
     @property
@@ -133,7 +163,7 @@ class Graph:
     def reversed_toposort(self):
         return reversed(list(self.toposort()))
 
-    def add_edge(
+    def _add_edge(
             self, parent_node: Optional[str],
             node_name: str, in_index: Optional[int],
             out_index: int, name: str, required: bool):
@@ -144,7 +174,7 @@ class Graph:
             (parent_node, node_name, key)]
         self._edge_lookup_table[e["name"]].add((parent_node, node_name, key))
 
-    def add_node(
+    def _add_node(
             self, op_name: str,
             inputs: Tuple[Optional["array.Array"], ...],
             outputs: Tuple["array.Array", ...],
@@ -176,11 +206,11 @@ class Graph:
                 parent_node = input_array._internal_array._evaluator._parent_node
                 if parent_node is None:
                     raise InternalException("Array must have a parent node")
-                self.add_edge(
+                self._add_edge(
                     parent_node, node_name, in_index=inputs_output_index,
                     out_index=idx, name=connection_name, required=True)
             else:
-                self.add_edge(
+                self._add_edge(
                     None, node_name, in_index=None, out_index=idx,
                     name="EmptyPlaceholder", required=True)
 
@@ -194,7 +224,7 @@ class Graph:
 
             edge_name = f"Tensor_{output._internal_array._internal_name}"
 
-            self.add_edge(
+            self._add_edge(
                 node_name, output_node_name, in_index=output_array_idx,
                 out_index=0, name=edge_name, required=True)
 
@@ -202,12 +232,7 @@ class Graph:
 
         return node_name, output_node_names
 
-    def add_initializer(
-            self, name: str, dtype: np.dtype, dims: Tuple[int],
-            vals):
-        raise NotImplementedError()
-
-    def add_input(self, array: "array.Array"):
+    def _add_input(self, array: "array.Array"):
         input_id = uuid.uuid4()
         input_node_name = f"Input_{input_id}"
         input_node = Input(array.dtype, array.shape, input_node_name)
@@ -221,26 +246,36 @@ class Graph:
 
         edge_name = f"Tensor_{array._internal_array._internal_name}"
 
-        self.add_edge(
+        self._add_edge(
             input_node_name, output_node_name, in_index=0,
             out_index=0, name=edge_name, required=False)
 
         return input_node_name, output_node_name
 
-    def add_output(self, array, from_node, idx):
+    def _add_output(self, array, from_node, idx):
         output_node = Output(array.dtype, array.shape, False)
         self._graph.add_node(array._internal_name,
                              node=output_node)
-        self.add_edge(
+        self._add_edge(
             from_node, array._internal_name, in_index=idx,
             out_index=0, name=array._internal_name, required=False)
         return array._internal_name
 
-    def add_subgraph(self, other_graph):
+    def add_nodes_from(self, nodes_for_adding):
+        for n in nodes_for_adding:
+            nn, ndict = n
+            if nn not in self._graph._succ:
+                self._graph._succ[nn] = self._graph.adjlist_inner_dict_factory()
+                self._graph._pred[nn] = self._graph.adjlist_inner_dict_factory()
+                attr_dict = self._graph._node[nn] = self._graph.node_attr_dict_factory(
+                )
+                attr_dict.update(ndict)
+
+    def _add_subgraph(self, other_graph):
         if self._graph is None:
             raise InternalException()
         elif other_graph._graph is not None:
-            self._graph.add_nodes_from(other_graph._graph.nodes(data=True))
+            self.add_nodes_from(other_graph._graph.nodes(data=True))
             self._graph.add_edges_from(other_graph._graph.edges(
                 data=True, keys=True))
 
@@ -249,10 +284,133 @@ class Graph:
             for k, v in other_graph._edge_lookup_table.items():
                 self._edge_lookup_table[k].update(v)
 
-    def prune_graph(self, end_node: str, cached_nodes: List[str]):
-        # find all nodes from the starting starting nodes that only lead to end or a cached node
-        # and that can be dropped
-        pass
+    def add_edge(
+            self, parent_node: Optional[str],
+            node_name: str, in_index: Optional[int],
+            out_index: int, name: str, required: bool):
+        with self._lock:
+            return self._add_edge(parent_node, node_name, in_index,
+                                  out_index, name, required)
+
+    def add_node(
+            self, op_name: str,
+            inputs: Tuple[Optional["array.Array"], ...],
+            outputs: Tuple["array.Array", ...],
+            **attributes):
+        with self._lock:
+            return self._add_node(op_name, inputs, outputs, **attributes)
+
+    def add_input(self, array: "array.Array"):
+        with self._lock:
+            return self._add_input(array)
+
+    def add_output(self, array, from_node, idx):
+        with self._lock:
+            return self._add_output(array, from_node, idx)
+
+    def add_subgraph(self, other_graph):
+        with self._lock:
+            if other_graph._lock != self._lock:
+                with other_graph._lock:
+                    self._add_subgraph(other_graph)
+            else:
+                self._add_subgraph(other_graph)
+
+    def add_initializer(
+            self, name: str, dtype: np.dtype, dims: Tuple[int],
+            vals):
+        raise NotImplementedError()
+
+    def prune_graph(self, cached_outputs: List[str]):
+        with self._lock:
+            g = self._graph
+
+            def get_node_data(n):
+                if n in g:
+                    node_obj = g.nodes(data=True)[n]
+                    return node_obj["node"]
+
+            cached_output_nodes = set()
+            for t in cached_outputs:
+                edges = self._edge_lookup_table.get(t)
+                if edges is None:
+                    continue
+                out_edges = [e for e in edges if isinstance(
+                    get_node_data(e[1]), Output)]
+                if len(out_edges) != 1:
+                    raise InternalException()
+                out_edge = out_edges[0]
+                cached_output_nodes.add(out_edge[1])
+
+            # def outputs_can_be_dropped(node, ancestors):
+            #     if node is None:
+            #         return node, True
+            #     output_nodes = [c for c in g.successors(
+            #         node) if isinstance(get_node_data(c), Output)]
+            #     can_be_dropped = [get_node_data(
+            #         n).can_be_dropped for n in output_nodes]
+            #     node_in_ancestors = map(
+            #         lambda n: n in ancestors, nx.shortest_path_length(
+            #             self._graph, source=node))
+            #     return node, all(can_be_dropped) and all(node_in_ancestors)
+            #     # return (node, all(
+            #     #     map(lambda n: get_node_data(n).can_be_dropped, output_nodes)))
+
+            # def bfs_dropped(g, parent_node):
+            #     q = deque((parent_node,))
+            #     visited = set((parent_node,))
+            #     q.extend(g.predecessors(parent_node))
+            #     while len(q) > 1:
+            #         node = q.popleft()
+            #         can_be_dropped = all(get_node_data(c).can_be_dropped for c in g.successors(
+            #             node) if isinstance(get_node_data(c), Output))
+            #         if not can_be_dropped:
+            #             continue
+            #         op_nodes = [c for c in g.successors(
+            #             node) if not isinstance(get_node_data(c), Output)]
+            #         if any(map(lambda n: n not in visited, op_nodes)):
+            #             continue
+
+            #         visited.add(node)
+            #         q.extend(g.predecessors(node))
+
+            #     return visited
+
+            def outputs_can_be_dropped(parent_node):
+                ancestors = nx.ancestors(self._graph, parent_node)
+                for n in ancestors:
+                    outputs = (c for c in g.successors(n)
+                               if isinstance(get_node_data(c), Output))
+                    if all(map(lambda o: get_node_data(o).can_be_dropped, outputs)):
+                        yield True
+                    else:
+                        yield False
+
+            nodes_to_drop = set()
+            new_inputs = set()
+            for cached_output_node in cached_output_nodes:
+                predecessors = list(g.predecessors(cached_output_node))
+                if len(predecessors) != 1:
+                    # cache no longer needed in this graph
+                    continue
+                parent_node = predecessors[0]
+                for child_node in g.predecessors(parent_node):
+                    output_nodes = [c for c in g.successors(
+                        child_node) if isinstance(get_node_data(c), Output)]
+                    outputs_cached = map(
+                        lambda n: n in cached_output_nodes, output_nodes)
+
+                    can_be_dropped = outputs_can_be_dropped(parent_node)
+
+                    if all(outputs_cached) and all(can_be_dropped):
+                        ancestors = nx.ancestors(self._graph, parent_node)
+                        new_inputs.update(output_nodes)
+                        nodes_to_drop.update(
+                            [n for n in ancestors if n is not None])
+
+            # self._graph.remove_nodes_from(nodes_to_drop)
+
+            return new_inputs, nodes_to_drop
 
 
 class ExecutableGraph:
@@ -261,7 +419,7 @@ class ExecutableGraph:
             node_inputs: Dict[str, Tuple["array.Array"]],
             node_outputs: Dict[str, Tuple["array.Array"]],
             output_names: List[str],
-            cached_results: Optional["evaluator.IntermediateResultCache"]):
+            cached_results: Optional["core.IntermediateResultCache"]):
         self._output_node_info: Dict[str, Tuple[np.dtype, List[int]]] = {}
         self._input_node_mapping: Dict[str, str] = {}
 
@@ -309,6 +467,8 @@ class ExecutableGraph:
                 for name in cached_edge_names:
                     in_node_name = name[0]
                     feed_node_name = name[1]
+                    if in_node_name not in graph.nodes:
+                        continue
                     in_node = graph.nodes[in_node_name]["node"]
                     feed_node = graph.nodes[feed_node_name]["node"]
                     # this node has to stay, because it is needed to compute the
@@ -477,6 +637,6 @@ def compile_graph(
         graph: Graph, node_inputs: Dict[str, Tuple["array.Array"]],
         node_outputs: Dict[str, Tuple["array.Array"]],
         output_names: List[str],
-        cached_results: Optional["evaluator.IntermediateResultCache"]) -> ExecutableGraph:
+        cached_results: Optional["core.IntermediateResultCache"]) -> ExecutableGraph:
     return ExecutableGraph(graph, node_inputs, node_outputs, output_names,
                            cached_results)

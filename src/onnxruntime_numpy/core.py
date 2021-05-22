@@ -9,7 +9,7 @@ from weakref import ReferenceType
 import uuid
 import onnxruntime
 import numpy as np
-from typing import Optional, List, Any, Dict, Tuple, DefaultDict
+from typing import Optional, List, Any, Dict, Tuple, DefaultDict, Set
 from collections import defaultdict
 
 
@@ -62,11 +62,15 @@ def _array_finalizer_factory(x: "array.Array") -> ReferenceType:
 
     g = x._internal_array._evaluator._graph
     output_name = x._internal_array._evaluator._output_node
+    parent_name = x._internal_array._evaluator._parent_node
+    internal_name = x._internal_array._internal_name
 
     def _finalizer():
-        n = g.nodes[output_name]
-        n["node"] = n["node"]._replace(can_be_dropped=True)
-        print(f"calling finalizer for {x._internal_array._internal_name}")
+        with g._lock:
+            n = g.nodes[output_name]
+            n["node"]._can_be_dropped(True)
+        # print(
+        #     f"calling finalizer for {internal_name}, output node {output_name}, parent node: {parent_name}, graph {g}")
 
     f = weakref.finalize(x, _finalizer)
     f.atexit = False
@@ -77,46 +81,31 @@ def _array_finalizer_factory(x: "array.Array") -> ReferenceType:
 def _fetch_array(x: ReferenceType) -> "array.Array":
     value = x()
     if value is None:
-        raise InternalException("")
+        raise InternalException("Array no longer available")
     return value
+
+
+def as_array(x: InternalArray) -> "array.Array":
+    return array.Array._from_internal_array(x)
 
 
 class IntermediateResultCache:
 
     def __init__(self):
-        self._cache: DefaultDict[str, Set[InternalArray]] = defaultdict(set)
+        self._cache: Dict[str, InternalArray] = dict()
 
     def merge(self, other):
-        for k, v in other._cache.items():
-            self._cache[k].update(v)
+        self._cache = {**self._cache, **other._cache}
 
-    def add_entry(self, node_name: str, array: InternalArray):
-        self._cache[node_name].add(array)
+    def add_entry(self, edge_name: str, array: InternalArray):
+        self._cache[edge_name] = array
 
-    def get_all_cache_tensor_mappings(self) -> Dict[str, InternalArray]:
-        mapping: Dict[str, InternalArray] = dict()
-        for key in self._cache.keys():
-            mapping = {**mapping, **self.get_node_cache_tensor_mapping(key)}
-        return mapping
-
-    def get_node_cache_tensor_mapping(self, node_name: str) -> Dict[str,
-                                                                    InternalArray]:
-        caches = self._cache[node_name]
-        mapping: Dict[str, InternalArray] = {}
-        for cache in caches:
-            output_node = cache._evaluator._output_node
-            output_in_edge = list(
-                cache._evaluator._graph._graph.in_edges(
-                    output_node, data=True))[0]
-            mapping[output_in_edge[-1]["name"]] = cache
-
-        return mapping
+    def get_all_cache_tensor_mappings(self) -> Dict[str,
+                                                    InternalArray]:
+        return self._cache
 
     def empty(self) -> bool:
         return len(self._cache) == 0
-
-    def to_dict(self):
-        return self._cache
 
 
 class ArrayNodeLookupTable:

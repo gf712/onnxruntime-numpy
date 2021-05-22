@@ -135,7 +135,7 @@ class LazyEvaluator:
         session_options.graph_optimization_level = get_ort_graph_optimization_level()
 
         try:
-            # onnx.save_model(m, "failed_model.onnx")
+            onnx.save_model(m, "failed_model.onnx")
 
             session = onnxruntime.InferenceSession(
                 buffer, providers=Config().get_providers(),
@@ -169,7 +169,7 @@ class LazyEvaluator:
             else:
                 ortvalue = input_array._ort_value
             if ortvalue is None:
-                raise ValueError(
+                raise InternalException(
                     "Internal bug. Array's Ortvalue is not set and cannot be a model "
                     "input")
             ort_value_dtype = ort_to_numpy(ortvalue.data_type())
@@ -197,9 +197,18 @@ class LazyEvaluator:
         result = io_binding.get_outputs()[0]
 
         if self._parent_node is not None:
-            self._cached_results.add_entry(
-                self._parent_node, output_array)
-            self._graph.prune_graph(self._parent_node, self._cached_results)
+            # the key here is always 0 since parent_node to output_node can
+            # only have a single edge
+            out_edge = self._graph._graph.edges[(
+                self._parent_node, self._output_node, 0)]
+            self._cached_results.add_entry(out_edge["name"], output_array)
+            new_inputs, nodes_to_drop = self._graph.prune_graph(
+                self._cached_results._cache.keys())
+            pass
+            # remove nodes to drop from cache
+            # for n in nodes_to_drop:
+            #     self._array_to_node_map._input_table.pop(n)
+            #     self._array_to_node_map._output_table.pop(n)
         else:
             raise InternalException("Evaluator does not have a parent node")
 

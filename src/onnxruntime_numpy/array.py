@@ -23,6 +23,12 @@ class Array:
         if evaluator is None:
             self._initialize()
 
+    @classmethod
+    def _from_internal_array(cls, x: InternalArray):
+        result = super().__new__(cls)
+        result._internal_array = x
+        return result
+
     def _initialize(self):
         if self._treat_array_as_initializer:
             self._evaluator.add_initializer(
@@ -59,9 +65,9 @@ class Array:
     def ndims(self) -> int:
         return len(self.shape)
 
-    @property
-    def T(self) -> "Array":
-        return ops.transpose(self)
+    # @property
+    # def T(self) -> "Array":
+    #     return ops.transpose(self)
 
     def __len__(self) -> int:
         return self.shape.size()
@@ -186,8 +192,8 @@ class Array:
             raise ValueError(
                 "can only convert an array of size 1 to a Python scalar")
 
-    def __repr__(self) -> str:
-        return self.numpy().__repr__()
+    # def __repr__(self) -> str:
+    #     return self.numpy().__repr__()
 
     def __hash__(self):
         return hash(self._internal_array._internal_name)
